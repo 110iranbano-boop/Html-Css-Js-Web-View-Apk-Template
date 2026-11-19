@@ -1,35 +1,17 @@
-# AGENTS.md — WebView APK Template
+# Project notes — Cafe Ketab Simorgh
 
-## What this is
+## Architecture
+- Android shell: Java WebView, loads `file:///android_asset/index.html`.
+- Frontend: plain RTL HTML/CSS/JavaScript in `assets/`; do not add a Service Worker.
+- API: Node.js 20 + Express in `backend/`.
+- Database: PostgreSQL; schema in `backend/sql/schema.sql`.
+- APK build: `.github/workflows/build-apk.yml` (Java 17, Gradle 8.7, AGP 8.5.2).
 
-Android WebView shell that packages a static HTML/CSS/JS app (`assets/`) into an installable APK. Origin: 2022 on-device (APK Builder) template. Current: cloud-built via GitHub Actions, Android 12+ compatible.
-
-## Stack
-
-- Native shell: single `Activity` + `WebView` (Java, no Kotlin, no Jetpack).
-- App layer: plain HTML/CSS/JS in `assets/` (currently Sukoon tasbih app; CDNs allowed).
-- Build: Gradle (AGP 8.5.2, Gradle 8.7, JDK 17) — files are **generated in CI**, not stored in repo.
-
-## Structure
-
-- `assets/index.html` — app entry point (`MainActivity` loads `file:///android_asset/index.html`).
-- `assets/` — all web files live at root level; no subfolder routing needed.
-- `src/com/fazlerabbi/porimap/` — `MainActivity.java` (WebView shell; JS + DOM storage ON, don't disable) + `SplashActivity.java` (1.6s branded splash, warms up the WebView engine).
-- `AndroidManifest.xml` — legacy Eclipse/ApkBuilder layout (manifest at root, `uses-sdk min 12 / target 27`). `exported` flags + splash wiring live in repo; **CI only bumps** min 24 / target 34 at build time (keeps APK Builder compat).
-- `.github/workflows/build-apk.yml` — self-contained: generates `settings.gradle` / `build.gradle` / `app/build.gradle` via heredoc, patches manifest with `sed`, runs `gradle :app:assembleDebug`, uploads `app-debug` artifact.
-- `res/`, `bin/`, `build/` — legacy artifacts/layout. Leave alone.
-
-## Conventions for agents
-
-- Web app changes go in `assets/` only. Entry must stay `assets/index.html`.
-- **Never add Service Worker code** — SWs don't run on `file://`. Strip `navigator.serviceWorker.register`, `manifest.json` links are pointless (harmless but remove for cleanliness).
-- External CDN scripts are fine (INTERNET permission declared), but prefer self-contained assets for true offline.
-- The generated `app/build.gradle` is **Groovy DSL** — use `minifyEnabled = false`, NOT `isMinifyEnabled` (Kotlin syntax breaks the build).
-- Runner already has Android SDK at `$ANDROID_HOME`; `sdkmanager` is at `$ANDROID_HOME/cmdline-tools/latest/bin` (not on PATH by default). Don't use `android-actions/setup-android` (requests obsolete `tools` package). No NDK needed.
-- Commit + push to `main` triggers the build. Artifact: `app/build/outputs/apk/debug/app-debug.apk`.
-
-- **Important:** replace default app name with the name of the app that you're building and for each app you will update package name and also replace the icon of apk (create the icon if needed that matched the app purpose) and also update splash screen to match the app purpose.
-
-## Extending the bundled app (Sukoon)
-
-Single-file app in `assets/index.html`. Data: `localStorage sukoon_v2`. To add a dhikr, append to the `AZKAR` array `{id, ar, tr, en, target}`. Theme via CSS vars (`:root` / `.dark`).
+## Important constraints
+- `assets/index.html` is the entry point; `assets/app-config.js` contains the API base URL.
+- The API must use HTTPS in production; never use localhost in the Android build.
+- Keep `localStorage` / DOM storage enabled for JWT session storage.
+- Never commit `.env`, database credentials, or JWT secrets.
+- Admin authorization must be enforced by the API, not only by hiding the admin tab.
+- Keep the application ID and Java package aligned: `ir.simorgh.cafebook`.
+- CI creates Gradle files and uses `sourceSets` to consume the legacy root structure; do not move Java/resources/assets without updating the workflow.

@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.gradle/
+.idea/
+.vscode/
+app/build/
+build/outputs/
+*.iml
+.DS_Store
+Thumbs.db
