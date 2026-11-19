@@ -1,90 +1,57 @@
-# کافه کتاب سیمرغ — Android WebView + API
+# 🦅 کافه کتاب سیمرغ
 
-این مخزن از قالب WebView اندروید دریافت‌شده ساخته شده است. اپ اندروید، رابط فارسی را از `assets/index.html` باز می‌کند؛ داده‌های کاربران در PostgreSQL نگهداری می‌شوند و درخواست‌ها از طریق API مستقل Node.js/Express انجام می‌شوند.
+اپ کافه + کتابخانه: فرانت‌اند تک‌فایلی (`www/`)، سرور Express + PostgreSQL (`server/`) و ساخت APK اندروید با Capacitor و GitHub Actions.
 
-## ساختار
-
-- `assets/index.html`: رابط کاربری اصلی (برگرفته از فایل HTML ارسالی)
-- `assets/app-config.js`: نشانی API که پس از استقرار بک‌اند باید تنظیم شود
-- `src/`: پوسته Native اندروید؛ WebView و صفحه آغازین
-- `res/`: منابع اندروید، نام برنامه و آیکون
-- `.github/workflows/build-apk.yml`: ساخت APK با GitHub Actions
-- `backend/`: API و طرح پایگاه داده PostgreSQL
-
-## امکانات موجود در این نسخه
-
-- ثبت‌نام و ورود با شماره موبایل و رمز عبور (بدون OTP)
-- هش رمز عبور با bcrypt و نشست JWT
-- ایجاد کارت دیجیتال اهالی سیمرغ هنگام ثبت‌نام
-- نمایش منوی کافه و فهرست کتاب‌های امانی/فروش
-- درخواست امانت و ثبت پیشنهاد/درخواست کتاب
-- نمایش و ثبت‌نام رویدادها با جلوگیری از ثبت‌نام تکراری
-- API مدیریت منو، کتاب‌ها، رویدادها و بررسی درخواست‌ها با کنترل نقش مدیر
-
-## پیش‌نیاز استقرار بک‌اند
-
-- Node.js نسخه 20 یا بالاتر
-- یک پایگاه داده PostgreSQL
-- متغیرهای محیطی امن:
-  - `DATABASE_URL`: رشته اتصال PostgreSQL
-  - `JWT_SECRET`: مقدار تصادفی محرمانه با حداقل ۳۲ کاراکتر
-  - `NODE_ENV=production`
-  - `PORT`: توسط میزبان تنظیم می‌شود؛ در صورت عدم تنظیم، 3000
-  - `JWT_EXPIRES_IN=7d` (اختیاری)
-  - `CORS_ORIGIN=*` (برای شروع و اپ WebView؛ در صورت داشتن دامنه مشخص، محدودش کنید)
-  - `PGSSL=true` فقط اگر ارائه‌دهنده دیتابیس الزام به TLS دارد؛ برای اتصال داخلی خصوصی معمولاً خاموش بماند.
-
-## استقرار بک‌اند
-
-۱. پوشه `backend` را به‌عنوان ریشه سرویس Node.js به میزبان (چابکان) معرفی کنید یا مخزن را متصل کنید و مسیر ریشه سرویس را روی `backend` بگذارید.
-۲. دستور نصب: `npm install`
-۳. دستور اجرا: `npm start`
-۴. پایگاه PostgreSQL را بسازید و `DATABASE_URL` را در متغیرهای محیطی سرویس قرار دهید.
-۵. `JWT_SECRET` را در بخش Secret/Environment پنل میزبان بسازید و قرار دهید؛ آن را داخل GitHub یا فایل `.env` commit نکنید.
-۶. پس از نصب وابستگی‌ها، یک‌بار دستور `npm run db:init` را اجرا کنید تا جدول‌ها ساخته شوند.
-۷. پس از بالا آمدن سرویس، نشانی `https://YOUR-SERVICE/api/health` باید پاسخ JSON با `ok: true` بدهد.
-
-> برای محیط production از دامنه HTTPS استفاده کنید. APK به API متصل می‌شود و به همین دلیل نشانی `localhost` در فایل تنظیمات قابل استفاده نیست.
-
-## تنظیم اتصال اپ به بک‌اند
-
-فایل `assets/app-config.js` را باز کنید و مقدار `API_BASE_URL` را با نشانی عمومی HTTPS سرویس جایگزین کنید؛ مسیر `/api` را نیز در انتهای نشانی نگه دارید.
-
-نمونه:
-
-```js
-window.APP_CONFIG = {
-  API_BASE_URL: 'https://your-api-domain.example/api'
-};
+```
+www/index.html       رابط کاربری
+www/config.js        آدرس سرور (API_BASE) ← حتماً پر کن
+server/              بک‌اند (server.js, schema.sql, scripts/)
+capacitor.config.json
+.github/workflows/build-apk.yml   ساخت خودکار APK
 ```
 
-## ساخت APK
-
-۱. تغییرات را در شاخه `main` مخزن GitHub ثبت و Push کنید.
-۲. در GitHub وارد تب **Actions** شوید و اجرای **Build APK** را باز کنید.
-۳. پس از موفقیت Workflow، Artifact با نام `CafeKetabSimorgh` را دانلود کنید.
-۴. فایل APK داخل Artifact را به گوشی منتقل و نصب کنید.
-
-Workflow از Java 17، Gradle 8.7 و Android Gradle Plugin 8.5.2 استفاده می‌کند و APK با شناسه `ir.simorgh.cafebook` ساخته می‌شود.
-
-## مدیر اولیه
-
-برای امنیت، هیچ حسابی به‌صورت پیش‌فرض مدیر نیست. ابتدا با شماره موبایل موردنظر در اپ ثبت‌نام کنید. سپس در محیط بک‌اند، دستور زیر را اجرا کنید:
+## ۱) راه‌اندازی سرور (چابکان یا هر هاست Node)
 
 ```bash
-npm run admin:promote -- 09123456789
+cd server
+cp .env.example .env      # و مقدارها را پر کن (هر متغیر در یک خط)
+npm install
+npm run db:init           # ساخت جدول‌ها (اگر جدول‌ها از قبل هست لازم نیست)
+npm start
 ```
 
-شماره را دقیقاً مطابق شماره‌ای وارد کنید که هنگام ثبت‌نام استفاده شده است. پس از آن کاربر یک‌بار خارج شود و دوباره وارد شود تا نقش مدیر در توکن جدید ثبت شود.
+- `JWT_SECRET`: با این دستور بساز: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
+- اولین ادمین: ابتدا در اپ با شماره‌ات ثبت‌نام کن، بعد `npm run make-admin -- 09123456789`
+- تست سلامت: `GET /api/health`
+- فایل `.env` را هرگز روی گیت‌هاب نگذار (در `.gitignore` هست).
 
-## محدودیت‌ها و موارد تکمیل‌نشده
+## ۲) آدرس سرور در اپ
 
-- بازگشت کتاب امانی و آزادسازی خودکار وضعیت کتاب هنوز گردش‌کار ندارد.
-- پرداخت آنلاین، سفارش آنلاین کافه، اعلان پوش و بازیابی رمز عبور پیاده‌سازی نشده‌اند.
-- فروش کتاب در این نسخه به‌صورت نمایش اطلاعات است؛ پرداخت و ثبت سفارش آنلاین ندارد.
-- ساخت APK در این محیط اجرا نشده است؛ باید اولین Build از GitHub Actions بررسی شود.
-- اتصال واقعی به PostgreSQL/چابکان هنوز انجام نشده و به مقادیر محیطی سرویس نیاز دارد.
+`www/config.js` را باز کن و بنویس:
 
-## نکته امنیتی
+```js
+window.APP_CONFIG = { API_BASE: "https://دامنه-سرور-تو/api" };
+```
 
-فایل `.env`، رمز دیتابیس و `JWT_SECRET` را در مخزن قرار ندهید. فایل `.env.example` فقط الگوی متغیرهاست.
+یا در گیت‌هاب: Settings ← Secrets and variables ← Actions ← **Variables** ← متغیر `API_BASE`
+(workflow خودش داخل config.js می‌گذارد).
+
+> بهتر است سرور HTTPS داشته باشد. تنظیمات `cleartext` و `allowMixedContent` در
+> `capacitor.config.json` فقط برای این است که اگر فعلاً سرور `http://` است اپ کار کند؛
+> بعد از گرفتن HTTPS هر دو را `false` کن.
+
+## ۳) گرفتن APK
+
+۱. پروژه را روی گیت‌هاب push کن (شاخه‌ی `main`).
+۲. تب **Actions** ← workflow به نام *Build APK* ← بعد از پایان، فایل **simorgh-cafe-apk** را از Artifacts دانلود کن (داخلش `app-debug.apk` است).
+
+ساخت محلی (نیاز به Node 20، JDK 21 و Android SDK):
+
+```bash
+npm install
+npx cap add android && npx cap sync android
+cd android && ./gradlew assembleDebug
+# خروجی: android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+نسخه‌ی debug برای نصب و تست کافی است. برای انتشار در مارکت‌ها باید نسخه‌ی release با keystore امضا شود.
