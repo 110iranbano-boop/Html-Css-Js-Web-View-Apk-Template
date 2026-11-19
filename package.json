@@ -6,7 +6,8 @@
   "scripts": {
     "android:add": "cap add android",
     "android:sync": "cap sync android",
-    "android:apk": "cd android && ./gradlew assembleDebug"
+    "android:apk": "cd android && ./gradlew assembleDebug",
+    "start": "npm --prefix server start"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",

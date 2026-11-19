@@ -1,7 +1,4 @@
-// آدرس سرور (بک‌اند) را اینجا بگذار؛ بدون اسلاش آخر.
-// مثال:  API_BASE: "https://api.example.ir/api"
-// اگر اپ را داخل APK می‌سازی این مقدار حتماً باید پر باشد.
-// اگر index.html را از همان سرور (server.js) باز می‌کنی می‌توانی خالی بگذاری.
+// Simorgh Cafe API Configuration
 window.APP_CONFIG = {
-  API_BASE: ""
+  API_BASE: "https://nodejs-brjrka.chbkn.dev/api"
 };
