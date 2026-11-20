@@ -6,7 +6,7 @@ const { Pool } = require('pg');
 (async () => {
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+    ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false,
   });
   try {
     await pool.query(fs.readFileSync(path.join(__dirname, '..', 'schema.sql'), 'utf8'));
