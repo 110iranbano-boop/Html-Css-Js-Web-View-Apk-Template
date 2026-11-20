@@ -488,6 +488,53 @@ app.put('/api/admin/book-requests/:id', ...signedIn, wrap(async(req,res)=>{
   const {data,error}=await db.from('book_requests').update({status:req.body.status,admin_note:req.body.admin_note,reviewed_by:req.user.id,reviewed_at:new Date().toISOString()}).eq('id',req.params.id).select().single();
   if(error) throw error; res.json(data);
 }));
+app.get('/api/admin/users', ...signedIn, wrap(async(req,res)=>{
+  if(!await can(req,'users.manage','view')) return fail(res,'دسترسی ندارید',403);
+  const {data:authData,error:authError}=await db.auth.admin.listUsers({page:1,perPage:1000});
+  if(authError) throw authError;
+  const ids=(authData.users||[]).map(u=>u.id);
+  const [profiles,roles,permissions,forumPerms]=await Promise.all([
+    ids.length?db.from('profiles').select('*').in('id',ids):Promise.resolve({data:[],error:null}),
+    ids.length?db.from('user_roles').select('*').in('user_id',ids):Promise.resolve({data:[],error:null}),
+    ids.length?db.from('admin_permissions').select('*').in('user_id',ids):Promise.resolve({data:[],error:null}),
+    ids.length?db.from('forum_permissions').select('*').in('user_id',ids):Promise.resolve({data:[],error:null})
+  ]);
+  for(const x of [profiles,roles,permissions,forumPerms]) if(x.error) throw x.error;
+  const pm=Object.fromEntries((profiles.data||[]).map(x=>[x.id,x]));
+  res.json((authData.users||[]).map(u=>({id:u.id,full_name:pm[u.id]?.display_name||u.user_metadata?.display_name||'',phone:phoneOf(u),role:(roles.data||[]).some(x=>x.user_id===u.id&&['admin','super_admin'].includes(x.role))?'admin':'member',roles:(roles.data||[]).filter(x=>x.user_id===u.id).map(x=>x.role),is_suspended:!!pm[u.id]?.is_suspended,can_create_topic:!!(forumPerms.data||[]).find(x=>x.user_id===u.id)?.can_create_topic,permissions:(permissions.data||[]).filter(x=>x.user_id===u.id)})));
+}));
+app.put('/api/admin/users/:id/role', ...signedIn, wrap(async(req,res)=>{
+  if(!req.roles.includes('super_admin')) return fail(res,'فقط مدیر ارشد می‌تواند نقش مدیر را تغییر دهد',403);
+  const role=req.body.role; if(!['member','admin'].includes(role)) return fail(res,'نقش نامعتبر است');
+  if(role==='admin'){
+    const {error}=await db.from('user_roles').upsert({user_id:req.params.id,role:'admin'},{onConflict:'user_id,role'});
+    if(error) throw error;
+  }else{
+    const {error}=await db.from('user_roles').delete().eq('user_id',req.params.id).eq('role','admin');
+    if(error) throw error;
+  }
+  res.json({ok:true});
+}));
+app.put('/api/admin/users/:id/forum-permission', ...signedIn, wrap(async(req,res)=>{
+  if(!await can(req,'users.manage','update')) return fail(res,'دسترسی ندارید',403);
+  const {error}=await db.from('forum_permissions').upsert({user_id:req.params.id,can_create_topic:!!req.body.can_create_topic,granted_by:req.user.id},{onConflict:'user_id'});
+  if(error) throw error; res.json({ok:true});
+}));
+app.put('/api/admin/users/:id/permissions', ...signedIn, wrap(async(req,res)=>{
+  if(!req.roles.includes('super_admin')) return fail(res,'فقط مدیر ارشد می‌تواند مجوزهای مدیران را تغییر دهد',403);
+  const allowed=['cafe.manage','library.manage','store.manage','events.manage','forum.manage','users.manage','notifications.manage'];
+  const permission_key=String(req.body.permission_key||'');
+  if(!allowed.includes(permission_key)) return fail(res,'کلید مجوز نامعتبر است');
+  const row={user_id:req.params.id,permission_key,can_view:!!req.body.can_view,can_create:!!req.body.can_create,can_update:!!req.body.can_update,can_delete:!!req.body.can_delete,granted_by:req.user.id};
+  const {error}=await db.from('admin_permissions').upsert(row,{onConflict:'user_id,permission_key'});
+  if(error) throw error; res.json({ok:true});
+}));
+app.put('/api/admin/users/:id/suspension', ...signedIn, wrap(async(req,res)=>{
+  if(!await can(req,'users.manage','update')) return fail(res,'دسترسی ندارید',403);
+  const suspended=!!req.body.is_suspended;
+  const {error}=await db.from('profiles').update({is_suspended:suspended,suspension_reason:suspended?String(req.body.reason||'admin'):null,suspended_at:suspended?new Date().toISOString():null}).eq('id',req.params.id);
+  if(error) throw error; res.json({ok:true});
+}));
 app.get('/api/admin/events/:id/registrations', ...signedIn, wrap(async(req,res)=>{
   if(!await can(req,'events.manage','view')) return fail(res,'دسترسی ندارید',403);
   const {data,error}=await db.from('event_registrations').select('*,event_registration_people(*)').eq('event_id',req.params.id); if(error) throw error;
