@@ -276,7 +276,7 @@ account(){
   <button class="menu" onclick="editProfile()">${ic("account")}<span>مشخصات کاربری</span>‹</button>
   <button class="menu" onclick="go('mine')">${ic("receipt")}<span>درخواست‌ها و امانت‌های من</span>‹</button>
   <button class="menu" onclick="go('notifs')">${ic("bell")}<span>اعلان‌ها</span>‹</button>
-  ${U.role==='admin'?'<button class="menu" onclick="go(\'admin\')">'+ '${ic("settings")}<span>پنل مدیریت</span>‹</button>':''}
+  ${U.role==='admin'?`<button class="menu" onclick="go('admin')">${ic("settings")}<span>پنل مدیریت</span>‹</button>`:''}
   <button class="btn r" onclick="logout()">خروج از حساب</button>`;
 },
 async mine(){
