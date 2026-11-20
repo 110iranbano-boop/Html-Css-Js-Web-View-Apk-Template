@@ -209,6 +209,7 @@ as $$
 declare
   l public.book_loans;
   d date;
+  v_fine_start date;
   n integer := 0;
 begin
   for l in
@@ -221,8 +222,9 @@ begin
         suspended_at=coalesce(suspended_at,now())
       where id=l.user_id;
     end if;
-    if current_date > (l.current_due_at::date + 14) then
-      for d in select generate_series((l.current_due_at::date + 15),current_date,interval '1 day')::date
+    v_fine_start := greatest(l.handed_over_at::date + 15, l.current_due_at::date + 1);
+    if current_date >= v_fine_start then
+      for d in select generate_series(v_fine_start,current_date,interval '1 day')::date
       loop
         insert into public.book_fines(loan_id,user_id,fine_date,points_amount,reason)
         values(l.id,l.user_id,d,10,'late_return')
