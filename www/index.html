@@ -121,13 +121,6 @@ function showAuth(signup){
   <button class="btn o" onclick="showAuth(${!signup})">${signup?'حساب دارم، ورود':'حساب ندارم، ثبت‌نام'}</button>`;
 }
 async function doLogin(){
-  const phone=latin($('ap').value),password=$('aw').value;
-  if(!phone||!password)return toast('شماره و رمز عبور را وارد کنید');
-  const{ok,d}=await send('/login','POST',{phone,password});
-  if(!ok)return toast(d.error||'ورود انجام نشد');
-  localStorage.setItem('token',d.token);localStorage.setItem('user',JSON.stringify(d.user));boot();
-}
-async function doLogin(){
   const phoneInput = document.getElementById('ap');
   const passInput = document.getElementById('aw');
   
