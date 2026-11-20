@@ -141,13 +141,14 @@
       return ok({ok:true});
     }
     if(p==="/events"&&method==="GET"){
-      const [ev,reg]=await Promise.all([
+      const [ev,reg,counts]=await Promise.all([
         sb.from("events").select("*").eq("status","published").order("starts_at",{ascending:true}),
-        sb.from("event_registrations").select("event_id,people_count,status").eq("user_id",uid)
+        sb.from("event_registrations").select("event_id,people_count,status").eq("user_id",uid),
+        sb.from("event_capacity_counts").select("event_id,registered_people")
       ]);
-      if(ev.error) throw ev.error;if(reg.error) throw reg.error;
-      const regs=reg.data||[];
-      const mapped=(ev.data||[]).map(e=>({id:e.id,title:e.title,description:e.description,event_date:e.starts_at,image_url:e.poster_path,location:e.location||"",capacity:e.capacity_people,required_teammates:e.required_teammates,event_type:e.event_type,registration_open:e.event_type==="timed"&&e.is_registration_open,mine:regs.some(r=>r.event_id===e.id&&r.status==="registered"),registered:regs.filter(r=>r.event_id===e.id&&r.status==="registered").reduce((n,r)=>n+r.people_count,0),points:e.points_on_registration,rules_text:e.rules_text}));
+      if(ev.error) throw ev.error;if(reg.error) throw reg.error;if(counts.error) throw counts.error;
+      const regs=reg.data||[],countMap=Object.fromEntries((counts.data||[]).map(x=>[x.event_id,x.registered_people]));
+      const mapped=(ev.data||[]).map(e=>({id:e.id,title:e.title,description:e.description,event_date:e.starts_at,image_url:e.poster_path,location:e.location||"",capacity:e.capacity_people,required_teammates:e.required_teammates,event_type:e.event_type,registration_open:e.event_type==="timed"&&e.is_registration_open,mine:regs.some(r=>r.event_id===e.id&&r.status==="registered"),registered:countMap[e.id]||0,points:e.points_on_registration,rules_text:e.rules_text}));
       return ok(mapped);
     }
     const regMatch=p.match(/^\/events\/(\d+)\/register$/);
