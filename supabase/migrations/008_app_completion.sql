@@ -127,8 +127,8 @@ begin
     event_id,user_id,registrant_name,registrant_phone,people_count,
     points_snapshot,attendance_points_snapshot,rules_version_snapshot,rules_text_snapshot
   ) values(p_event_id,v_user,trim(p_registrant_name),p_registrant_phone,v_people,
-           case when e.award_points_mode='registration' then e.points_on_registration else 0 end,
-           case when e.award_points_mode='attendance' then e.points_on_attendance else 0 end,
+           case when e.award_points_when='registration' then e.points_on_registration else 0 end,
+           case when e.award_points_when='attendance' then e.points_on_attendance else 0 end,
            e.rules_version,e.rules_text)
   returning id into v_registration;
   insert into public.event_registration_people(registration_id,person_role,full_name,phone,sort_order)
@@ -191,7 +191,7 @@ declare
   b public.books%rowtype;
   loan_id uuid;
 begin
-  if not (public.has_role('super_admin') or public.has_permission('library.manage','update')) then raise exception 'دسترسی ندارید'; end if;
+  if not (public.is_super_admin() or public.has_permission('library.manage','update')) then raise exception 'دسترسی ندارید'; end if;
   select * into r from public.book_requests where id=p_request_id and request_type='borrow' for update;
   if not found or r.status<>'pending' then raise exception 'درخواست در وضعیت قابل بررسی نیست'; end if;
   if not p_approve then
@@ -219,16 +219,16 @@ create or replace function public.review_loan_extension(
   p_approve boolean,
   p_admin_note text default null
 )
-returns boolean
+returns public.loan_extensions
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $
 declare
   x public.loan_extensions%rowtype;
   l public.book_loans%rowtype;
 begin
-  if not (public.has_role('super_admin') or public.has_permission('library.manage','update')) then raise exception 'دسترسی ندارید'; end if;
+  if not (public.is_super_admin() or public.has_permission('library.manage','update')) then raise exception 'دسترسی ندارید'; end if;
   select * into x from public.loan_extensions where id=p_extension_id for update;
   if not found or x.status<>'pending' then raise exception 'درخواست تمدید قبلاً بررسی شده است'; end if;
   select * into l from public.book_loans where id=x.loan_id for update;
@@ -241,7 +241,8 @@ begin
     update public.loan_extensions set status='rejected',decided_by=auth.uid(),decided_at=now(),admin_note=p_admin_note where id=x.id;
   end if;
   -- Migration 005 sends the status notification from the loan_extensions update trigger.
-  return true;
+  select * into x from public.loan_extensions where id=x.id;
+  return x;
 end;
 $$;
 
@@ -259,7 +260,7 @@ declare
   v_registration public.event_registrations%rowtype;
   a public.event_attendance%rowtype;
 begin
-  if not (public.has_role('super_admin') or public.has_permission('events.manage','update')) then
+  if not (public.is_super_admin() or public.has_permission('events.manage','update')) then
     raise exception 'دسترسی ندارید';
   end if;
   if p_attendance_status not in ('present','absent','excused','pending') then
@@ -280,11 +281,11 @@ begin
 
   if p_attendance_status='absent' and not a.penalty_applied then
     insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
-    values(v_registration.user_id,-10,'event_absence','کسر ۱۰ امتیاز بابت عدم حضور در رویداد','event_attendance',a.id,'event-absent:'||p_registration_person_id::text)
+    values(v_registration.user_id,-10,'event_absence','کسر ۱۰ امتیاز بابت عدم حضور در رویداد','event_attendance',a.id::text,'event-absent:'||p_registration_person_id::text)
     on conflict(idempotency_key) do nothing;
     update public.event_attendance set penalty_applied=true where id=a.id returning * into a;
     insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
-    values(v_registration.user_id,'عدم حضور در رویداد','۱۰ امتیاز بابت عدم حضور از امتیاز شما کسر شد.','event_attendance','event_registration',v_registration.id);
+    values(v_registration.user_id,'عدم حضور در رویداد','۱۰ امتیاز بابت عدم حضور از امتیاز شما کسر شد.','event_attendance','event_registration',v_registration.id::text);
   elsif p_attendance_status='present' and v_registration.attendance_points_snapshot>0 then
     insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
     values(v_registration.user_id,v_registration.attendance_points_snapshot,'event_attendance','امتیاز بابت حضور تأییدشده در رویداد','event_registration',v_registration.id,'event-present:'||p_registration_person_id::text)
@@ -303,7 +304,7 @@ as $$
 declare
   l public.book_loans%rowtype;
 begin
-  if not (public.has_role('super_admin') or public.has_permission('library.manage','update')) then raise exception 'دسترسی ندارید'; end if;
+  if not (public.is_super_admin() or public.has_permission('library.manage','update')) then raise exception 'دسترسی ندارید'; end if;
   select * into l from public.book_loans where book_id=p_book_id and status in ('active','overdue') for update;
   if not found then raise exception 'امانت فعال برای این کتاب پیدا نشد'; end if;
   update public.book_loans set status='returned',returned_at=now(),updated_at=now() where id=l.id;
@@ -314,7 +315,7 @@ begin
     where id=l.user_id and suspension_reason='late_loan';
   end if;
   insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
-  values(l.user_id,'بازگشت کتاب ثبت شد','بازگشت کتاب شما ثبت شد. در صورت وجود جریمه باز، برای تسویه با مدیریت هماهنگ کنید.','book_return','book_loan',l.id);
+  values(l.user_id,'بازگشت کتاب ثبت شد','بازگشت کتاب شما ثبت شد. در صورت وجود جریمه باز، برای تسویه با مدیریت هماهنگ کنید.','book_return','book_loan',l.id::text);
   return l.id;
 end;
 $$;
@@ -328,7 +329,7 @@ as $$
 declare
   n integer;
 begin
-  if not (public.has_role('super_admin') or public.has_permission('library.manage','update')) then raise exception 'دسترسی ندارید'; end if;
+  if not (public.is_super_admin() or public.has_permission('library.manage','update')) then raise exception 'دسترسی ندارید'; end if;
   update public.book_fines set status='settled',settled_at=now()
   where user_id=p_user_id and status='open';
   get diagnostics n=row_count;
@@ -362,7 +363,7 @@ begin
     if l.status='active' then
       update public.book_loans set status='overdue',updated_at=now() where id=l.id;
       insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
-      values(l.user_id,'یادآوری بازگشت کتاب','مهلت یک‌هفته‌ای امانت شما به پایان رسیده است. لطفاً کتاب را بازگردانید یا درخواست تمدید ثبت کنید.','loan_due','book_loan',l.id);
+      values(l.user_id,'یادآوری بازگشت کتاب','مهلت یک‌هفته‌ای امانت شما به پایان رسیده است. لطفاً کتاب را بازگردانید یا درخواست تمدید ثبت کنید.','loan_due','book_loan',l.id::text);
     end if;
     -- One week initial loan + one week grace = fines start on day 15.
     if l.current_due_at < now() - interval '7 days' then
@@ -372,7 +373,7 @@ begin
         on conflict(loan_id,fine_date) do nothing returning id into fine_id;
         if fine_id is not null then
           insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
-          values(l.user_id,-10,'loan_late','کسر ۱۰ امتیاز بابت یک روز دیرکرد امانت','book_fine',fine_id,'loan-fine:'||l.id::text||':'||d::text)
+          values(l.user_id,-10,'loan_late','کسر ۱۰ امتیاز بابت یک روز دیرکرد امانت','book_fine',fine_id::text,'loan-fine:'||l.id::text||':'||d::text)
           on conflict(idempotency_key) do nothing;
           n:=n+1; fine_id:=null;
         end if;
@@ -398,7 +399,7 @@ as $
 begin
   if new.points_snapshot>0 then
     insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
-    values(new.user_id,new.points_snapshot,'event_registration','امتیاز بابت ثبت‌نام در رویداد','event_registration',new.id,'event-registration:'||new.id::text)
+    values(new.user_id,new.points_snapshot,'event_registration','امتیاز بابت ثبت‌نام در رویداد','event_registration',new.id::text,'event-registration:'||new.id::text)
     on conflict(idempotency_key) do nothing;
   end if;
   return new;
@@ -422,7 +423,7 @@ with check(bucket_id='forum-images' and (storage.foldername(name))[1]=auth.uid()
 drop policy if exists "forum images owner delete" on storage.objects;
 create policy "forum images owner delete" on storage.objects
 for delete to authenticated
-using(bucket_id='forum-images' and ((storage.foldername(name))[1]=auth.uid()::text or public.has_permission('forum.moderate','delete') or public.has_role('super_admin')));
+using(bucket_id='forum-images' and ((storage.foldername(name))[1]=auth.uid()::text or public.has_permission('forum.moderate','delete') or public.is_super_admin()));
 
 grant execute on function public.request_book_loan(bigint,bigint) to authenticated;
 grant execute on function public.register_for_event(bigint,text,text,jsonb) to authenticated;
@@ -464,13 +465,13 @@ begin
       when 'shipped' then 'درخواست خرید شما ارسال شد.'
       else 'وضعیت درخواست خرید شما تغییر کرد.' end;
     insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
-    values(new.user_id,v_title,v_body,'purchase_request','purchase_request',new.id);
+    values(new.user_id,v_title,v_body,'purchase_request','purchase_request',new.id::text);
   elsif tg_table_name='loan_extensions' and new.status is distinct from old.status then
     select user_id into v_user from public.book_loans where id=new.loan_id;
     v_body := case when new.status='approved' then 'درخواست تمدید امانت شما تأیید شد و یک هفته به مهلت تحویل اضافه شد.'
                    else coalesce(new.admin_note,'درخواست تمدید امانت شما رد شد.') end;
     insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
-    values(v_user,'نتیجه درخواست تمدید',v_body,'loan_extension','loan_extension',new.id);
+    values(v_user,'نتیجه درخواست تمدید',v_body,'loan_extension','loan_extension',new.id::text);
   end if;
   return new;
 end;
@@ -491,10 +492,10 @@ begin
     if not exists(
       select 1 from public.notifications
       where user_id=l.user_id and notification_type='book_due_reminder'
-        and reference_type='book_loan' and reference_id=l.id
+        and reference_type='book_loan' and reference_id=l.id::text
     ) then
       insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
-      values(l.user_id,'یادآوری تحویل کتاب','مهلت یک‌هفته‌ای امانت شما به پایان رسیده است. لطفاً برای تحویل یا درخواست تمدید اقدام کنید.','book_due_reminder','book_loan',l.id);
+      values(l.user_id,'یادآوری تحویل کتاب','مهلت یک‌هفته‌ای امانت شما به پایان رسیده است. لطفاً برای تحویل یا درخواست تمدید اقدام کنید.','book_due_reminder','book_loan',l.id::text);
       n:=n+1;
     end if;
   end loop;
@@ -525,7 +526,7 @@ drop policy if exists "event_attendance_admin_read_write" on public.event_attend
 
 create policy "event_attendance_admin_read"
 on public.event_attendance for select to authenticated
-using (public.has_permission('events.manage','view') or public.has_role('super_admin'));
+using (public.has_permission('events.manage','view') or public.is_super_admin());
 
 drop policy if exists "book_requests_owner_insert" on public.book_requests;
 create policy "book_requests_owner_insert"
@@ -542,11 +543,11 @@ create policy "book_requests_admin_update"
 on public.book_requests for update to authenticated
 using (
   request_type<>'borrow'
-  and (public.has_permission('library.manage','update') or public.has_role('super_admin'))
+  and (public.has_permission('library.manage','update') or public.is_super_admin())
 )
 with check (
   request_type<>'borrow'
-  and (public.has_permission('library.manage','update') or public.has_role('super_admin'))
+  and (public.has_permission('library.manage','update') or public.is_super_admin())
 );
 
 create unique index if not exists uq_pending_loan_extension
@@ -561,7 +562,7 @@ set search_path = public
 as $
 begin
   if auth.uid() is not null and auth.uid()=old.id
-     and not public.has_role('super_admin')
+     and not public.is_super_admin()
      and not public.has_permission('users.manage','update') then
     if new.phone is distinct from old.phone
        or new.membership_level_id is distinct from old.membership_level_id
@@ -569,7 +570,7 @@ begin
        or new.suspension_reason is distinct from old.suspension_reason
        or new.suspended_at is distinct from old.suspended_at
        or new.suspension_ends_at is distinct from old.suspension_ends_at
-       or new.points_balance is distinct from old.points_balance then
+       or new.can_create_topic is distinct from old.can_create_topic then
       raise exception 'تغییر این فیلدهای حساب از طریق پروفایل مجاز نیست';
     end if;
   end if;
@@ -596,7 +597,7 @@ declare
   v_type text;
 begin
   if auth.uid() is not null and auth.uid()=new.user_id
-     and not public.has_role('super_admin')
+     and not public.is_super_admin()
      and not public.has_permission('store.manage','create')
      and not public.has_permission('library.manage','create') then
     if new.status<>'pending' or new.final_price_toman is not null
