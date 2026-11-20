@@ -499,6 +499,17 @@ $;
 
 -- Tighten direct-table access: sensitive state transitions must use the RPCs above.
 drop policy if exists "event_registrations_owner_insert" on public.event_registrations;
+-- Exact policy names from the initial 25-table schema.
+drop policy if exists "registrations cancel own" on public.event_registrations;
+drop policy if exists "registrations admins update" on public.event_registrations;
+drop policy if exists "loans admins manage" on public.book_loans;
+drop policy if exists "extensions admins update" on public.loan_extensions;
+drop policy if exists "fines admins manage" on public.book_fines;
+drop policy if exists "points superadmin manage" on public.points_transactions;
+drop policy if exists "attendance admins manage" on public.event_attendance;
+drop policy if exists "book requests create own" on public.book_requests;
+drop policy if exists "book requests admin update" on public.book_requests;
+drop policy if exists "purchase requests create own" on public.purchase_requests;
 drop policy if exists "event_registrations_owner_cancel_or_admin" on public.event_registrations;
 drop policy if exists "event_people_owner_insert" on public.event_registration_people;
 drop policy if exists "book_loans_admin_all" on public.book_loans;
