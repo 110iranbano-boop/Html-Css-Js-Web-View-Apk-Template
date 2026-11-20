@@ -102,7 +102,7 @@ begin
   if v_user is null then raise exception 'ابتدا وارد حساب شوید'; end if;
   if exists(select 1 from public.profiles where id=v_user and is_suspended) then raise exception 'حساب شما تعلیق است'; end if;
   select * into e from public.events where id=p_event_id for update;
-  if not found or e.status<>'published' or e.event_type<>'timed' or not e.is_registration_open then
+  if not found or e.status<>'published' or e.event_type<>'timed' or not e.is_registration_open or (e.starts_at is not null and e.starts_at<=now()) then
     raise exception 'ثبت‌نام این رویداد در دسترس نیست';
   end if;
   if jsonb_typeof(coalesce(p_teammates,'[]'::jsonb))<>'array' then raise exception 'ساختار همراهان معتبر نیست'; end if;
