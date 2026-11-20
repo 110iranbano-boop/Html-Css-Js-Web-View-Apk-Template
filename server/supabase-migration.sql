@@ -94,4 +94,45 @@ using (
   )
 );
 
+-- ثبت‌نام رویداد به‌صورت اتمیک برای جلوگیری از عبور هم‌زمان از ظرفیت
+create or replace function public.register_event_atomic(
+  p_event_id bigint,
+  p_user_id uuid,
+  p_name text,
+  p_phone text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  e public.events%rowtype;
+  occupied integer;
+  new_id uuid;
+begin
+  select * into e from public.events where id = p_event_id for update;
+  if not found or e.status <> 'published' or e.event_type <> 'timed' or not e.is_registration_open then
+    raise exception 'REGISTRATION_CLOSED';
+  end if;
+  if exists (select 1 from public.profiles where id = p_user_id and is_suspended) then
+    raise exception 'ACCOUNT_SUSPENDED';
+  end if;
+  if exists (select 1 from public.event_registrations where event_id=p_event_id and user_id=p_user_id and status <> 'cancelled') then
+    raise exception 'ALREADY_REGISTERED';
+  end if;
+  select coalesce(sum(people_count),0) into occupied
+    from public.event_registrations where event_id=p_event_id and status <> 'cancelled';
+  if e.capacity_people is not null and occupied >= e.capacity_people then
+    raise exception 'EVENT_FULL';
+  end if;
+  insert into public.event_registrations(event_id,user_id,registrant_name,registrant_phone,people_count)
+  values(p_event_id,p_user_id,p_name,p_phone,1) returning id into new_id;
+  return new_id;
+end;
+$;
+
+revoke all on function public.register_event_atomic(bigint,uuid,text,text) from public, anon, authenticated;
+grant execute on function public.register_event_atomic(bigint,uuid,text,text) to service_role;
+
 commit;
