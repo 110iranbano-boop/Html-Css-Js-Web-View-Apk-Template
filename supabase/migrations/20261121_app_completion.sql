@@ -391,6 +391,24 @@ begin
 end;
 $$;
 
+-- Replace the earlier trigger body so reference_id remains UUID and
+-- positive points are awarded only when the event explicitly selects registration.
+create or replace function public.award_event_registration_points()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  if new.points_snapshot>0 then
+    insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
+    values(new.user_id,new.points_snapshot,'event_registration','امتیاز بابت ثبت‌نام در رویداد','event_registration',new.id,'event-registration:'||new.id::text)
+    on conflict(idempotency_key) do nothing;
+  end if;
+  return new;
+end;
+$;
+
 -- Storage bucket for forum attachments.
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 values('forum-images','forum-images',true,5242880,array['image/jpeg','image/png','image/webp'])
