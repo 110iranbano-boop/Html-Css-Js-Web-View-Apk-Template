@@ -129,7 +129,8 @@ app.get('/api/purchase-requests/my',auth,wrap(async(req,res)=>{
   q("SELECT 'B-'||r.id id,'book' type,b.title,r.quantity qty,r.unit_price_snapshot price,r.status,r.note,r.created_at FROM book_purchase_requests r JOIN books b ON b.id=r.book_id WHERE r.user_id=$1",[req.user.id]),
   q("SELECT 'S-'||r.id id,'store' type,p.name title,r.quantity qty,r.unit_price_snapshot price,r.status,r.note,r.created_at FROM store_purchase_requests r JOIN store_products p ON p.id=r.product_id WHERE r.user_id=$1",[req.user.id])
  ]);
- res.json([...b,...s].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)));
+ const statusMap={pending:'registered',approved:'confirmed',rejected:'cancelled',completed:'completed',cancelled:'cancelled'};
+ res.json([...b,...s].map(x=>({...x,status:statusMap[x.status]||'registered',items:[{title:x.title,qty:x.qty,price:x.price,note:x.note}]})).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)));
 }));
 app.get('/api/notifications',auth,wrap(async(req,res)=>res.json(await q('SELECT id,title,body,created_at,read_at IS NOT NULL is_read,data FROM notifications WHERE user_id=$1 ORDER BY id DESC LIMIT 100',[req.user.id]))));
 app.put('/api/notifications/read',auth,wrap(async(req,res)=>{await q('UPDATE notifications SET read_at=now() WHERE user_id=$1 AND read_at IS NULL',[req.user.id]);res.json({ok:true});}));
