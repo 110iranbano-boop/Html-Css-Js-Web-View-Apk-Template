@@ -49,10 +49,6 @@ where p.profile_visibility='members'
    or exists(select 1 from public.forum_comments c where c.user_id=p.id and c.status='published');
 grant select on public.forum_public_profiles to authenticated;
 
-create unique index if not exists uq_pending_borrow_request_per_user
-on public.book_requests(user_id)
-where request_type='borrow' and status='pending';
-
 -- User requests a loan; stock is reserved only when the administrator approves.
 create or replace function public.request_book_loan(p_book_id bigint,p_amount_toman bigint)
 returns uuid
