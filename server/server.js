@@ -52,6 +52,13 @@ async function requireAdmin(req,res,permission,action='view') {
   if (!(await isAdmin(req.user.id, permission, action))) { fail(res,'دسترسی ندارید',403); return false; }
   return true;
 }
+async function categoryId(table,name) {
+  const clean=String(name||'').trim(); if(!clean)return null;
+  const found=await result(adminClient.from(table).select('id').eq('name',clean).maybeSingle());
+  if(found)return found.id;
+  const made=await result(adminClient.from(table).insert({name:clean}).select('id').single());
+  return made.id;
+}
 async function notify(userId,title,body,type='general') {
   return result(adminClient.from('notifications').insert({user_id:userId,title,body:body || '',notification_type:type}));
 }
@@ -207,15 +214,28 @@ const RES={
 };
 app.get('/api/admin/:res(menu|books|art|events)',auth,run(async(req,res)=>{
   const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission))return;
-  res.json(await result(adminClient.from(c.table).select('*').order('id',{ascending:false})));
+  const rows=await result(adminClient.from(c.table).select('*').order('id',{ascending:false}));
+  const out=[];
+  for(const x of rows){
+    if(req.params.res==='menu'){
+      const cat=x.category_id?await result(adminClient.from('cafe_categories').select('name').eq('id',x.category_id).maybeSingle()):null;
+      out.push({...x,category:cat?.name||'',price:x.price_toman,image_url:x.image_path,sort:x.sort_order,active:x.is_available});
+    } else if(req.params.res==='books'){
+      const cat=x.category_id?await result(adminClient.from('book_categories').select('name').eq('id',x.category_id).maybeSingle()):null;
+      out.push({...x,category:cat?.name||'',type:x.book_type,price:x.sale_price_toman,status:x.available_copies>0?'available':'loaned',image_url:x.cover_path,active:x.is_active});
+    } else if(req.params.res==='art'){
+      const cat=x.category_id?await result(adminClient.from('store_categories').select('name').eq('id',x.category_id).maybeSingle()):null;
+      out.push({...x,category:cat?.name||'',price:x.price_toman,image_url:x.image_path,active:x.is_available});
+    } else out.push({...x,event_date:x.starts_at,capacity:x.capacity_people,registration_open:x.is_registration_open,image_url:x.poster_path,active:x.status==='published'});
+  }
+  res.json(out);
 }));
 app.post('/api/admin/:res(menu|books|art|events)',auth,run(async(req,res)=>{
   const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission,'create'))return;
   const data={};for(const [old,key] of Object.entries(c.fields))if(old in req.body)data[key]=req.body[old]===''?null:req.body[old];
   if(req.body.category && ['menu','books','art'].includes(req.params.res)){
     const table=req.params.res==='menu'?'cafe_categories':req.params.res==='books'?'book_categories':'store_categories';
-    const cat=await result(adminClient.from(table).upsert({name:String(req.body.category).trim()},{onConflict:'name'}).select('id').single());
-    data.category_id=cat.id;
+    data.category_id=await categoryId(table,req.body.category);
   }
   if(req.params.res==='books'){
     data.total_copies=1;data.available_copies=req.body.status==='loaned'?0:1;
