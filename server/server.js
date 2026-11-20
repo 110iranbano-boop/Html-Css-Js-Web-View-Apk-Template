@@ -41,15 +41,15 @@ const protectedRoute = [auth];
 async function profile(userId) {
   return result(adminClient.from('profiles').select('*').eq('id',userId).single());
 }
-async function isAdmin(userId, permission) {
+async function isAdmin(userId, permission, action='view') {
   const roles = await result(adminClient.from('user_roles').select('role').eq('user_id',userId));
   if (roles.some(x => x.role === 'super_admin')) return true;
   if (!permission || !roles.some(x => x.role === 'admin')) return false;
   const p = await result(adminClient.from('admin_permissions').select('*').eq('user_id',userId).eq('permission_key',permission).maybeSingle());
-  return !!p && (p.can_view || p.can_create || p.can_update || p.can_delete);
+  return !!p && !!p['can_'+action];
 }
-async function requireAdmin(req,res,permission) {
-  if (!(await isAdmin(req.user.id, permission))) { fail(res,'دسترسی ندارید',403); return false; }
+async function requireAdmin(req,res,permission,action='view') {
+  if (!(await isAdmin(req.user.id, permission, action))) { fail(res,'دسترسی ندارید',403); return false; }
   return true;
 }
 async function notify(userId,title,body,type='general') {
@@ -172,8 +172,8 @@ app.post('/api/purchase-requests',auth,run(async(req,res)=>{
       row=await result(adminClient.from('store_products').select('*').eq('id',it.id).eq('is_available',true).single());
       storeId=row.id;name=row.name;price=row.price_toman;
     }
-    const pr=await result(adminClient.from('purchase_requests').insert({user_id:req.user.id,book_id:bookId,store_product_id:storeId,item_name_snapshot:name,unit_price_toman_snapshot:price,quantity:qty}));
-    created.push(pr[0]);
+    const pr=const pr=await result(adminClient.from('purchase_requests').insert({user_id:req.user.id,book_id:bookId,store_product_id:storeId,item_name_snapshot:name,unit_price_toman_snapshot:price,quantity:qty}).select().single());
+    created.push(pr);
   }
   await notify(req.user.id,'درخواست خرید ثبت شد','درخواست خرید حضوری شما ثبت شد؛ مدیریت برای هماهنگی تماس می‌گیرد.');
   res.status(201).json({ids:created.map(x=>x.id)});
@@ -201,19 +201,19 @@ app.get('/api/admin/:res(menu|books|art|events)',auth,run(async(req,res)=>{
   res.json(await result(adminClient.from(c.table).select('*').order('id',{ascending:false})));
 }));
 app.post('/api/admin/:res(menu|books|art|events)',auth,run(async(req,res)=>{
-  const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission))return;
+  const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission,'create'))return;
   const data={};for(const [old,key] of Object.entries(c.fields))if(old in req.body)data[key]=req.body[old]===''?null:req.body[old];
   if(req.params.res==='events'){data.event_type='timed';data.status=data.status==='inactive'?'inactive':'published';}
   const row=await result(adminClient.from(c.table).insert(data).select().single());res.status(201).json(row);
 }));
 app.put('/api/admin/:res(menu|books|art|events)/:id',auth,run(async(req,res)=>{
-  const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission))return;
+  const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission,'update'))return;
   const data={};for(const [old,key] of Object.entries(c.fields))if(old in req.body)data[key]=req.body[old]===''?null:req.body[old];
   if(req.params.res==='events'&&'active'in req.body)data.status=req.body.active?'published':'inactive';
   res.json(await result(adminClient.from(c.table).update(data).eq('id',req.params.id).select().single()));
 }));
 app.delete('/api/admin/:res(menu|books|art|events)/:id',auth,run(async(req,res)=>{
-  const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission))return;
+  const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission,'delete'))return;
   const field=req.params.res==='events'?'status':req.params.res==='books'?'is_active':req.params.res==='menu'?'is_available':'is_available';
   await result(adminClient.from(c.table).update({[field]:req.params.res==='events'?'inactive':false}).eq('id',req.params.id));res.json({ok:true});
 }));
@@ -230,7 +230,7 @@ app.get('/api/admin/purchase-requests',auth,run(async(req,res)=>{
   res.json(out);
 }));
 app.put('/api/admin/purchase-requests/:id',auth,run(async(req,res)=>{
-  if(!await requireAdmin(req,res,'store.manage'))return;
+  if(!await requireAdmin(req,res,'store.manage','update'))return;
   const data={};if(req.body.status)data.status=req.body.status;if('admin_note'in req.body)data.admin_note=req.body.admin_note;
   const row=await result(adminClient.from('purchase_requests').update(data).eq('id',req.params.id).select().single());
   await notify(row.user_id,'تغییر وضعیت درخواست خرید',`وضعیت درخواست «${row.item_name_snapshot}» تغییر کرد.`);res.json(row);
@@ -242,7 +242,7 @@ app.get('/api/admin/loan-requests',auth,run(async(req,res)=>{
   res.json(out);
 }));
 app.put('/api/admin/loan-requests/:id',auth,run(async(req,res)=>{
-  if(!await requireAdmin(req,res,'library.manage'))return;
+  if(!await requireAdmin(req,res,'library.manage','update'))return;
   const st=req.body.status;if(!['approved','rejected'].includes(st))return fail(res,'وضعیت نامعتبر است');
   const r=await result(adminClient.from('book_requests').update({status:st,reviewed_by:req.user.id,reviewed_at:new Date().toISOString()}).eq('id',req.params.id).eq('status','pending').select().maybeSingle());
   if(!r)return fail(res,'این درخواست قبلاً بررسی شده است',409);
@@ -257,7 +257,7 @@ app.put('/api/admin/loan-requests/:id',auth,run(async(req,res)=>{
   res.json(r);
 }));
 app.put('/api/admin/books/:id/return',auth,run(async(req,res)=>{
-  if(!await requireAdmin(req,res,'library.manage'))return;
+  if(!await requireAdmin(req,res,'library.manage','update'))return;
   const loan=await result(adminClient.from('book_loans').select('*').eq('book_id',req.params.id).in('status',['active','overdue']).maybeSingle());
   if(!loan)return fail(res,'امانت فعالی برای این کتاب پیدا نشد',404);
   await result(adminClient.from('book_loans').update({status:'returned',returned_at:new Date().toISOString()}).eq('id',loan.id));
@@ -272,7 +272,7 @@ app.get('/api/admin/book-requests',auth,run(async(req,res)=>{
   res.json(out);
 }));
 app.put('/api/admin/book-requests/:id',auth,run(async(req,res)=>{
-  if(!await requireAdmin(req,res,'library.manage'))return;
+  if(!await requireAdmin(req,res,'library.manage','update'))return;
   const data={};if(req.body.status)data.status=req.body.status;if('admin_note'in req.body)data.admin_note=req.body.admin_note;
   const row=await result(adminClient.from('book_requests').update(data).eq('id',req.params.id).select().single());
   await notify(row.user_id,'درخواست کتاب',`نتیجهٔ بررسی «${row.requested_title}» ثبت شد.`);res.json(row);
