@@ -176,11 +176,11 @@ function boot(){
   if(!U||!localStorage.getItem('token'))return showAuth(false);
   try{cart=JSON.parse(localStorage.getItem('cart_'+U.id)||'[]')}catch{cart=[]}
   $('auth').classList.add('hidden');$('app').classList.remove('hidden');
-  const N=[['home','home','خانه'],['library','library','کتابخانه'],['events','events','رویدادها'],['art','art','گالری هنری'],['cafe','cafe','کافه'],['account','account','حساب']];
+  const N=[['home','home','خانه'],['library','library','کتابخانه'],['events','events','رویدادها'],['art','art','فروشگاه'],['cafe','cafe','کافه'],['forum','library','تالار'],['account','account','حساب']];
   $('nav').innerHTML=N.map(([k,i,t])=>`<button data-k="${k}" onclick="go('${k}')">${ic(i)}${t}</button>`).join('');
   go('home');refreshBadges();
 }
-const TITLES={home:'سیمرغ',cafe:'کافه‌کتاب',library:'کتابخانه',events:'رویدادها',art:'گالری هنری سیمرغ',cart:'سبد خرید',account:'حساب کاربری',notifs:'اعلان‌ها',mine:'درخواست‌های من',admin:'پنل مدیریت'};
+const TITLES={home:'سیمرغ',cafe:'کافه‌کتاب',library:'کتابخانه',events:'رویدادها',art:'گالری هنری سیمرغ',cart:'سبد خرید',account:'حساب کاربری',notifs:'اعلان‌ها',mine:'درخواست‌های من',admin:'پنل مدیریت',forum:'تالار سیمرغ'};
 async function go(p,arg){
   page=p;document.body.dataset.pg=p;if(p==='library'&&arg)libTab=arg;
   $('title').textContent=TITLES[p];$('back').classList.toggle('hidden',p==='home');
@@ -230,6 +230,7 @@ async library(){
 },
 async events(){
   const{ok,d}=await api('/events');if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
+  cache.events=d;
   $('main').innerHTML=d.map(e=>{const full=e.capacity&&e.registered>=e.capacity;
     return `<div class="card">${e.image_url?img(e.image_url,'📅'):''}<h3>${esc(e.title)}</h3><p>📅 ${when(e.event_date)}${e.location?' · 📍 '+esc(e.location):''}</p>${e.description?`<p>${esc(e.description)}</p>`:''}${e.capacity?`<p>ظرفیت: ${fa(e.registered)} از ${fa(e.capacity)}</p>`:''}
     ${e.mine?`${badge('ثبت‌نام شده‌اید','ok')}<button class="btn r s" style="margin-inline-start:8px" onclick="unreg(${e.id})">لغو ثبت‌نام</button>`:!e.registration_open?badge('ثبت‌نام بسته است','no'):full?badge('ظرفیت تکمیل است','no'):`<button class="btn" onclick="reg(${e.id})">ثبت‌نام در رویداد</button>`}</div>`}).join('')||'<div class="empty">رویداد فعالی نیست</div>';
@@ -314,7 +315,20 @@ async function sendBookReq(){
   const{ok,d}=await send('/book-requests','POST',{book_title,author:$('ra').value,description:$('rd').value});
   toast(ok?'درخواست ثبت شد':d.error);if(ok)go('library','request');
 }
-async function reg(id){const{ok,d}=await send(`/events/${id}/register`,'POST');toast(ok?'ثبت‌نام انجام شد':d.error);go('events')}
+async function reg(id){
+  const ev=(cache.events||[]).find(x=>String(x.id)===String(id));
+  if(!ev)return toast('اطلاعات رویداد پیدا نشد');
+  const n=Number(ev.required_teammates||0);
+  const fields=Array.from({length:n},(_,i)=>`<div class="card"><b>همراه ${fa(i+1)}</b><label>نام و نام خانوادگی</label><input id="tmn${i}" placeholder="نام کامل"><label>شماره همراه</label><input id="tmp${i}" inputmode="numeric" placeholder="09123456789"></div>`).join('');
+  openM(`<h3 style="color:var(--gold2)">ثبت‌نام در ${esc(ev.title)}</h3><p class="sub">قوانین: ${esc(ev.rules_text||'قوانین این رویداد اعلام نشده است')}</p><p class="sub">امتیاز ثبت‌نام: ${fa(ev.points_on_registration||0)}</p><label>نام ثبت‌نام‌کننده</label><input id="regname" value="${esc(U.full_name||'')}"><label>شماره تماس</label><input id="regphone" value="${esc(U.phone||'')}" inputmode="numeric">${fields}<button class="btn" onclick="submitEventReg(${id},${n})">تأیید ثبت‌نام</button><button class="btn o" onclick="closeM()">انصراف</button>`);
+}
+async function submitEventReg(id,n){
+  const teammates=[];
+  for(let i=0;i<n;i++)teammates.push({full_name:$('tmn'+i).value.trim(),phone:latin($('tmp'+i).value)});
+  const {ok,d}=await send(`/events/${id}/register`,'POST',{registrant_name:$('regname').value.trim(),registrant_phone:latin($('regphone').value),teammates});
+  if(!ok)return toast(d.error||'ثبت‌نام انجام نشد');
+  closeM();toast('ثبت‌نام انجام شد');go('events');
+}
 async function unreg(id){const{ok}=await send(`/events/${id}/register`,'DELETE');toast(ok?'ثبت‌نام لغو شد':'خطا');go('events')}
 function editProfile(){openM(`<h3 style="color:var(--gold2)">مشخصات کاربری</h3><label>نام و نام خانوادگی</label><input id="pn" value="${esc(U.full_name)}"><label>شمارهٔ همراه</label><input value="${esc(U.phone)}" disabled style="direction:ltr;text-align:left"><button class="btn" onclick="saveProfile()">ذخیره</button><button class="btn o" onclick="closeM()">بستن</button>`)}
 async function saveProfile(){const{ok,d}=await send('/profile','PUT',{full_name:$('pn').value});if(!ok)return toast(d.error||'خطا');U=d;localStorage.setItem('user',JSON.stringify(U));closeM();go('account')}
@@ -342,6 +356,39 @@ async function admSave(r,id){
   const{ok,d}=await send(id?`/admin/${r}/${id}`:`/admin/${r}`,id?'PUT':'POST',b);
   if(!ok)return toast(d.error||'ذخیره نشد');closeM();toast('ذخیره شد');go('admin');
 }
+async function forumPage(){
+  const {ok,d}=await api('/forum/topics');
+  if(!ok){$('main').innerHTML='<div class="empty">بارگذاری تالار انجام نشد</div>';return}
+  cache.forumTopics=d;
+  $('main').innerHTML=`<button class="btn" onclick="newTopic()">ایجاد تاپیک جدید</button>`+(d.map(t=>`<div class="card" onclick="openTopic('${t.id}')"><h3>${esc(t.title)}</h3><p>${esc(t.body).slice(0,180)}</p><p>${esc(t.profiles?.display_name||'عضو')} · ${when(t.created_at)}</p></div>`).join('')||'<div class="empty">هنوز موضوعی در تالار ثبت نشده است</div>');
+}
+function newTopic(){
+  openM(`<h3 style="color:var(--gold2)">موضوع تازه</h3><label>عنوان</label><input id="topicTitle" maxlength="180"><label>متن</label><textarea id="topicBody" rows="5"></textarea><button class="btn" onclick="saveTopic()">انتشار تاپیک</button><button class="btn o" onclick="closeM()">انصراف</button>`);
+}
+async function saveTopic(){
+  const {ok,d}=await send('/forum/topics','POST',{title:$('topicTitle').value.trim(),body:$('topicBody').value.trim()});
+  if(!ok)return toast(d.error||'ایجاد تاپیک انجام نشد');
+  closeM();toast('تاپیک منتشر شد');go('forum');
+}
+async function openTopic(id){
+  const t=(cache.forumTopics||[]).find(x=>String(x.id)===String(id));
+  if(!t)return;
+  const {ok,d}=await api('/forum/topics/'+id+'/comments');
+  if(!ok)return toast('نظرات بارگذاری نشد');
+  const render=(parent,level=0)=>d.filter(x=>x.parent_id===parent).map(x=>`<div class="card" style="margin-right:${Math.min(level*12,36)}px"><p>${esc(x.profiles?.display_name||'عضو')}</p><p>${esc(x.body)}</p><button class="btn o s" onclick="replyTopic('${id}','${x.id}')">پاسخ</button>${render(x.id,level+1)}</div>`).join('');
+  openM(`<h3 style="color:var(--gold2)">${esc(t.title)}</h3><p>${esc(t.body)}</p><p class="sub">${when(t.created_at)}</p><div class="sec">گفت‌وگو</div>${render(null)}<label>نظر جدید</label><textarea id="newComment" rows="3"></textarea><button class="btn" onclick="sendComment('${id}',null)">ارسال نظر</button><button class="btn o" onclick="closeM()">بستن</button>`);
+}
+function replyTopic(topicId,parentId){
+  openM(`<h3 style="color:var(--gold2)">پاسخ به نظر</h3><textarea id="replyBody" rows="3"></textarea><button class="btn" onclick="sendComment('${topicId}','${parentId}',true)">ارسال پاسخ</button><button class="btn o" onclick="closeM()">انصراف</button>`);
+}
+async function sendComment(topicId,parentId,reply=false){
+  const body=$(reply?'replyBody':'newComment').value.trim();
+  const {ok,d}=await send('/forum/topics/'+topicId+'/comments','POST',{body,parent_id:parentId});
+  if(!ok)return toast(d.error||'ارسال نظر انجام نشد');
+  toast('نظر ثبت شد');openTopic(topicId);
+}
+R.forum=forumPage;
+
 boot();
 </script>
 </body>
