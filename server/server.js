@@ -290,21 +290,26 @@ app.get('/api/admin/loan-requests',auth,run(async(req,res)=>{
 app.put('/api/admin/loan-requests/:id',auth,run(async(req,res)=>{
   if(!await requireAdmin(req,res,'library.manage','update'))return;
   const st=req.body.status;if(!['approved','rejected'].includes(st))return fail(res,'وضعیت نامعتبر است');
-  const r=await result(adminClient.from('book_requests').update({status:st,reviewed_by:req.user.id,reviewed_at:new Date().toISOString()}).eq('id',req.params.id).eq('status','pending').select().maybeSingle());
-  if(!r)return fail(res,'این درخواست قبلاً بررسی شده است',409);
+  let r;
   if(st==='approved'){
-    const b=await result(adminClient.from('books').select('*').eq('id',r.book_id).single());
-    if(b.available_copies<1)return fail(res,'نسخهٔ آزاد موجود نیست');
-    await result(adminClient.from('books').update({available_copies:b.available_copies-1}).eq('id',b.id));
-    const now=new Date();const due=new Date(now.getTime()+7*86400000);
-    await result(adminClient.from('book_loans').insert({book_id:b.id,user_id:r.user_id,request_id:r.id,handed_over_at:now.toISOString(),current_due_at:due.toISOString(),status:'active'}));
+    const {error}=await adminClient.rpc('approve_book_borrow_request',{p_request_id:req.params.id,p_admin_id:req.user.id});
+    if(error){
+      if(error.message.includes('REQUEST_NOT_PENDING'))return fail(res,'این درخواست قبلاً بررسی شده است',409);
+      if(error.message.includes('NO_AVAILABLE_COPY'))return fail(res,'نسخهٔ آزاد موجود نیست');
+      if(error.message.includes('USER_HAS_ACTIVE_LOAN'))return fail(res,'این عضو یک امانت فعال دارد و تا بازگشت آن نمی‌تواند کتاب دیگری امانت بگیرد.');
+      throw error;
+    }
+    r=await result(adminClient.from('book_requests').select('*').eq('id',req.params.id).single());
+  } else {
+    r=await result(adminClient.from('book_requests').update({status:'rejected',reviewed_by:req.user.id,reviewed_at:new Date().toISOString()}).eq('id',req.params.id).eq('status','pending').select().maybeSingle());
+    if(!r)return fail(res,'این درخواست قبلاً بررسی شده است',409);
   }
   await notify(r.user_id,'درخواست امانت',st==='approved'?'درخواست امانت شما تأیید شد.':'درخواست امانت شما رد شد.');
   res.json(r);
 }));
 app.put('/api/admin/books/:id/return',auth,run(async(req,res)=>{
   if(!await requireAdmin(req,res,'library.manage','update'))return;
-  const loan=await result(adminClient.from('book_loans').select('*').eq('book_id',req.params.id).in('status',['active','overdue']).maybeSingle());
+  const loan=await result(adminClient.from('book_loans').select('*').eq('book_id',req.params.id).in('status',['active','overdue']).order('created_at',{ascending:true}).limit(1).maybeSingle());
   if(!loan)return fail(res,'امانت فعالی برای این کتاب پیدا نشد',404);
   await result(adminClient.from('book_loans').update({status:'returned',returned_at:new Date().toISOString()}).eq('id',loan.id));
   const b=await result(adminClient.from('books').select('available_copies,total_copies').eq('id',req.params.id).single());
