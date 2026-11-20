@@ -1,39 +1,56 @@
 'use strict';
 require('dotenv').config();
-const express=require('express'),cors=require('cors'),bcrypt=require('bcryptjs'),jwt=require('jsonwebtoken'),{Pool}=require('pg'),path=require('path');
+const express=require('express');
+const cors=require('cors');
+const bcrypt=require('bcryptjs');
+const jwt=require('jsonwebtoken');
+const path=require('path');
+const {Pool}=require('pg');
 const SECRET=process.env.JWT_SECRET;
 if(!process.env.DATABASE_URL) throw new Error('DATABASE_URL تنظیم نشده است');
 if(!SECRET||SECRET.length<32) throw new Error('JWT_SECRET باید حداقل ۳۲ کاراکتر باشد');
 const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:(process.env.DB_SSL||process.env.PGSSL)==='true'?{rejectUnauthorized:false}:false,max:10});
 pool.on('error',e=>console.error('PostgreSQL:',e.message));
-const app=express();app.disable('x-powered-by');app.use(cors());app.use(express.json({limit:'1mb'}));
-const q=(s,p=[])=>pool.query(s,p).then(x=>x.rows),one=async(s,p=[])=>((await q(s,p))[0]||null);
-const bad=(res,m,c=400)=>res.status(c).json({error:m});
-const wrap=f=>(req,res,next)=>Promise.resolve(f(req,res,next)).catch(e=>{console.error(e.code||'',e.message);if(e.code==='23505')return bad(res,'این مورد قبلاً ثبت شده است',409);if(['23503','23514','22P02'].includes(e.code))return bad(res,'اطلاعات ارسالی معتبر نیست');bad(res,'خطای داخلی سرور',500);});
+const app=express();
+app.disable('x-powered-by');
+app.use(cors());
+app.use(express.json({limit:'1mb'}));
+const q=(sql,p=[])=>pool.query(sql,p).then(r=>r.rows);
+const one=async(sql,p=[])=>((await q(sql,p))[0]||null);
+const bad=(res,msg,status=400)=>res.status(status).json({error:msg});
+const wrap=fn=>(req,res,next)=>Promise.resolve(fn(req,res,next)).catch(e=>{console.error(e.code||'',e.message);if(e.code==='23505')return bad(res,'این مورد قبلاً ثبت شده است',409);if(['23503','23514','22P02'].includes(e.code))return bad(res,'اطلاعات ارسالی معتبر نیست');bad(res,'خطای داخلی سرور',500);});
 const digits=v=>String(v??'').replace(/[۰-۹]/g,c=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(c)).replace(/[٠-٩]/g,c=>'٠١٢٣٤٥٦٧٨٩'.indexOf(c)).trim();
-const phoneOK=p=>/^09\d{9}$/.test(p),idOK=v=>/^\d{1,18}$/.test(String(v));
-function auth(req,res,next){try{const h=req.headers.authorization||'';if(!h.startsWith('Bearer '))throw 0;req.user=jwt.verify(h.slice(7),SECRET);next();}catch{return bad(res,'نشست معتبر نیست',401);}}
-async function user(uid){return one("SELECT u.id,u.phone,u.status,p.display_name,COALESCE((SELECT r.code FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id ORDER BY (r.code='admin') DESC LIMIT 1),'user') role,COALESCE((SELECT SUM(amount) FROM points_ledger WHERE user_id=u.id),0)::int points FROM users u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.id=$1",[uid]);}
+const phoneOK=p=>/^09\d{9}$/.test(p);
+const idOK=v=>/^\d{1,18}$/.test(String(v));
+function auth(req,res,next){try{const h=req.headers.authorization||'';if(!h.startsWith('Bearer '))throw new Error('token');req.user=jwt.verify(h.slice(7),SECRET);next();}catch{return bad(res,'نشست معتبر نیست',401);}}
+async function getUser(uid){return one("SELECT u.id,u.phone,u.status,p.display_name,COALESCE((SELECT r.code FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=u.id ORDER BY (r.code='admin') DESC LIMIT 1),'user') role,COALESCE((SELECT SUM(amount) FROM points_ledger WHERE user_id=u.id),0)::int points FROM users u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.id=$1",[uid]);}
 async function allowed(uid,code){const x=await one("SELECT COALESCE((SELECT granted FROM user_permissions up JOIN permissions p ON p.id=up.permission_id WHERE up.user_id=$1 AND p.code=$2),EXISTS(SELECT 1 FROM user_roles ur JOIN role_permissions rp ON rp.role_id=ur.role_id JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=$1 AND p.code=$2)) ok",[uid,code]);return !!x?.ok;}
-const notify=(uid,title,body,type='general',data={})=>q("INSERT INTO notifications(user_id,notification_type,title,body,data) VALUES($1,$2,$3,$4,$5::jsonb)",[uid,type,title,body,JSON.stringify(data)]);
-const audit=(uid,action,entity,id,details={})=>q("INSERT INTO admin_audit_log(admin_user_id,action,entity_type,entity_id,details) VALUES($1,$2,$3,$4,$5::jsonb)",[uid,action,entity,id||null,JSON.stringify(details)]);
+async function notify(uid,title,body,type='general',data={}){await q("INSERT INTO notifications(user_id,notification_type,title,body,data) VALUES($1,$2,$3,$4,$5::jsonb)",[uid,type,title,body,JSON.stringify(data)]);}
+async function audit(uid,action,entity,id,details={}){await q("INSERT INTO admin_audit_log(admin_user_id,action,entity_type,entity_id,details) VALUES($1,$2,$3,$4,$5::jsonb)",[uid,action,entity,id||null,JSON.stringify(details)]);}
 app.get('/api/health',wrap(async(req,res)=>{await q('SELECT 1');res.json({ok:true,database:true,version:'db-compatible-1'});}));
 app.get('/api',(_,res)=>res.json({name:'Simorgh API',version:'db-compatible-1'}));
 
 app.post('/api/register',wrap(async(req,res)=>{
- const n=String(req.body.full_name||'').trim(),p=digits(req.body.phone),pw=String(req.body.password||'');
- if(!n)return bad(res,'نام را وارد کنید');if(!phoneOK(p))return bad(res,'شماره همراه معتبر نیست');if(pw.length<8)return bad(res,'رمز عبور باید حداقل ۸ کاراکتر باشد');
- const c=await pool.connect();try{await c.query('BEGIN');const u=(await c.query('INSERT INTO users(phone,password_hash) VALUES($1,$2) RETURNING id',[p,await bcrypt.hash(pw,12)])).rows[0];
- await c.query("INSERT INTO profiles(user_id,display_name,profile_visibility) VALUES($1,$2,'public')",[u.id,n]);
- await c.query("INSERT INTO user_roles(user_id,role_id) SELECT $1,id FROM roles WHERE code='user' ON CONFLICT DO NOTHING",[u.id]);await c.query('COMMIT');res.status(201).json({ok:true});
+ const name=String(req.body.full_name||'').trim(),phone=digits(req.body.phone),password=String(req.body.password||'');
+ if(!name)return bad(res,'نام را وارد کنید');
+ if(!phoneOK(phone))return bad(res,'شماره همراه معتبر نیست');
+ if(password.length<8)return bad(res,'رمز عبور باید حداقل ۸ کاراکتر باشد');
+ const c=await pool.connect();
+ try{
+  await c.query('BEGIN');
+  const u=(await c.query('INSERT INTO users(phone,password_hash) VALUES($1,$2) RETURNING id',[phone,await bcrypt.hash(password,12)])).rows[0];
+  await c.query("INSERT INTO profiles(user_id,display_name,profile_visibility) VALUES($1,$2,'public')",[u.id,name]);
+  await c.query("INSERT INTO user_roles(user_id,role_id) SELECT $1,id FROM roles WHERE code='user' ON CONFLICT DO NOTHING",[u.id]);
+  await c.query('COMMIT');res.status(201).json({ok:true});
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }));
-app.post('/api/login',wrap(async(req,res)=>{const p=digits(req.body.phone),pw=String(req.body.password||''),u=await one('SELECT id,password_hash,status FROM users WHERE phone=$1',[p]);
- if(!u||u.status!=='active'||!(await bcrypt.compare(pw,u.password_hash)))return bad(res,'شماره یا رمز عبور اشتباه است',401);
- const x=await user(u.id);res.json({token:jwt.sign({id:u.id},SECRET,{expiresIn:'30d'}),user:{id:x.id,phone:x.phone,full_name:x.display_name||'کاربر',role:x.role,points:x.points}});
+app.post('/api/login',wrap(async(req,res)=>{
+ const phone=digits(req.body.phone),password=String(req.body.password||''),u=await one('SELECT id,password_hash,status FROM users WHERE phone=$1',[phone]);
+ if(!u||u.status!=='active'||!(await bcrypt.compare(password,u.password_hash)))return bad(res,'شماره یا رمز عبور اشتباه است',401);
+ const x=await getUser(u.id);res.json({token:jwt.sign({id:u.id},SECRET,{expiresIn:'30d'}),user:{id:x.id,phone:x.phone,full_name:x.display_name||'کاربر',role:x.role,points:x.points}});
 }));
-app.get('/api/profile',auth,wrap(async(req,res)=>{const x=await user(req.user.id);if(!x)return bad(res,'کاربر یافت نشد',404);res.json({id:x.id,phone:x.phone,full_name:x.display_name||'کاربر',role:x.role,points:x.points});}));
-app.put('/api/profile',auth,wrap(async(req,res)=>{const n=String(req.body.full_name||'').trim();if(!n)return bad(res,'نام را وارد کنید');await q("INSERT INTO profiles(user_id,display_name,profile_visibility) VALUES($1,$2,'public') ON CONFLICT(user_id) DO UPDATE SET display_name=EXCLUDED.display_name,updated_at=now()",[req.user.id,n]);const x=await user(req.user.id);res.json({id:x.id,phone:x.phone,full_name:x.display_name,role:x.role,points:x.points});}));
+app.get('/api/profile',auth,wrap(async(req,res)=>{const x=await getUser(req.user.id);if(!x)return bad(res,'کاربر یافت نشد',404);res.json({id:x.id,phone:x.phone,full_name:x.display_name||'کاربر',role:x.role,points:x.points});}));
+app.put('/api/profile',auth,wrap(async(req,res)=>{const name=String(req.body.full_name||'').trim();if(!name)return bad(res,'نام را وارد کنید');await q("INSERT INTO profiles(user_id,display_name,profile_visibility) VALUES($1,$2,'public') ON CONFLICT(user_id) DO UPDATE SET display_name=EXCLUDED.display_name,updated_at=now()",[req.user.id,name]);const x=await getUser(req.user.id);res.json({id:x.id,phone:x.phone,full_name:x.display_name,role:x.role,points:x.points});}));
 
 app.get('/api/menu',wrap(async(req,res)=>res.json(await q("SELECT i.id,i.name,i.description,i.image_url,i.price,i.sort_order sort,c.name category,true active FROM cafe_items i LEFT JOIN cafe_categories c ON c.id=i.category_id WHERE i.is_available ORDER BY i.sort_order,i.id"))));
 app.get('/api/books',wrap(async(req,res)=>res.json(await q("SELECT b.id,b.title,b.author,b.description,b.image_url,b.book_type type,COALESCE(b.sale_price,b.loan_fee) price,CASE WHEN b.availability='available' THEN 'available' ELSE 'loaned' END status,b.availability<>'archived' active,c.name category FROM books b LEFT JOIN book_categories c ON c.id=b.category_id WHERE b.availability<>'archived' ORDER BY b.id DESC"))));
@@ -41,30 +58,79 @@ app.get('/api/art',wrap(async(req,res)=>res.json(await q("SELECT p.id,p.name,p.d
 app.get('/api/events',auth,wrap(async(req,res)=>res.json(await q("SELECT e.id,e.title,e.description,e.poster_url image_url,e.starts_at event_date,e.capacity,e.status='published' active,true registration_open,(SELECT count(*)::int FROM event_attendees a JOIN event_registrations r ON r.id=a.registration_id WHERE r.event_id=e.id AND r.status='registered') registered,EXISTS(SELECT 1 FROM event_registrations r WHERE r.event_id=e.id AND r.user_id=$1 AND r.status='registered') mine FROM events e WHERE e.status='published' ORDER BY e.starts_at",[req.user.id]))));
 
 app.post('/api/events/:id/register',auth,wrap(async(req,res)=>{
- if(!idOK(req.params.id))return bad(res,'شناسه نامعتبر است');const c=await pool.connect();try{await c.query('BEGIN');
- const e=(await c.query("SELECT * FROM events WHERE id=$1 AND status='published' AND event_type='registration' FOR UPDATE",[req.params.id])).rows[0];if(!e){await c.query('ROLLBACK');return bad(res,'رویداد برای ثبت‌نام در دسترس نیست',404);}
- const old=(await c.query('SELECT id FROM event_registrations WHERE event_id=$1 AND user_id=$2',[e.id,req.user.id])).rows[0];if(old){await c.query('ROLLBACK');return bad(res,'قبلاً ثبت‌نام کرده‌اید',409);}
- const n=(await c.query("SELECT count(*)::int n FROM event_attendees a JOIN event_registrations r ON r.id=a.registration_id WHERE r.event_id=$1 AND r.status='registered'",[e.id])).rows[0].n;
- if(e.capacity&&n+1+e.required_teammates>e.capacity){await c.query('ROLLBACK');return bad(res,'ظرفیت تکمیل است');}
- const rule=(await c.query('SELECT * FROM event_rule_versions WHERE event_id=$1 ORDER BY version DESC LIMIT 1',[e.id])).rows[0];if(!rule){await c.query('ROLLBACK');return bad(res,'قوانین رویداد هنوز تنظیم نشده است',409);}
- const r=(await c.query('INSERT INTO event_registrations(event_id,user_id,accepted_rule_version_id,accepted_points) VALUES($1,$2,$3,$4) RETURNING id',[e.id,req.user.id,rule.id,rule.points_reward])).rows[0];
- const u=(await c.query("SELECT u.phone,COALESCE(p.display_name,'شرکت‌کننده') name FROM users u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.id=$1",[req.user.id])).rows[0];
- await c.query('INSERT INTO event_attendees(registration_id,full_name,phone,is_account_owner) VALUES($1,$2,$3,true)',[r.id,u.name,u.phone]);await c.query('COMMIT');await notify(req.user.id,'ثبت‌نام رویداد','ثبت‌نام شما انجام شد.','event',{event_id:e.id});res.json({ok:true});
+ if(!idOK(req.params.id))return bad(res,'شناسه نامعتبر است');
+ const c=await pool.connect();
+ try{
+  await c.query('BEGIN');
+  const e=(await c.query("SELECT * FROM events WHERE id=$1 AND status='published' AND event_type='registration' FOR UPDATE",[req.params.id])).rows[0];
+  if(!e){await c.query('ROLLBACK');return bad(res,'رویداد برای ثبت‌نام در دسترس نیست',404);}
+  const old=(await c.query('SELECT id FROM event_registrations WHERE event_id=$1 AND user_id=$2',[e.id,req.user.id])).rows[0];
+  if(old){await c.query('ROLLBACK');return bad(res,'قبلاً ثبت‌نام کرده‌اید',409);}
+  const count=(await c.query("SELECT count(*)::int n FROM event_attendees a JOIN event_registrations r ON r.id=a.registration_id WHERE r.event_id=$1 AND r.status='registered'",[e.id])).rows[0].n;
+  if(e.capacity&&count+1+e.required_teammates>e.capacity){await c.query('ROLLBACK');return bad(res,'ظرفیت تکمیل است');}
+  const rule=(await c.query('SELECT * FROM event_rule_versions WHERE event_id=$1 ORDER BY version DESC LIMIT 1',[e.id])).rows[0];
+  if(!rule){await c.query('ROLLBACK');return bad(res,'قوانین رویداد هنوز تنظیم نشده است',409);}
+  const r=(await c.query('INSERT INTO event_registrations(event_id,user_id,accepted_rule_version_id,accepted_points) VALUES($1,$2,$3,$4) RETURNING id',[e.id,req.user.id,rule.id,rule.points_reward])).rows[0];
+  const u=(await c.query("SELECT u.phone,COALESCE(p.display_name,'شرکت‌کننده') name FROM users u LEFT JOIN profiles p ON p.user_id=u.id WHERE u.id=$1",[req.user.id])).rows[0];
+  await c.query('INSERT INTO event_attendees(registration_id,full_name,phone,is_account_owner) VALUES($1,$2,$3,true)',[r.id,u.name,u.phone]);
+  await c.query('COMMIT');await notify(req.user.id,'ثبت‌نام رویداد','ثبت‌نام شما انجام شد.','event',{event_id:e.id});res.json({ok:true});
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }));
-app.delete('/api/events/:id/register',auth,wrap(async(req,res)=>{const c=await pool.connect();try{await c.query('BEGIN');const r=(await c.query("SELECT r.id,e.starts_at FROM event_registrations r JOIN events e ON e.id=r.event_id WHERE r.event_id=$1 AND r.user_id=$2 AND r.status='registered' FOR UPDATE",[req.params.id,req.user.id])).rows[0];
- if(!r){await c.query('ROLLBACK');return bad(res,'ثبت‌نام فعالی پیدا نشد',404);}if(new Date(r.starts_at)<=new Date()){await c.query('ROLLBACK');return bad(res,'لغو پس از شروع رویداد نیازمند بررسی مدیریت است',409);}
- await c.query("UPDATE event_registrations SET status='cancelled',cancelled_at=now(),cancellation_reason='user_cancelled' WHERE id=$1",[r.id]);
- if((new Date(r.starts_at)-Date.now())/3600000<=24){await c.query("INSERT INTO event_penalties(registration_id,user_id,penalty_type,points_deducted) VALUES($1,$2,'late_cancellation',5) ON CONFLICT DO NOTHING",[r.id,req.user.id]);await c.query("INSERT INTO points_ledger(user_id,amount,reason,reference_type,reference_id,idempotency_key) VALUES($1,-5,'لغو دیرهنگام رویداد','event_registration',$2,$3) ON CONFLICT(idempotency_key) DO NOTHING",[req.user.id,r.id,'event-late-cancel:'+r.id]);}
- await c.query('COMMIT');res.json({ok:true});}catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}}));
+app.delete('/api/events/:id/register',auth,wrap(async(req,res)=>{
+ const c=await pool.connect();
+ try{
+  await c.query('BEGIN');
+  const r=(await c.query("SELECT r.id,e.starts_at FROM event_registrations r JOIN events e ON e.id=r.event_id WHERE r.event_id=$1 AND r.user_id=$2 AND r.status='registered' FOR UPDATE",[req.params.id,req.user.id])).rows[0];
+  if(!r){await c.query('ROLLBACK');return bad(res,'ثبت‌نام فعالی پیدا نشد',404);}
+  if(new Date(r.starts_at)<=new Date()){await c.query('ROLLBACK');return bad(res,'لغو پس از شروع رویداد نیازمند بررسی مدیریت است',409);}
+  await c.query("UPDATE event_registrations SET status='cancelled',cancelled_at=now(),cancellation_reason='user_cancelled' WHERE id=$1",[r.id]);
+  if((new Date(r.starts_at)-Date.now())/3600000<=24){
+   const l=(await c.query("INSERT INTO points_ledger(user_id,amount,reason,reference_type,reference_id,idempotency_key) VALUES($1,-5,'لغو دیرهنگام رویداد','event_registration',$2,$3) ON CONFLICT(idempotency_key) DO NOTHING RETURNING id",[req.user.id,r.id,'event-late-cancel:'+r.id])).rows[0];
+   if(l)await c.query("INSERT INTO event_penalties(registration_id,user_id,penalty_type,points_deducted,applied_ledger_id) VALUES($1,$2,'late_cancellation',5,$3) ON CONFLICT DO NOTHING",[r.id,req.user.id,l.id]);
+  }
+  await c.query('COMMIT');res.json({ok:true});
+ }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+}));
 
-app.post('/api/loan-requests',auth,wrap(async(req,res)=>{const id=digits(req.body.book_id);if(!idOK(id))return bad(res,'شناسه کتاب نامعتبر است');const b=await one("SELECT id FROM books WHERE id=$1 AND availability='available' AND book_type IN ('loan','both')",[id]);if(!b)return bad(res,'کتاب امانی در دسترس نیست',404);if(await one("SELECT id FROM loans WHERE user_id=$1 AND status IN ('active','overdue')",[req.user.id]))return bad(res,'ابتدا امانت قبلی را بازگردانید',409);await q('INSERT INTO loan_requests(user_id,book_id) VALUES($1,$2)',[req.user.id,id]);res.status(201).json({ok:true});}));
+app.post('/api/loan-requests',auth,wrap(async(req,res)=>{
+ const id=digits(req.body.book_id);if(!idOK(id))return bad(res,'شناسه کتاب نامعتبر است');
+ const b=await one("SELECT id FROM books WHERE id=$1 AND availability='available' AND book_type IN ('loan','both')",[id]);
+ if(!b)return bad(res,'کتاب امانی در دسترس نیست',404);
+ if(await one("SELECT id FROM loans WHERE user_id=$1 AND status IN ('active','overdue')",[req.user.id]))return bad(res,'ابتدا امانت قبلی را بازگردانید',409);
+ await q('INSERT INTO loan_requests(user_id,book_id) VALUES($1,$2)',[req.user.id,id]);res.status(201).json({ok:true});
+}));
 app.get('/api/loan-requests/my',auth,wrap(async(req,res)=>res.json(await q('SELECT r.*,b.title book_title FROM loan_requests r JOIN books b ON b.id=r.book_id WHERE r.user_id=$1 ORDER BY r.requested_at DESC',[req.user.id]))));
 app.post('/api/book-requests',auth,wrap(async(req,res)=>{const t=String(req.body.book_title||'').trim();if(!t)return bad(res,'عنوان کتاب الزامی است');await q("INSERT INTO book_suggestions(user_id,request_type,title,author,description) VALUES($1,'bring_from_store',$2,$3,$4)",[req.user.id,t,String(req.body.author||'').trim()||null,String(req.body.description||'').trim()||null]);res.status(201).json({ok:true});}));
-app.get('/api/book-requests/my',auth,wrap(async(req,res)=>res.json((await q("SELECT id,title book_title,author,description,status,created_at FROM book_suggestions WHERE user_id=$1 ORDER BY id DESC",[req.user.id])).map(x=>({...x,status:x.status==='accepted'||x.status==='completed'?'approved':x.status==='rejected'?'rejected':'pending'}))));
+app.get('/api/book-requests/my',auth,wrap(async(req,res)=>{const a=await q("SELECT id,title book_title,author,description,status,created_at FROM book_suggestions WHERE user_id=$1 ORDER BY id DESC",[req.user.id]);res.json(a.map(x=>({...x,status:x.status==='accepted'||x.status==='completed'?'approved':x.status==='rejected'?'rejected':'pending'})));}));
 
-app.post('/api/purchase-requests',auth,wrap(async(req,res)=>{const items=Array.isArray(req.body.items)?req.body.items.slice(0,30):[],phone=digits(req.body.contact_phone);if(!items.length)return bad(res,'سبد خرید خالی است');if(!phoneOK(phone))return bad(res,'شماره تماس معتبر نیست');const c=await pool.connect(),created=[];try{await c.query('BEGIN');for(const it of items){const qty=Math.max(1,Math.min(99,parseInt(it.qty,10)||1));if(it.type==='book'){const b=(await c.query("SELECT id,title,sale_price price FROM books WHERE id=$1 AND book_type IN ('sale','both') AND availability='available' AND sale_price IS NOT NULL FOR SHARE",[it.id])).rows[0];if(!b)throw Object.assign(new Error('کتاب دیگر قابل خرید نیست'),{statusCode:409});const x=(await c.query('INSERT INTO book_purchase_requests(user_id,book_id,quantity,unit_price_snapshot,note) VALUES($1,$2,$3,$4,$5) RETURNING id',[req.user.id,b.id,qty,b.price,String(it.note||'').slice(0,500)||null])).rows[0];created.push('B-'+x.id);}else{const p=(await c.query('SELECT id,name,price FROM store_products WHERE id=$1 AND is_active FOR SHARE',[it.id])).rows[0];if(!p)throw Object.assign(new Error('محصول دیگر قابل خرید نیست'),{statusCode:409});const x=(await c.query('INSERT INTO store_purchase_requests(user_id,product_id,quantity,unit_price_snapshot,note) VALUES($1,$2,$3,$4,$5) RETURNING id',[req.user.id,p.id,qty,p.price,String(it.note||'').slice(0,500)||null])).rows[0];created.push('S-'+x.id);}}await c.query('COMMIT');await notify(req.user.id,'درخواست خرید ثبت شد','پرداخت به‌صورت حضوری هماهنگ می‌شود.','purchase');res.status(201).json({ok:true,requests:created});}catch(e){await c.query('ROLLBACK');if(e.statusCode)return bad(res,e.message,e.statusCode);throw e;}finally{c.release();}}));
-app.get('/api/purchase-requests/my',auth,wrap(async(req,res)=>{const [b,s]=await Promise.all([q("SELECT 'B-'||r.id id,'book' type,b.title,r.quantity qty,r.unit_price_snapshot price,r.status,r.note,r.created_at FROM book_purchase_requests r JOIN books b ON b.id=r.book_id WHERE r.user_id=$1",[req.user.id]),q("SELECT 'S-'||r.id id,'store' type,p.name title,r.quantity qty,r.unit_price_snapshot price,r.status,r.note,r.created_at FROM store_purchase_requests r JOIN store_products p ON p.id=r.product_id WHERE r.user_id=$1",[req.user.id])]);res.json([...b,...s].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)));}));
+app.post('/api/purchase-requests',auth,wrap(async(req,res)=>{
+ const items=Array.isArray(req.body.items)?req.body.items.slice(0,30):[],phone=digits(req.body.contact_phone);
+ if(!items.length)return bad(res,'سبد خرید خالی است');if(!phoneOK(phone))return bad(res,'شماره تماس معتبر نیست');
+ const c=await pool.connect(),created=[];
+ try{
+  await c.query('BEGIN');
+  for(const it of items){
+   const qty=Math.max(1,Math.min(99,parseInt(it.qty,10)||1));
+   if(it.type==='book'){
+    const b=(await c.query("SELECT id,title,sale_price price FROM books WHERE id=$1 AND book_type IN ('sale','both') AND availability='available' AND sale_price IS NOT NULL FOR SHARE",[it.id])).rows[0];
+    if(!b)throw Object.assign(new Error('کتاب دیگر قابل خرید نیست'),{statusCode:409});
+    const x=(await c.query('INSERT INTO book_purchase_requests(user_id,book_id,quantity,unit_price_snapshot,note) VALUES($1,$2,$3,$4,$5) RETURNING id',[req.user.id,b.id,qty,b.price,String(it.note||'').slice(0,500)||null])).rows[0];created.push('B-'+x.id);
+   }else{
+    const p=(await c.query('SELECT id,name,price FROM store_products WHERE id=$1 AND is_active FOR SHARE',[it.id])).rows[0];
+    if(!p)throw Object.assign(new Error('محصول دیگر قابل خرید نیست'),{statusCode:409});
+    const x=(await c.query('INSERT INTO store_purchase_requests(user_id,product_id,quantity,unit_price_snapshot,note) VALUES($1,$2,$3,$4,$5) RETURNING id',[req.user.id,p.id,qty,p.price,String(it.note||'').slice(0,500)||null])).rows[0];created.push('S-'+x.id);
+   }
+  }
+  await c.query('COMMIT');await notify(req.user.id,'درخواست خرید ثبت شد','پرداخت به‌صورت حضوری هماهنگ می‌شود.','purchase');res.status(201).json({ok:true,requests:created});
+ }catch(e){await c.query('ROLLBACK');if(e.statusCode)return bad(res,e.message,e.statusCode);throw e;}finally{c.release();}
+}));
+app.get('/api/purchase-requests/my',auth,wrap(async(req,res)=>{
+ const [b,s]=await Promise.all([
+  q("SELECT 'B-'||r.id id,'book' type,b.title,r.quantity qty,r.unit_price_snapshot price,r.status,r.note,r.created_at FROM book_purchase_requests r JOIN books b ON b.id=r.book_id WHERE r.user_id=$1",[req.user.id]),
+  q("SELECT 'S-'||r.id id,'store' type,p.name title,r.quantity qty,r.unit_price_snapshot price,r.status,r.note,r.created_at FROM store_purchase_requests r JOIN store_products p ON p.id=r.product_id WHERE r.user_id=$1",[req.user.id])
+ ]);
+ res.json([...b,...s].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)));
+}));
 app.get('/api/notifications',auth,wrap(async(req,res)=>res.json(await q('SELECT id,title,body,created_at,read_at IS NOT NULL is_read,data FROM notifications WHERE user_id=$1 ORDER BY id DESC LIMIT 100',[req.user.id]))));
 app.put('/api/notifications/read',auth,wrap(async(req,res)=>{await q('UPDATE notifications SET read_at=now() WHERE user_id=$1 AND read_at IS NULL',[req.user.id]);res.json({ok:true});}));
 
@@ -74,85 +140,119 @@ const resources={
  art:{perm:'catalog.manage',table:'store_products',list:"SELECT p.id,p.name,p.description,p.image_url,p.price,p.is_active active,c.name category FROM store_products p LEFT JOIN store_categories c ON c.id=p.category_id",fields:{name:'name',description:'description',image_url:'image_url',price:'price',active:'is_active'}},
  events:{perm:'events.manage',table:'events',list:"SELECT id,title,description,starts_at event_date,poster_url image_url,capacity,status='published' active FROM events",fields:{title:'title',description:'description',event_date:'starts_at',image_url:'poster_url',capacity:'capacity'}}
 };
-app.get('/api/admin/:res(menu|books|art|events)',auth,wrap(async(req,res)=>{const r=resources[req.params.res];if(!await allowed(req.user.id,r.perm))return bad(res,'دسترسی ندارید',403);res.json(await q(r.list+' ORDER BY id DESC'));}));
-app.post('/api/admin/:res(menu|books|art|events)',auth,wrap(async(req,res)=>{const r=resources[req.params.res];if(!await allowed(req.user.id,r.perm))return bad(res,'دسترسی ندارید',403);const cols=[],vals=[],b=req.body||{};for(const [k,col] of Object.entries(r.fields))if(Object.prototype.hasOwnProperty.call(b,k)){cols.push(col);vals.push(k==='active'?!!b[k]:k==='status'&&req.params.res==='books'?(b[k]==='loaned'?'unavailable':b[k]):b[k]===''?null:b[k]);}
- const catTable={menu:'cafe_categories',books:'book_categories',art:'store_categories'}[req.params.res];if(catTable&&b.category){const c=await one('INSERT INTO '+catTable+'(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id',[String(b.category).trim()]);cols.push('category_id');vals.push(c.id);}
- if(req.params.res==='events'){cols.push('event_type','status','created_by');vals.push('registration','published',req.user.id);}
- if(!cols.length)return bad(res,'اطلاعاتی ارسال نشده');const x=await one('INSERT INTO '+r.table+'('+cols.join(',')+') VALUES('+cols.map((_,i)=>'}));
-app.put('/api/admin/:res(menu|books|art|events)/:id',auth,wrap(async(req,res)=>{const r=resources[req.params.res];if(!await allowed(req.user.id,r.perm))return bad(res,'دسترسی ندارید',403);const cols=[],vals=[],b=req.body||{};for(const [k,col] of Object.entries(r.fields))if(Object.prototype.hasOwnProperty.call(b,k)){cols.push(col);vals.push(k==='active'?!!b[k]:k==='status'&&req.params.res==='books'?(b[k]==='loaned'?'unavailable':b[k]):b[k]===''?null:b[k]);}
- const catTable={menu:'cafe_categories',books:'book_categories',art:'store_categories'}[req.params.res];if(catTable&&b.category){const c=await one('INSERT INTO '+catTable+'(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id',[String(b.category).trim()]);cols.push('category_id');vals.push(c.id);}
- if(!cols.length)return bad(res,'اطلاعاتی ارسال نشده');vals.push(req.params.id);const x=await one('UPDATE '+r.table+' SET '+cols.map((c,i)=>c+'=$'+(i+1)).join(',')+',updated_at=now() WHERE id=$'+vals.length+' RETURNING *',vals);if(!x)return bad(res,'یافت نشد',404);await audit(req.user.id,'update',r.table,x.id,b);res.json(x);}));
-app.delete('/api/admin/:res(menu|books|art|events)/:id',auth,wrap(async(req,res)=>{const r=resources[req.params.res];if(!await allowed(req.user.id,r.perm))return bad(res,'دسترسی ندارید',403);const col={menu:'is_available',books:'availability',art:'is_active',events:'status'}[req.params.res],val={menu:false,books:'archived',art:false,events:'cancelled'}[req.params.res];const x=await one('UPDATE '+r.table+' SET '+col+'=$1,updated_at=now() WHERE id=$2 RETURNING id',[val,req.params.id]);if(!x)return bad(res,'یافت نشد',404);await audit(req.user.id,'deactivate',r.table,x.id);res.json({ok:true});}));
+async function adminResource(req,res,mode){
+ const r=resources[req.params.res];if(!r)return bad(res,'بخش نامعتبر است',404);
+ if(!await allowed(req.user.id,r.perm))return bad(res,'دسترسی ندارید',403);
+ const b=req.body||{},cols=[],vals=[];
+ if(mode==='list')return res.json(await q(r.list+' ORDER BY id DESC'));
+ for(const [k,col] of Object.entries(r.fields)){
+  if(!Object.prototype.hasOwnProperty.call(b,k))continue;
+  let v=b[k];
+  if(k==='status'&&req.params.res==='books'&&v==='loaned')v='unavailable';
+  if(k==='active')v=!!v;
+  if(v==='')v=null;
+  cols.push(col);vals.push(v);
+ }
+ const catTable={menu:'cafe_categories',books:'book_categories',art:'store_categories'}[req.params.res];
+ if(catTable&&b.category){const cat=await one('INSERT INTO '+catTable+'(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id',[String(b.category).trim()]);cols.push('category_id');vals.push(cat.id);}
+ if(mode==='create'&&req.params.res==='events'){cols.push('event_type','status','created_by');vals.push('registration','published',req.user.id);}
+ if(!cols.length)return bad(res,'اطلاعاتی ارسال نشده');
+ let x;
+ if(mode==='create'){
+  x=await one('INSERT INTO '+r.table+'('+cols.join(',')+') VALUES('+cols.map((v,i)=>'$'+(i+1)).join(',')+') RETURNING *',vals);
+  if(req.params.res==='events')await q('INSERT INTO event_rule_versions(event_id,version,rules_text,points_reward,created_by) VALUES($1,1,$2,0,$3)',[x.id,'قوانین رویداد طبق اطلاع‌رسانی مدیریت؛ امتیاز پس از ثبت حضور محاسبه می‌شود.',req.user.id]);
+ }else{
+  vals.push(req.params.id);
+  x=await one('UPDATE '+r.table+' SET '+cols.map((v,i)=>v+'=$'+(i+1)).join(',')+',updated_at=now() WHERE id=$'+vals.length+' RETURNING *',vals);
+ }
+ if(!x)return bad(res,'یافت نشد',404);
+ await audit(req.user.id,mode,r.table,x.id,b);
+ return res.status(mode==='create'?201:200).json(x);
+}
+app.get('/api/admin/:res(menu|books|art|events)',auth,wrap((req,res)=>adminResource(req,res,'list')));
+app.post('/api/admin/:res(menu|books|art|events)',auth,wrap((req,res)=>adminResource(req,res,'create')));
+app.put('/api/admin/:res(menu|books|art|events)/:id',auth,wrap((req,res)=>adminResource(req,res,'update')));
+app.delete('/api/admin/:res(menu|books|art|events)/:id',auth,wrap(async(req,res)=>{
+ const r=resources[req.params.res];if(!r)return bad(res,'بخش نامعتبر است',404);if(!await allowed(req.user.id,r.perm))return bad(res,'دسترسی ندارید',403);
+ const col={menu:'is_available',books:'availability',art:'is_active',events:'status'}[req.params.res],val={menu:false,books:'archived',art:false,events:'cancelled'}[req.params.res];
+ const x=await one('UPDATE '+r.table+' SET '+col+'=$1,updated_at=now() WHERE id=$2 RETURNING id',[val,req.params.id]);if(!x)return bad(res,'یافت نشد',404);await audit(req.user.id,'deactivate',r.table,x.id);res.json({ok:true});
+}));
+
+app.get('/api/admin/loan-requests',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'loans.manage'))return bad(res,'دسترسی ندارید',403);res.json(await q("SELECT r.*,b.title book_title,p.display_name full_name,u.phone FROM loan_requests r JOIN books b ON b.id=r.book_id JOIN users u ON u.id=r.user_id LEFT JOIN profiles p ON p.user_id=u.id ORDER BY r.requested_at DESC"));}));
+app.put('/api/admin/loan-requests/:id',auth,wrap(async(req,res)=>{
+ if(!await allowed(req.user.id,'loans.manage'))return bad(res,'دسترسی ندارید',403);const st=req.body.status;if(!['approved','rejected'].includes(st))return bad(res,'وضعیت نامعتبر است');
+ const x=await one("UPDATE loan_requests SET status=$1,reviewed_by=$2,reviewed_at=now() WHERE id=$3 AND status='pending' RETURNING *",[st,req.user.id,req.params.id]);if(!x)return bad(res,'درخواست قبلاً بررسی شده است',409);
+ await notify(x.user_id,'درخواست امانت',st==='approved'?'درخواست امانت تأیید شد؛ برای تحویل هماهنگ کنید.':'درخواست امانت رد شد.','loan');await audit(req.user.id,'review','loan_requests',x.id,{status:st});res.json(x);
+}));
 app.post('/api/admin/loan-requests/:id/pickup',auth,wrap(async(req,res)=>{
- if(!await allowed(req.user.id,'loans.manage'))return bad(res,'دسترسی ندارید',403);
- const c=await pool.connect();try{await c.query('BEGIN');
- const r=(await c.query("SELECT * FROM loan_requests WHERE id=$1 AND status='approved' FOR UPDATE",[req.params.id])).rows[0];
- if(!r){await c.query('ROLLBACK');return bad(res,'درخواست تأییدشده‌ای برای تحویل پیدا نشد',404);}
- const b=(await c.query("SELECT * FROM books WHERE id=$1 AND availability='available' FOR UPDATE",[r.book_id])).rows[0];
- if(!b){await c.query('ROLLBACK');return bad(res,'کتاب در دسترس نیست',409);}
- const active=(await c.query("SELECT id FROM loans WHERE user_id=$1 AND status IN ('active','overdue') FOR UPDATE",[r.user_id])).rows[0];
- if(active){await c.query('ROLLBACK');return bad(res,'این کاربر امانت فعال دیگری دارد',409);}
- const loan=(await c.query("INSERT INTO loans(loan_request_id,user_id,book_id,loan_fee,picked_up_at,due_at,status) VALUES($1,$2,$3,$4,now(),now()+interval '7 days','active') RETURNING *",[r.id,r.user_id,r.book_id,b.loan_fee])).rows[0];
- await c.query("UPDATE books SET availability='unavailable',updated_at=now() WHERE id=$1",[b.id]);
- await c.query("UPDATE loan_requests SET status='fulfilled' WHERE id=$1",[r.id]);
- await c.query('COMMIT');await notify(r.user_id,'تحویل امانت ثبت شد','مهلت اولیه امانت از زمان تحویل، ۷ روز است.','loan',{loan_id:loan.id});
- await audit(req.user.id,'pickup','loans',loan.id);res.json(loan);
+ if(!await allowed(req.user.id,'loans.manage'))return bad(res,'دسترسی ندارید',403);const c=await pool.connect();
+ try{
+  await c.query('BEGIN');const r=(await c.query("SELECT * FROM loan_requests WHERE id=$1 AND status='approved' FOR UPDATE",[req.params.id])).rows[0];
+  if(!r){await c.query('ROLLBACK');return bad(res,'درخواست تأییدشده پیدا نشد',404);}
+  const b=(await c.query("SELECT * FROM books WHERE id=$1 AND availability='available' FOR UPDATE",[r.book_id])).rows[0];
+  if(!b){await c.query('ROLLBACK');return bad(res,'کتاب در دسترس نیست',409);}
+  const active=(await c.query("SELECT id FROM loans WHERE user_id=$1 AND status IN ('active','overdue') FOR UPDATE",[r.user_id])).rows[0];
+  if(active){await c.query('ROLLBACK');return bad(res,'کاربر امانت فعال دیگری دارد',409);}
+  const loan=(await c.query("INSERT INTO loans(loan_request_id,user_id,book_id,loan_fee,picked_up_at,due_at,status) VALUES($1,$2,$3,$4,now(),now()+interval '7 days','active') RETURNING *",[r.id,r.user_id,r.book_id,b.loan_fee])).rows[0];
+  await c.query("UPDATE books SET availability='unavailable',updated_at=now() WHERE id=$1",[b.id]);await c.query("UPDATE loan_requests SET status='fulfilled' WHERE id=$1",[r.id]);await c.query('COMMIT');
+  await notify(r.user_id,'تحویل امانت ثبت شد','مهلت اولیه امانت از زمان تحویل، ۷ روز است.','loan',{loan_id:loan.id});await audit(req.user.id,'pickup','loans',loan.id);res.json(loan);
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }));
 app.put('/api/admin/books/:id/return',auth,wrap(async(req,res)=>{
- if(!await allowed(req.user.id,'loans.manage'))return bad(res,'دسترسی ندارید',403);
- const c=await pool.connect();try{await c.query('BEGIN');
- const loan=(await c.query("SELECT * FROM loans WHERE book_id=$1 AND status IN ('active','overdue') ORDER BY id DESC LIMIT 1 FOR UPDATE",[req.params.id])).rows[0];
- if(!loan){await c.query('ROLLBACK');return bad(res,'امانت فعال برای این کتاب پیدا نشد',404);}
- await c.query("UPDATE loans SET returned_at=now(),status='returned' WHERE id=$1",[loan.id]);
- await c.query("UPDATE books SET availability='available',updated_at=now() WHERE id=$1",[req.params.id]);
- await c.query('COMMIT');await notify(loan.user_id,'بازگشت کتاب ثبت شد','بازگشت کتاب شما ثبت شد.','loan',{loan_id:loan.id});
- await audit(req.user.id,'return','loans',loan.id);res.json({ok:true});
+ if(!await allowed(req.user.id,'loans.manage'))return bad(res,'دسترسی ندارید',403);const c=await pool.connect();
+ try{
+  await c.query('BEGIN');const loan=(await c.query("SELECT * FROM loans WHERE book_id=$1 AND status IN ('active','overdue') ORDER BY id DESC LIMIT 1 FOR UPDATE",[req.params.id])).rows[0];
+  if(!loan){await c.query('ROLLBACK');return bad(res,'امانت فعال پیدا نشد',404);}
+  await c.query("UPDATE loans SET returned_at=now(),status='returned' WHERE id=$1",[loan.id]);await c.query("UPDATE books SET availability='available',updated_at=now() WHERE id=$1",[req.params.id]);await c.query('COMMIT');
+  await notify(loan.user_id,'بازگشت کتاب ثبت شد','بازگشت کتاب شما ثبت شد.','loan',{loan_id:loan.id});await audit(req.user.id,'return','loans',loan.id);res.json({ok:true});
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }));
-app.get('/api/admin/loan-requests',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'loans.manage'))return bad(res,'دسترسی ندارید',403);res.json(await q("SELECT r.*,b.title book_title,p.display_name full_name,u.phone FROM loan_requests r JOIN books b ON b.id=r.book_id JOIN users u ON u.id=r.user_id LEFT JOIN profiles p ON p.user_id=u.id ORDER BY r.requested_at DESC"));}));
-app.put('/api/admin/loan-requests/:id',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'loans.manage'))return bad(res,'دسترسی ندارید',403);const st=req.body.status;if(!['approved','rejected'].includes(st))return bad(res,'وضعیت نامعتبر است');const x=await one("UPDATE loan_requests SET status=$1,reviewed_by=$2,reviewed_at=now() WHERE id=$3 AND status='pending' RETURNING *",[st,req.user.id,req.params.id]);if(!x)return bad(res,'درخواست قبلاً بررسی شده است',409);await notify(x.user_id,'درخواست امانت',st==='approved'?'درخواست امانت تأیید شد؛ برای تحویل هماهنگ کنید.':'درخواست امانت رد شد.','loan');await audit(req.user.id,'review','loan_requests',x.id,{status:st});res.json(x);}));
 app.get('/api/admin/book-requests',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'books.manage'))return bad(res,'دسترسی ندارید',403);res.json(await q("SELECT s.id,s.title book_title,s.author,s.description,s.status,s.created_at,p.display_name full_name,u.phone,NULL::text admin_note FROM book_suggestions s JOIN users u ON u.id=s.user_id LEFT JOIN profiles p ON p.user_id=u.id ORDER BY s.id DESC"));}));
-app.put('/api/admin/book-requests/:id',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'books.manage'))return bad(res,'دسترسی ندارید',403);const st={approved:'accepted',rejected:'rejected',pending:'pending'}[req.body.status];if(!st)return bad(res,'وضعیت نامعتبر است');const x=await one('UPDATE book_suggestions SET status=$1,reviewed_by=$2,reviewed_at=now() WHERE id=$3 RETURNING *',[st,req.user.id,req.params.id]);if(!x)return bad(res,'یافت نشد',404);await notify(x.user_id,'درخواست کتاب','نتیجه درخواست کتاب ثبت شد.','book_suggestion');await audit(req.user.id,'review','book_suggestions',x.id,{status:st});res.json({...x,book_title:x.title,admin_note:req.body.admin_note||null,status:req.body.status});}));
-app.put('/api/admin/event-attendees/:id/attendance',auth,wrap(async(req,res)=>{
- if(!await allowed(req.user.id,'events.manage'))return bad(res,'دسترسی ندارید',403);
- if(typeof req.body.present!=='boolean')return bad(res,'وضعیت حضور معتبر نیست');
- const c=await pool.connect();try{await c.query('BEGIN');
- const a=(await c.query("SELECT a.id,a.registration_id,a.is_account_owner,r.user_id,r.accepted_points FROM event_attendees a JOIN event_registrations r ON r.id=a.registration_id WHERE a.id=$1 FOR UPDATE",[req.params.id])).rows[0];
- if(!a){await c.query('ROLLBACK');return bad(res,'شرکت‌کننده پیدا نشد',404);}
- await c.query("INSERT INTO event_attendance(attendee_id,present,marked_by,marked_at) VALUES($1,$2,$3,now()) ON CONFLICT(attendee_id) DO UPDATE SET present=EXCLUDED.present,marked_by=EXCLUDED.marked_by,marked_at=now()",[a.id,req.body.present,req.user.id]);
- if(a.is_account_owner&&req.body.present){
-  await c.query("UPDATE event_registrations SET status='attended' WHERE id=$1",[a.registration_id]);
-  if(Number(a.accepted_points)>0)await c.query("INSERT INTO points_ledger(user_id,amount,reason,reference_type,reference_id,idempotency_key,created_by) VALUES($1,$2,'حضور در رویداد','event_registration',$3,$4,$5) ON CONFLICT(idempotency_key) DO NOTHING",[a.user_id,a.accepted_points,a.registration_id,'event-attendance:'+a.registration_id,req.user.id]);
- }else if(a.is_account_owner&&!req.body.present){
-  await c.query("UPDATE event_registrations SET status='absent' WHERE id=$1",[a.registration_id]);
-  await c.query("INSERT INTO event_penalties(registration_id,user_id,penalty_type,points_deducted) VALUES($1,$2,'absence',10) ON CONFLICT DO NOTHING",[a.registration_id,a.user_id]);
-  await c.query("INSERT INTO points_ledger(user_id,amount,reason,reference_type,reference_id,idempotency_key,created_by) VALUES($1,-10,'عدم حضور در رویداد','event_registration',$2,$3,$4) ON CONFLICT(idempotency_key) DO NOTHING",[a.user_id,a.registration_id,'event-absence:'+a.registration_id,req.user.id]);
- }
- await c.query('COMMIT');await audit(req.user.id,'mark_attendance','event_attendees',a.id,{present:req.body.present});res.json({ok:true});
- }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+app.put('/api/admin/book-requests/:id',auth,wrap(async(req,res)=>{
+ if(!await allowed(req.user.id,'books.manage'))return bad(res,'دسترسی ندارید',403);const st={approved:'accepted',rejected:'rejected',pending:'pending'}[req.body.status];if(!st)return bad(res,'وضعیت نامعتبر است');
+ const x=await one('UPDATE book_suggestions SET status=$1,reviewed_by=$2,reviewed_at=now() WHERE id=$3 RETURNING *',[st,req.user.id,req.params.id]);if(!x)return bad(res,'یافت نشد',404);
+ await notify(x.user_id,'درخواست کتاب','نتیجه درخواست کتاب ثبت شد.','book_suggestion');await audit(req.user.id,'review','book_suggestions',x.id,{status:st});res.json({...x,book_title:x.title,admin_note:req.body.admin_note||null,status:req.body.status});
 }));
 app.get('/api/admin/events/:id/registrations',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'events.manage'))return bad(res,'دسترسی ندارید',403);res.json(await q("SELECT a.full_name,a.phone,a.created_at FROM event_attendees a JOIN event_registrations r ON r.id=a.registration_id WHERE r.event_id=$1 AND r.status='registered' ORDER BY a.id",[req.params.id]));}));
-app.get('/api/admin/purchase-requests',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'catalog.manage'))return bad(res,'دسترسی ندارید',403);const [b,s]=await Promise.all([q("SELECT 'B-'||r.id id,r.status,r.quantity qty,r.unit_price_snapshot price,r.note,r.created_at,u.phone,p.display_name full_name,b.title FROM book_purchase_requests r JOIN users u ON u.id=r.user_id LEFT JOIN profiles p ON p.user_id=u.id JOIN books b ON b.id=r.book_id"),q("SELECT 'S-'||r.id id,r.status,r.quantity qty,r.unit_price_snapshot price,r.note,r.created_at,u.phone,p.display_name full_name,x.name title FROM store_purchase_requests r JOIN users u ON u.id=r.user_id LEFT JOIN profiles p ON p.user_id=u.id JOIN store_products x ON x.id=r.product_id")]);res.json([...b,...s].map(x=>({...x,status:({pending:'registered',approved:'confirmed',rejected:'cancelled',completed:'completed',cancelled:'cancelled'}[x.status]||'registered'),contact_phone:x.phone,items:[{title:x.title,qty:x.qty,price:x.price,note:x.note}]})).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)));}));
-app.put('/api/admin/purchase-requests/:id',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'catalog.manage'))return bad(res,'دسترسی ندارید',403);const m=String(req.params.id).match(/^([BS])-(\d+)$/);if(!m)return bad(res,'شناسه نامعتبر است');const ui=req.body.status;const map={registered:'pending',reviewing:'pending',confirmed:'approved',awaiting_contact:'approved',ready:'approved',shipped:'approved',completed:'completed',cancelled:'cancelled'};const st=ui?map[ui]:null;if(ui&&!st)return bad(res,'وضعیت نامعتبر است');const table=m[1]==='B'?'book_purchase_requests':'store_purchase_requests';const x=await one('UPDATE '+table+' SET status=COALESCE($1,status),reviewed_by=CASE WHEN $1 IS NULL THEN reviewed_by ELSE $2 END,reviewed_at=CASE WHEN $1 IS NULL THEN reviewed_at ELSE now() END WHERE id=$3 RETURNING *',[st,req.user.id,m[2]]);if(!x)return bad(res,'یافت نشد',404);await audit(req.user.id,'review',table,x.id,{status:st||null});res.json(x);}));
+app.put('/api/admin/event-attendees/:id/attendance',auth,wrap(async(req,res)=>{
+ if(!await allowed(req.user.id,'events.manage'))return bad(res,'دسترسی ندارید',403);if(typeof req.body.present!=='boolean')return bad(res,'وضعیت حضور معتبر نیست');
+ const c=await pool.connect();try{
+  await c.query('BEGIN');const a=(await c.query("SELECT a.id,a.registration_id,a.is_account_owner,r.user_id,r.accepted_points,e.starts_at,e.ends_at FROM event_attendees a JOIN event_registrations r ON r.id=a.registration_id JOIN events e ON e.id=r.event_id WHERE a.id=$1 FOR UPDATE",[req.params.id])).rows[0];
+  if(!a){await c.query('ROLLBACK');return bad(res,'شرکت‌کننده پیدا نشد',404);}
+  if(!req.body.present&&new Date(a.ends_at||a.starts_at)>new Date()){await c.query('ROLLBACK');return bad(res,'ثبت عدم حضور فقط پس از پایان رویداد مجاز است',409);}
+  await c.query("INSERT INTO event_attendance(attendee_id,present,marked_by,marked_at) VALUES($1,$2,$3,now()) ON CONFLICT(attendee_id) DO UPDATE SET present=EXCLUDED.present,marked_by=EXCLUDED.marked_by,marked_at=now()",[a.id,req.body.present,req.user.id]);
+  if(a.is_account_owner&&req.body.present){
+   await c.query("UPDATE event_registrations SET status='attended' WHERE id=$1",[a.registration_id]);
+   if(Number(a.accepted_points)>0)await c.query("INSERT INTO points_ledger(user_id,amount,reason,reference_type,reference_id,idempotency_key,created_by) VALUES($1,$2,'حضور در رویداد','event_registration',$3,$4,$5) ON CONFLICT(idempotency_key) DO NOTHING",[a.user_id,a.accepted_points,a.registration_id,'event-attendance:'+a.registration_id,req.user.id]);
+  }else if(a.is_account_owner&&!req.body.present){
+   await c.query("UPDATE event_registrations SET status='absent' WHERE id=$1",[a.registration_id]);
+   const l=(await c.query("INSERT INTO points_ledger(user_id,amount,reason,reference_type,reference_id,idempotency_key,created_by) VALUES($1,-10,'عدم حضور در رویداد','event_registration',$2,$3,$4) ON CONFLICT(idempotency_key) DO NOTHING RETURNING id",[a.user_id,a.registration_id,'event-absence:'+a.registration_id,req.user.id])).rows[0];
+   if(l)await c.query("INSERT INTO event_penalties(registration_id,user_id,penalty_type,points_deducted,applied_ledger_id) VALUES($1,$2,'absence',10,$3) ON CONFLICT DO NOTHING",[a.registration_id,a.user_id,l.id]);
+  }
+  await c.query('COMMIT');await audit(req.user.id,'mark_attendance','event_attendees',a.id,{present:req.body.present});res.json({ok:true});
+ }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
+}));
+app.get('/api/admin/purchase-requests',auth,wrap(async(req,res)=>{
+ if(!await allowed(req.user.id,'catalog.manage'))return bad(res,'دسترسی ندارید',403);
+ const [b,s]=await Promise.all([
+  q("SELECT 'B-'||r.id id,r.status,r.quantity qty,r.unit_price_snapshot price,r.note,r.created_at,u.phone,p.display_name full_name,b.title FROM book_purchase_requests r JOIN users u ON u.id=r.user_id LEFT JOIN profiles p ON p.user_id=u.id JOIN books b ON b.id=r.book_id"),
+  q("SELECT 'S-'||r.id id,r.status,r.quantity qty,r.unit_price_snapshot price,r.note,r.created_at,u.phone,p.display_name full_name,x.name title FROM store_purchase_requests r JOIN users u ON u.id=r.user_id LEFT JOIN profiles p ON p.user_id=u.id JOIN store_products x ON x.id=r.product_id")
+ ]);
+ res.json([...b,...s].map(x=>({...x,status:({pending:'registered',approved:'confirmed',rejected:'cancelled',completed:'completed',cancelled:'cancelled'}[x.status]||'registered'),contact_phone:x.phone,items:[{title:x.title,qty:x.qty,price:x.price,note:x.note}]})).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)));
+}));
+app.put('/api/admin/purchase-requests/:id',auth,wrap(async(req,res)=>{
+ if(!await allowed(req.user.id,'catalog.manage'))return bad(res,'دسترسی ندارید',403);
+ const m=String(req.params.id).match(/^([BS])-(\d+)$/);if(!m)return bad(res,'شناسه نامعتبر است');
+ const ui=req.body.status,map={registered:'pending',reviewing:'pending',confirmed:'approved',awaiting_contact:'approved',ready:'approved',shipped:'approved',completed:'completed',cancelled:'cancelled'},st=ui?map[ui]:null;
+ if(ui&&!st)return bad(res,'وضعیت نامعتبر است');
+ const table=m[1]==='B'?'book_purchase_requests':'store_purchase_requests';
+ const x=await one('UPDATE '+table+' SET status=COALESCE($1,status),reviewed_by=CASE WHEN $1 IS NULL THEN reviewed_by ELSE $2 END,reviewed_at=CASE WHEN $1 IS NULL THEN reviewed_at ELSE now() END WHERE id=$3 RETURNING *',[st,req.user.id,m[2]]);
+ if(!x)return bad(res,'یافت نشد',404);await audit(req.user.id,'review',table,x.id,{status:st});res.json(x);
+}));
 
 app.use((err,req,res,next)=>{console.error(err);if(!res.headersSent)bad(res,'خطای داخلی سرور',500);});
 app.use(express.static(path.join(__dirname,'..','www')));
 const server=app.listen(Number(process.env.PORT)||3000,()=>console.log('Simorgh API listening'));
-function stop(){server.close(()=>pool.end(()=>process.exit(0)));}process.on('SIGTERM',stop);process.on('SIGINT',stop);
-+(i+1)).join(',')+') RETURNING *',vals);if(req.params.res==='events')await q('INSERT INTO event_rule_versions(event_id,version,rules_text,points_reward,created_by) VALUES($1,1,$2,0,$3)',[x.id,'قوانین رویداد طبق اطلاع‌رسانی مدیریت؛ امتیاز پس از ثبت حضور محاسبه می‌شود.',req.user.id]);await audit(req.user.id,'create',r.table,x.id,b);res.status(201).json(x);}));
-app.put('/api/admin/:res(menu|books|art|events)/:id',auth,wrap(async(req,res)=>{const r=resources[req.params.res];if(!await allowed(req.user.id,r.perm))return bad(res,'دسترسی ندارید',403);const cols=[],vals=[],b=req.body||{};for(const [k,col] of Object.entries(r.fields))if(Object.prototype.hasOwnProperty.call(b,k)){cols.push(col);vals.push(k==='active'?!!b[k]:b[k]===''?null:b[k]);}
- const catTable={menu:'cafe_categories',books:'book_categories',art:'store_categories'}[req.params.res];if(catTable&&b.category){const c=await one('INSERT INTO '+catTable+'(name) VALUES($1) ON CONFLICT(name) DO UPDATE SET name=EXCLUDED.name RETURNING id',[String(b.category).trim()]);cols.push('category_id');vals.push(c.id);}
- if(!cols.length)return bad(res,'اطلاعاتی ارسال نشده');vals.push(req.params.id);const x=await one('UPDATE '+r.table+' SET '+cols.map((c,i)=>c+'=$'+(i+1)).join(',')+',updated_at=now() WHERE id=$'+vals.length+' RETURNING *',vals);if(!x)return bad(res,'یافت نشد',404);await audit(req.user.id,'update',r.table,x.id,b);res.json(x);}));
-app.delete('/api/admin/:res(menu|books|art|events)/:id',auth,wrap(async(req,res)=>{const r=resources[req.params.res];if(!await allowed(req.user.id,r.perm))return bad(res,'دسترسی ندارید',403);const col={menu:'is_available',books:'availability',art:'is_active',events:'status'}[req.params.res],val={menu:false,books:'archived',art:false,events:'cancelled'}[req.params.res];const x=await one('UPDATE '+r.table+' SET '+col+'=$1,updated_at=now() WHERE id=$2 RETURNING id',[val,req.params.id]);if(!x)return bad(res,'یافت نشد',404);await audit(req.user.id,'deactivate',r.table,x.id);res.json({ok:true});}));
-app.get('/api/admin/loan-requests',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'loans.manage'))return bad(res,'دسترسی ندارید',403);res.json(await q("SELECT r.*,b.title book_title,p.display_name full_name,u.phone FROM loan_requests r JOIN books b ON b.id=r.book_id JOIN users u ON u.id=r.user_id LEFT JOIN profiles p ON p.user_id=u.id ORDER BY r.requested_at DESC"));}));
-app.put('/api/admin/loan-requests/:id',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'loans.manage'))return bad(res,'دسترسی ندارید',403);const st=req.body.status;if(!['approved','rejected'].includes(st))return bad(res,'وضعیت نامعتبر است');const x=await one("UPDATE loan_requests SET status=$1,reviewed_by=$2,reviewed_at=now() WHERE id=$3 AND status='pending' RETURNING *",[st,req.user.id,req.params.id]);if(!x)return bad(res,'درخواست قبلاً بررسی شده است',409);await notify(x.user_id,'درخواست امانت',st==='approved'?'درخواست امانت تأیید شد؛ برای تحویل هماهنگ کنید.':'درخواست امانت رد شد.','loan');await audit(req.user.id,'review','loan_requests',x.id,{status:st});res.json(x);}));
-app.get('/api/admin/book-requests',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'books.manage'))return bad(res,'دسترسی ندارید',403);res.json(await q("SELECT s.id,s.title book_title,s.author,s.description,s.status,s.created_at,p.display_name full_name,u.phone,NULL::text admin_note FROM book_suggestions s JOIN users u ON u.id=s.user_id LEFT JOIN profiles p ON p.user_id=u.id ORDER BY s.id DESC"));}));
-app.put('/api/admin/book-requests/:id',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'books.manage'))return bad(res,'دسترسی ندارید',403);const st={approved:'accepted',rejected:'rejected',pending:'pending'}[req.body.status];if(!st)return bad(res,'وضعیت نامعتبر است');const x=await one('UPDATE book_suggestions SET status=$1,reviewed_by=$2,reviewed_at=now() WHERE id=$3 RETURNING *',[st,req.user.id,req.params.id]);if(!x)return bad(res,'یافت نشد',404);await notify(x.user_id,'درخواست کتاب','نتیجه درخواست کتاب ثبت شد.','book_suggestion');await audit(req.user.id,'review','book_suggestions',x.id,{status:st});res.json({...x,book_title:x.title,admin_note:req.body.admin_note||null,status:req.body.status});}));
-app.get('/api/admin/events/:id/registrations',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'events.manage'))return bad(res,'دسترسی ندارید',403);res.json(await q("SELECT a.full_name,a.phone,a.created_at FROM event_attendees a JOIN event_registrations r ON r.id=a.registration_id WHERE r.event_id=$1 AND r.status='registered' ORDER BY a.id",[req.params.id]));}));
-app.get('/api/admin/purchase-requests',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'catalog.manage'))return bad(res,'دسترسی ندارید',403);const [b,s]=await Promise.all([q("SELECT 'B-'||r.id id,r.status,r.quantity qty,r.unit_price_snapshot price,r.note,r.created_at,u.phone,p.display_name full_name,b.title FROM book_purchase_requests r JOIN users u ON u.id=r.user_id LEFT JOIN profiles p ON p.user_id=u.id JOIN books b ON b.id=r.book_id"),q("SELECT 'S-'||r.id id,r.status,r.quantity qty,r.unit_price_snapshot price,r.note,r.created_at,u.phone,p.display_name full_name,x.name title FROM store_purchase_requests r JOIN users u ON u.id=r.user_id LEFT JOIN profiles p ON p.user_id=u.id JOIN store_products x ON x.id=r.product_id")]);res.json([...b,...s].map(x=>({...x,contact_phone:x.phone,items:[{title:x.title,qty:x.qty,price:x.price,note:x.note}]})).sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)));}));
-app.put('/api/admin/purchase-requests/:id',auth,wrap(async(req,res)=>{if(!await allowed(req.user.id,'catalog.manage'))return bad(res,'دسترسی ندارید',403);const m=String(req.params.id).match(/^([BS])-(\d+)$/);if(!m)return bad(res,'شناسه نامعتبر است');const st=req.body.status;if(st&&!['pending','approved','rejected','completed','cancelled'].includes(st))return bad(res,'وضعیت نامعتبر است');const table=m[1]==='B'?'book_purchase_requests':'store_purchase_requests';const x=await one('UPDATE '+table+' SET status=COALESCE($1,status),reviewed_by=CASE WHEN $1 IS NULL THEN reviewed_by ELSE $2 END,reviewed_at=CASE WHEN $1 IS NULL THEN reviewed_at ELSE now() END WHERE id=$3 RETURNING *',[st||null,req.user.id,m[2]]);if(!x)return bad(res,'یافت نشد',404);await audit(req.user.id,'review',table,x.id,{status:st||null});res.json(x);}));
-
-app.use((err,req,res,next)=>{console.error(err);if(!res.headersSent)bad(res,'خطای داخلی سرور',500);});
-const server=app.listen(Number(process.env.PORT)||3000,()=>console.log('Simorgh API listening'));
-function stop(){server.close(()=>pool.end(()=>process.exit(0)));}process.on('SIGTERM',stop);process.on('SIGINT',stop);
+function stop(){server.close(()=>pool.end(()=>process.exit(0)));}
+process.on('SIGTERM',stop);
+process.on('SIGINT',stop);
