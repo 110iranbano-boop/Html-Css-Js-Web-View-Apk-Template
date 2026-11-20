@@ -121,15 +121,32 @@ function showAuth(signup){
   <button class="btn o" onclick="showAuth(${!signup})">${signup?'حساب دارم، ورود':'حساب ندارم، ثبت‌نام'}</button>`;
 }
 async function doLogin(){
-  const phoneField=$('ap'),passwordField=$('aw');
-  if(!phoneField||!passwordField)return toast('فیلدهای ورود پیدا نشدند؛ صفحه را دوباره باز کنید');
-  const phone=latin(phoneField.value),password=passwordField.value;
-  if(!phone||!password)return toast('شماره همراه و رمز عبور را وارد کنید');
-  if(!/^09\d{9}$/.test(phone))return toast('شماره همراه باید ۱۱ رقم و با 09 شروع شود');
+  const phoneInput = document.getElementById('ap');
+  const passInput = document.getElementById('aw');
+  
+  if(!phoneInput || !passInput) {
+      alert("خطای فنی: فیلدهای ورودی پیدا نشدند!");
+      return;
+  }
+
+  const rawPhone = phoneInput.value;
+  const rawPass = passInput.value;
+
+  const phone = latin(rawPhone);
+  const password = rawPass;
+
+  if(!phone || !password) return toast('شماره و رمز عبور را وارد کنید');
+  
   const{ok,d}=await send('/login','POST',{phone,password});
-  if(!ok)return toast(d.error||'ورود انجام نشد');
-  if(!d.token||!d.user)return toast('پاسخ سرور برای ورود معتبر نیست');
+  
+  if(!ok) {
+      // این خط را تغییر دادیم تا دقیقاً جواب سرور را ببینیم
+      alert("خطای سرور: " + (d.error || JSON.stringify(d) || "خطای ناشناخته"));
+      return;
+  }
+  
   localStorage.setItem('token',d.token);localStorage.setItem('user',JSON.stringify(d.user));boot();
+}
 }
 async function doSignup(){
   const nameField=$('an'),phoneField=$('ap'),passwordField=$('aw');
