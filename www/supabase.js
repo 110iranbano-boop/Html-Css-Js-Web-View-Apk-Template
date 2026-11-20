@@ -240,17 +240,19 @@
       if(res==="menu"){table="cafe_products";payload={name:body.name,description:body.description||null,price_toman:Number(body.price)||0,image_path:body.image_url||null,is_available:true,sort_order:Number(body.sort)||0,category_id:await categoryId("cafe_categories",body.category)};}
       if(res==="books"){table="books";payload={title:body.title,author:body.author||null,description:body.description||null,sale_price_toman:body.type==="sale"||body.type==="both"?Number(body.price)||0:null,book_type:body.type==="sale"?"sale":body.type==="both"?"both":"loan",available_copies:1,total_copies:1,cover_path:body.image_url||null,is_active:true};}
       if(res==="art"){table="store_products";payload={name:body.name,description:body.description||null,price_toman:Number(body.price)||0,image_path:body.image_url||null,is_available:true,category_id:await categoryId("store_categories",body.category)};}
-      if(res==="events"){table="events";payload={title:body.title,description:body.description||null,starts_at:body.event_date||null,event_type:body.event_type||"timed",capacity_people:body.capacity?Number(body.capacity):null,is_registration_open:!!body.registration_open,poster_path:body.image_url||null,status:"published"};}
+      if(res==="events"){table="events";payload={title:body.title,description:body.description||null,starts_at:body.event_date||null,location:body.location||null,event_type:body.event_type||"timed",capacity_people:body.capacity?Number(body.capacity):null,required_teammates:Number(body.required_teammates)||0,points_on_registration:Number(body.points_on_registration)||0,points_on_attendance:Number(body.points_on_attendance)||0,award_points_when:body.award_points_when||"disabled",rules_text:body.rules_text||null,is_registration_open:body.event_type==="weekly"?false:!!body.registration_open,poster_path:body.image_url||null,status:"published"};}
       if(id){const {data,error}=await sb.from(table).update(payload).eq("id",id).select().single();if(error)throw error;return ok(data);}
       return ok(await single(table,payload));
     }
     if(p==="/admin/events/registrations"&&method==="GET") return ok([]);
+    m=p.match(/^\/admin\/event-attendance\/([^/]+)$/);
+    if(m&&method==="PUT"){const {data,error}=await sb.rpc("mark_event_attendance",{p_registration_person_id:m[1],p_attendance_status:body.status,p_notes:body.notes||null});if(error)throw error;return ok(data);}
     m=p.match(/^\/admin\/books\/(.+)\/return$/);
     if(m&&method==="PUT"){const {data,error}=await sb.rpc("return_book",{p_loan_id:m[1]});if(error)throw error;return ok(data);}
 
     m=p.match(/^\/admin\/events\/(\d+)\/registrations$/);
     if(m&&method==="GET"){
-      const {data,error}=await sb.from("event_registrations").select("*,profile:profiles(display_name),people:event_registration_people(full_name,phone,person_role)").eq("event_id",Number(m[1])).order("created_at",{ascending:true});
+      const {data,error}=await sb.from("event_registrations").select("*,people:event_registration_people(id,full_name,phone,person_role)").eq("event_id",Number(m[1])).order("created_at",{ascending:true});
       if(error)throw error;return ok((data||[]).map(x=>({full_name:x.registrant_name,phone:x.registrant_phone,people:x.people||[]})));
     }
     if(p==="/admin/forum-topics"&&method==="GET"){
