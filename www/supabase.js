@@ -148,7 +148,7 @@
       ]);
       if(ev.error) throw ev.error;if(reg.error) throw reg.error;if(counts.error) throw counts.error;
       const regs=reg.data||[],countMap=Object.fromEntries((counts.data||[]).map(x=>[x.event_id,x.registered_people]));
-      const mapped=(ev.data||[]).map(e=>({id:e.id,title:e.title,description:e.description,event_date:e.starts_at,image_url:e.poster_path,location:e.location||"",capacity:e.capacity_people,required_teammates:e.required_teammates,event_type:e.event_type,registration_open:e.event_type==="timed"&&e.is_registration_open,mine:regs.some(r=>r.event_id===e.id&&r.status==="registered"),registered:countMap[e.id]||0,points:e.points_on_registration,rules_text:e.rules_text}));
+      const mapped=(ev.data||[]).map(e=>({id:e.id,title:e.title,description:e.description,event_date:e.starts_at,image_url:e.poster_path,location:e.location||"",capacity:e.capacity_people,required_teammates:e.required_teammates,event_type:e.event_type,registration_open:e.event_type==="timed"&&e.is_registration_open,mine:regs.some(r=>r.event_id===e.id&&r.status==="registered"),registered:countMap[e.id]||0,points:e.award_points_when==="registration"?e.points_on_registration:e.award_points_when==="attendance"?e.points_on_attendance:0,rules_text:e.rules_text}));
       return ok(mapped);
     }
     const regMatch=p.match(/^\/events\/(\d+)\/register$/);
