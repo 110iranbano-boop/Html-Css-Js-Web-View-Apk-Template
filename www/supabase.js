@@ -110,7 +110,7 @@
     }
     if(p==="/books"&&method==="GET"){
       const data=await rows("books","*,category:book_categories(name)");
-      return ok(data.filter(x=>x.is_active).map(x=>({id:x.id,title:x.title,author:x.author,description:x.description,category:x.category?.name||"",type:x.book_type==="both"?"sale":x.book_type,status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path})));
+      return ok(data.filter(x=>x.is_active).flatMap(x=>{const base={id:x.id,title:x.title,author:x.author,description:x.description,category:x.category?.name||"",status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path};return x.book_type==="both"?[{...base,type:"sale"},{...base,type:"loan"}]:[{...base,type:x.book_type}]}));
     }
     if(p==="/loan-requests/my"&&method==="GET"){
       const [reqs,loans]=await Promise.all([
@@ -257,7 +257,7 @@
     if(p==="/admin/bookCats"&&method==="GET") return ok((await rows("book_categories")).map(x=>({...x,image_url:x.image_path,active:x.is_active,sort:x.sort_order})));
     if(p==="/admin/storeCats"&&method==="GET") return ok((await rows("store_categories")).map(x=>({...x,image_url:x.image_path,active:x.is_active,sort:x.sort_order})));
     if(p==="/admin/events"&&method==="GET") return ok((await rows("events")).map(x=>({...x,event_date:x.starts_at,capacity:x.capacity_people,registration_open:x.is_registration_open,image_url:x.poster_path,active:x.status==="published"})));
-    if(p==="/admin/books"&&method==="GET") return ok((await rows("books")).map(x=>({...x,type:x.book_type==="both"?"sale":x.book_type,status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path,active:x.is_active})));
+    if(p==="/admin/books"&&method==="GET") return ok((await rows("books")).map(x=>({...x,type:x.book_type,status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path,active:x.is_active})));
     if(p==="/admin/menu"&&method==="GET") return ok((await rows("cafe_products","*,category:cafe_categories(name)")).map(x=>({...x,category:x.category?.name||"",price:x.price_toman,image_url:x.image_path,active:x.is_available})));
     if(p==="/admin/art"&&method==="GET") return ok((await rows("store_products","*,category:store_categories(name)")).map(x=>({...x,category:x.category?.name||"",price:x.price_toman,image_url:x.image_path,active:x.is_available,stock_status:x.stock_status||"in_stock",allow_custom:!!x.allow_custom})));
     m=p.match(/^\/admin\/(menu|books|art|events|cafeCats|bookCats|storeCats)(?:\/(\d+))?$/);
