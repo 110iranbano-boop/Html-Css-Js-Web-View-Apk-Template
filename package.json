@@ -2,12 +2,11 @@
   "name": "simorgh-cafe-app",
   "version": "1.0.0",
   "private": true,
-  "description": "کافه کتاب سیمرغ — اپ اندروید (Capacitor) + سرور Express",
+  "description": "کافه‌کتاب سیمرغ — اپ اندروید (Capacitor) متصل به Supabase",
   "scripts": {
     "android:add": "cap add android",
     "android:sync": "cap sync android",
-    "android:apk": "cd android && ./gradlew assembleDebug",
-    "start": "npm --prefix server start"
+    "android:apk": "cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",
