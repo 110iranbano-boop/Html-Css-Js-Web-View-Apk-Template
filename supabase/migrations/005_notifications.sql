@@ -7,7 +7,7 @@ language plpgsql
 security definer
 set search_path = public, auth
 as $$
-declare v_title text; v_body text; v_kind text;
+declare v_title text; v_body text; v_kind text; v_user uuid;
 begin
   if tg_table_name='book_requests' and new.status is distinct from old.status then
     v_title := case when new.request_type='borrow' then 'وضعیت درخواست امانت' else 'وضعیت درخواست کتاب' end;
@@ -32,11 +32,11 @@ begin
     insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
     values(new.user_id,v_title,v_body,'purchase_request','purchase_request',new.id::text);
   elsif tg_table_name='loan_extensions' and new.status is distinct from old.status then
-    select user_id into v_title from public.book_loans where id=new.loan_id;
+    select user_id into v_user from public.book_loans where id=new.loan_id;
     v_body := case when new.status='approved' then 'درخواست تمدید امانت شما تأیید شد و یک هفته به مهلت تحویل اضافه شد.'
                    else coalesce(new.admin_note,'درخواست تمدید امانت شما رد شد.') end;
     insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
-    values(v_title,'نتیجه درخواست تمدید',v_body,'loan_extension','loan_extension',new.id::text);
+    values(v_user,'نتیجه درخواست تمدید',v_body,'loan_extension','loan_extension',new.id::text);
   end if;
   return new;
 end;
