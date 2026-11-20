@@ -199,19 +199,19 @@ async cafe(){
   /* کافه فقط نمایش منو است؛ سفارش‌گیری تعریف نشده است */
 },
 async library(){
-  const[b,l]=await Promise.all([api('/books'),api('/loan-requests/my')]);
+  const[b,l,c]=await Promise.all([api('/books'),api('/loan-requests/my'),api('/book-categories')]);
   if(!b.ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
-  cache.books=b.d;const pend=new Set((l.ok?l.d:[]).filter(x=>x.status==='pending').map(x=>x.book_id));
+  cache.books=b.d;cache.bookCats=c.ok?c.d:[];const pend=new Set((l.ok?l.d:[]).filter(x=>x.status==='pending').map(x=>x.book_id));
   const T=[['sale','فروش کتاب'],['loan','امانی'],['request','درخواست کتاب']];
   let body='';
-  if(libTab==='sale')body=b.d.filter(x=>x.type==='sale').map(x=>`<div class="card"><div class="row"><h3>${esc(x.title)}</h3><span class="price">${money(x.price)}</span></div><p>${esc(x.author||'')}${x.category?' · '+esc(x.category):''}</p>${x.description?`<p>${esc(x.description)}</p>`:''}<button class="btn s" onclick="addCart('book',${x.id})">افزودن به سبد</button></div>`).join('')||'<div class="empty">کتابی برای فروش ثبت نشده است</div>';
-  if(libTab==='loan')body=b.d.filter(x=>x.type==='loan').map(x=>`<div class="card"><h3>${esc(x.title)}</h3><p>${esc(x.author||'')}</p>${x.description?`<p>${esc(x.description)}</p>`:''}${x.status!=='available'?badge('امانت داده شده','no'):pend.has(x.id)?badge('درخواست شما در حال بررسی است'):`<button class="btn s" onclick="reqLoan(${x.id})">درخواست امانت</button>`}</div>`).join('')||'<div class="empty">کتاب امانی ثبت نشده است</div>';
+  if(libTab==='sale')body=b.d.filter(x=>x.type==='sale'&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<div class="row"><h3>${esc(x.title)}</h3><span class="price">${money(x.price)}</span></div><p>${esc(x.author||'')}${x.category?' · '+esc(x.category):''}</p>${x.description?`<p>${esc(x.description)}</p>`:''}<button class="btn s" onclick="addCart('book',${x.id})">افزودن به سبد</button></div>`).join('')||'<div class="empty">کتابی برای فروش ثبت نشده است</div>';
+  if(libTab==='loan')body=b.d.filter(x=>x.type==='loan'&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<h3>${esc(x.title)}</h3><p>${esc(x.author||'')}</p>${x.description?`<p>${esc(x.description)}</p>`:''}${x.status!=='available'?badge('امانت داده شده','no'):pend.has(x.id)?badge('درخواست شما در حال بررسی است'):`<button class="btn s" onclick="reqLoan(${x.id})">درخواست امانت</button>`}</div>`).join('')||'<div class="empty">کتاب امانی ثبت نشده است</div>';
   if(libTab==='request'){
     const r=await api('/book-requests/my');
     body=`<div class="card"><h3>کتابی می‌خواهید که در سیمرغ نیست؟</h3><label>عنوان کتاب</label><input id="rt"><label>نویسنده یا ناشر (اختیاری)</label><input id="ra"><label>توضیح (اختیاری)</label><textarea id="rd" rows="2"></textarea><button class="btn" onclick="sendBookReq()">ارسال درخواست</button></div>
     <div class="sec">درخواست‌های کتاب من</div>`+((r.ok?r.d:[]).map(x=>`<div class="card"><h3>${esc(x.book_title)}</h3><p>${esc(x.author||'')}</p>${gb(x.status)}${x.admin_note?`<p>پاسخ مدیریت: ${esc(x.admin_note)}</p>`:''}</div>`).join('')||'<div class="empty">هنوز درخواستی ثبت نکرده‌اید</div>');
   }
-  $('main').innerHTML=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===libTab?'on':''}" onclick="go('library','${k}')">${t}</button>`).join('')}</div>`+body;
+  $('main').innerHTML=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===libTab?'on':''}" onclick="cache.bookCat='';go('library','${k}')">${t}</button>`).join('')}</div>`+(libTab!=='request'?`<div class="tabs"><button class="${!cache.bookCat?'on':''}" onclick="cache.bookCat='';go('library')">همه موضوعات</button>${cache.bookCats.map(c=>`<button class="${cache.bookCat===c.name?'on':''}" onclick="cache.bookCat='${esc(c.name).replace(/'/g,'')}';go('library')">${esc(c.name)}</button>`).join('')}</div>`:'')+body;
 },
 async events(){
   const{ok,d}=await api('/events');if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';cache.events=d;
