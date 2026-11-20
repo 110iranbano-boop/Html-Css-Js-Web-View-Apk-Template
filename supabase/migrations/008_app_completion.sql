@@ -227,6 +227,7 @@ as $$
 declare
   x public.loan_extensions%rowtype;
   l public.book_loans%rowtype;
+  v_previous_due timestamptz;
 begin
   if not (public.is_super_admin() or public.has_permission('library.manage','update')) then raise exception 'دسترسی ندارید'; end if;
   select * into x from public.loan_extensions where id=p_extension_id for update;
@@ -234,9 +235,14 @@ begin
   select * into l from public.book_loans where id=x.loan_id for update;
   if not found or l.status not in ('active','overdue') then raise exception 'امانت فعال نیست'; end if;
   if p_approve then
-    update public.book_loans set current_due_at=current_due_at+interval '7 days',status='active' where id=l.id returning * into l;
+    v_previous_due:=l.current_due_at;
+    update public.book_loans
+      set current_due_at=v_previous_due+interval '7 days',
+          status=case when v_previous_due+interval '7 days'>now() then 'active' else 'overdue' end,
+          updated_at=now()
+      where id=l.id returning * into l;
     update public.loan_extensions set status='approved',decided_by=auth.uid(),decided_at=now(),
-      previous_due_at=l.current_due_at,new_due_at=l.current_due_at,admin_note=p_admin_note where id=x.id;
+      previous_due_at=v_previous_due,new_due_at=l.current_due_at,admin_note=p_admin_note where id=x.id;
   else
     update public.loan_extensions set status='rejected',decided_by=auth.uid(),decided_at=now(),admin_note=p_admin_note where id=x.id;
   end if;
