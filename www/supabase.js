@@ -172,7 +172,7 @@
           inserts.push({user_id:uid,store_product_id:data.id,item_name_snapshot:data.name,unit_price_toman_snapshot:data.price_toman||0,quantity:Math.max(1,Number(item.qty)||1),status:"pending"});
         }
       }
-      const {error}=for(const row of inserts){row.contact_phone=phone;row.note=body.note||null;}\n      const {error}=await sb.from("purchase_requests").insert(inserts);if(error)throw error;
+      for(const row of inserts){row.contact_phone=phone;row.note=body.note||null;}\n      const {error}=await sb.from("purchase_requests").insert(inserts);if(error)throw error;
       return ok({ok:true});
     }
     if(p==="/notifications"&&method==="GET"){
