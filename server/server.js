@@ -188,7 +188,7 @@ app.post('/api/purchase-requests',auth,run(async(req,res)=>{
       row=await result(adminClient.from('store_products').select('*').eq('id',it.id).eq('is_available',true).single());
       storeId=row.id;name=row.name;price=row.price_toman;
     }
-    const pr=const pr=await result(adminClient.from('purchase_requests').insert({user_id:req.user.id,book_id:bookId,store_product_id:storeId,item_name_snapshot:name,unit_price_toman_snapshot:price,quantity:qty}).select().single());
+    const pr=await result(adminClient.from('purchase_requests').insert({user_id:req.user.id,book_id:bookId,store_product_id:storeId,item_name_snapshot:name,unit_price_toman_snapshot:price,quantity:qty}).select().single());
     created.push(pr);
   }
   await notify(req.user.id,'درخواست خرید ثبت شد','درخواست خرید حضوری شما ثبت شد؛ مدیریت برای هماهنگی تماس می‌گیرد.');
@@ -251,8 +251,7 @@ app.put('/api/admin/:res(menu|books|art|events)/:id',auth,run(async(req,res)=>{
   const data={};for(const [old,key] of Object.entries(c.fields))if(old in req.body)data[key]=req.body[old]===''?null:req.body[old];
   if(req.body.category && ['menu','books','art'].includes(req.params.res)){
     const table=req.params.res==='menu'?'cafe_categories':req.params.res==='books'?'book_categories':'store_categories';
-    const cat=await result(adminClient.from(table).upsert({name:String(req.body.category).trim()},{onConflict:'name'}).select('id').single());
-    data.category_id=cat.id;
+    data.category_id=await categoryId(table,req.body.category);
   }
   if(req.params.res==='books' && 'status' in req.body){const b=await result(adminClient.from('books').select('total_copies').eq('id',req.params.id).single());data.available_copies=req.body.status==='loaned'?0:b.total_copies;}
   if(req.params.res==='art' && req.body.stock_status)data.stock_status=req.body.stock_status;
