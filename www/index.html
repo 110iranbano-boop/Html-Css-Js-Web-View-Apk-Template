@@ -279,7 +279,7 @@ async admin(){
     <button class="btn o s" onclick="admForm('${admTab}',${i.id})">ویرایش</button> ${admTab==='books'&&i.type==='loan'&&i.status==='loaned'?`<button class="btn s" onclick="send('/admin/books/${i.id}/return','PUT').then(()=>go('admin'))">ثبت بازگشت</button>`:''}
     ${admTab==='events'?`<button class="btn o s" onclick="regs(${i.id})">ثبت‌نام‌شده‌ها</button>`:''} ${i.active?`<button class="btn r s" onclick="admOff('${admTab}',${i.id})">غیرفعال</button>`:''}</div>`).join('')}
   $('main').innerHTML=head+body;
-  } catch(e) { $('main').innerHTML=head+`<div class="empty">خطا در دریافت اطلاعات: ${esc(e.message||'خطای نامشخص')}<br><button class="btn s" onclick="go('admin')">تلاش دوباره</button></div>`; }
+  } catch(e) { $('main').innerHTML=`<div class="empty">خطا در دریافت اطلاعات: ${esc(e.message||'خطای نامشخص')}<br><button class="btn s" onclick="go('admin')">تلاش دوباره</button></div>`; }
 }};
 
 /* ---------- عملیات ---------- */
