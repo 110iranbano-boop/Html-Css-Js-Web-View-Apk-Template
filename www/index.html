@@ -133,7 +133,30 @@ async function doSignup(){
   if(!ok)return toast(d.error||'ثبت‌نام انجام نشد');
   toast('حساب ساخته شد. وارد شوید');showAuth(false);
 }
-function logout(expired){localStorage.removeItem('token');localStorage.removeItem('user');U=null;cache={};if(expired)toast('نشست تمام شد، دوباره وارد شوید');showAuth(false)}
+async function doLogin(){
+  const phoneInput = document.getElementById('ap');
+  const passInput = document.getElementById('aw');
+  
+  if(!phoneInput || !passInput) {
+      alert("خطای فنی: فیلدهای ورودی پیدا نشدند!");
+      return;
+  }
+
+  const rawPhone = phoneInput.value;
+  const rawPass = passInput.value;
+
+  // این خط یک پنجره باز می‌کند تا ببینیم اپلیکیشن دقیقا چه چیزی را خوانده است
+  alert("شماره: [" + rawPhone + "]\nرمز: [" + rawPass + "]");
+
+  const phone = latin(rawPhone);
+  const password = rawPass;
+
+  if(!phone || !password) return toast('شماره و رمز عبور را وارد کنید');
+  
+  const{ok,d}=await send('/login','POST',{phone,password});
+  if(!ok)return toast(d.error||'ورود انجام نشد');
+  localStorage.setItem('token',d.token);localStorage.setItem('user',JSON.stringify(d.user));boot();
+}
 
 /* ---------- راه‌اندازی و ناوبری ---------- */
 function boot(){
