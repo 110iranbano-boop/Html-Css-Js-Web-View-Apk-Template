@@ -97,6 +97,7 @@ app.post('/api/loan-requests',auth,wrap(async(req,res)=>{
  const b=await one("SELECT id FROM books WHERE id=$1 AND availability='available' AND book_type IN ('loan','both')",[id]);
  if(!b)return bad(res,'کتاب امانی در دسترس نیست',404);
  if(await one("SELECT id FROM loans WHERE user_id=$1 AND status IN ('active','overdue')",[req.user.id]))return bad(res,'ابتدا امانت قبلی را بازگردانید',409);
+ if(await one("SELECT id FROM loan_requests WHERE user_id=$1 AND book_id=$2 AND status IN ('pending','approved')",[req.user.id,id]))return bad(res,'برای این کتاب درخواست فعالی دارید',409);
  await q('INSERT INTO loan_requests(user_id,book_id) VALUES($1,$2)',[req.user.id,id]);res.status(201).json({ok:true});
 }));
 app.get('/api/loan-requests/my',auth,wrap(async(req,res)=>res.json(await q('SELECT r.*,b.title book_title FROM loan_requests r JOIN books b ON b.id=r.book_id WHERE r.user_id=$1 ORDER BY r.requested_at DESC',[req.user.id]))));
