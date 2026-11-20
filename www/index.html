@@ -283,7 +283,7 @@ async notifs(){
   if(ok&&d.some(n=>!n.is_read)){await send('/notifications/read','PUT');refreshBadges()}
 },
 async admin(){
-  const T=[['purchase','خرید'],['loan','امانت'],['breq','درخواست کتاب'],['menu','منوی کافه'],['books','کتاب‌ها'],['art','فروشگاه'],['events','رویدادها'],['users','کاربران']];
+  const T=[['purchase','خرید'],['loan','امانت'],['breq','درخواست کتاب'],['menu','منوی کافه'],['books','کتاب‌ها'],['art','فروشگاه'],['events','رویدادها'],['users','کاربران'],['cafeCats','دسته کافه'],['bookCats','دسته کتاب'],['storeCats','دسته فروشگاه']];
   const head=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===admTab?'on':''}" onclick="admTab='${k}';go('admin')">${t}</button>`).join('')}</div>`;
   let body='';
   if(admTab==='purchase'){const{d=[]}=await api('/admin/purchase-requests');
@@ -294,6 +294,12 @@ async admin(){
   else if(admTab==='loan'){const{d=[]}=await api('/admin/loan-requests');
     body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt(${r.id},'approved')">تأیید</button> <button class="btn r s" onclick="loanSt(${r.id},'rejected')">رد</button>`:gb(r.status)}</div>`).join('')+
     `<div class="sec">بازگشت کتاب</div><p class="sub">برای ثبت بازگشت کتاب، تب «کتاب‌ها» را باز کنید.</p>`||'';}
+  else if(['cafeCats','bookCats','storeCats'].includes(admTab)){
+    const kind={cafeCats:'cafe',bookCats:'books',storeCats:'store'}[admTab];
+    const{ok,d=[]}=await api('/admin/categories/'+kind);
+    body=`<button class="btn" onclick="categoryForm('${kind}')">+ افزودن دسته</button>`+(ok?d.map(x=>`<div class="card"><h3>${esc(x.name)}</h3>${x.image_path?img(x.image_path,'🗂️'):''}<p>${esc(x.description||'')}</p><button class="btn o s" onclick="categoryForm('${kind}',${x.id})">ویرایش</button> ${x.is_active?`<button class="btn r s" onclick="send('/admin/categories/${kind}/${x.id}','DELETE').then(()=>go('admin'))">غیرفعال</button>`:badge('غیرفعال','no')}</div>`).join(''):'<div class="empty">دسته‌ها بارگذاری نشدند</div>');
+    cache['cats_'+kind]=d;
+  }
   else if(admTab==='users'){
     const{ok,d=[]}=await api('/admin/users');
     body=ok?d.map(u=>`<div class="card"><div class="row"><h3>${esc(u.full_name||'عضو')}</h3>${badge(u.role==='admin'?'مدیر':'عضو')}${u.is_suspended?badge('تعلیق','no'):''}</div><p>${esc(u.phone)}</p>
@@ -402,6 +408,17 @@ async function sendComment(topicId,parentId,reply=false){
   const {ok,d}=await send('/forum/topics/'+topicId+'/comments','POST',{body,parent_id:parentId});
   if(!ok)return toast(d.error||'ارسال نظر انجام نشد');
   toast('نظر ثبت شد');openTopic(topicId);
+}
+function categoryForm(kind,id){
+  const old=(cache['cats_'+kind]||[]).find(x=>String(x.id)===String(id))||{};
+  openM(`<h3 style="color:var(--gold2)">${id?'ویرایش':'افزودن'} دسته</h3><label>نام دسته</label><input id="catName" value="${esc(old.name||'')}"><label>آدرس تصویر</label><input id="catImage" value="${esc(old.image_path||'')}"><label>توضیحات</label><textarea id="catDesc" rows="2">${esc(old.description||'')}</textarea><label>ترتیب نمایش</label><input id="catSort" inputmode="numeric" value="${old.sort_order??0}"><button class="btn" onclick="saveCategory('${kind}',${id||0})">ذخیره</button><button class="btn o" onclick="closeM()">انصراف</button>`);
+}
+async function saveCategory(kind,id){
+  const body={name:$('catName').value.trim(),image_path:$('catImage').value.trim(),description:$('catDesc').value.trim(),sort_order:Number(latin($('catSort').value)||0),is_active:true};
+  if(!body.name)return toast('نام دسته را وارد کنید');
+  const {ok,d}=await send(id?`/admin/categories/${kind}/${id}`:`/admin/categories/${kind}`,id?'PUT':'POST',body);
+  if(!ok)return toast(d.error||'ذخیره نشد');
+  closeM();toast('دسته ذخیره شد');go('admin');
 }
 R.forum=forumPage;
 
