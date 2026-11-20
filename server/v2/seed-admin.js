@@ -10,7 +10,7 @@ const pool=new Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.D
 (async()=>{try{
  const hash=await bcrypt.hash(password,12); const client=await pool.connect();
  try{await client.query('BEGIN');
- const q='INSERT INTO users(phone,password_hash,role) VALUES($1,$2,$3) ON CONFLICT(phone) DO UPDATE SET role=$3,updated_at=now() RETURNING id';
+ const q='INSERT INTO users(phone,password_hash,role) VALUES($1,$2,$3) ON CONFLICT(phone) DO UPDATE SET password_hash=EXCLUDED.password_hash,role=EXCLUDED.role,updated_at=now() RETURNING id';
  const r=await client.query(q,[phone,hash,'admin']);
  await client.query("INSERT INTO profiles(user_id,display_name) VALUES($1,'مدیر سیمرغ') ON CONFLICT(user_id) DO NOTHING",[r.rows[0].id]);
  await client.query('COMMIT'); console.log('Administrator seeded; password was not displayed.');
