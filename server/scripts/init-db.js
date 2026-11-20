@@ -1,20 +1,5 @@
-require('dotenv').config();
-const fs = require('fs');
-const path = require('path');
-const { Pool } = require('pg');
-
-(async () => {
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false,
-  });
-  try {
-    await pool.query(fs.readFileSync(path.join(__dirname, '..', 'schema.sql'), 'utf8'));
-    console.log('✅ جدول‌ها آماده شدند');
-  } catch (e) {
-    console.error('❌', e.message);
-    process.exitCode = 1;
-  } finally {
-    await pool.end();
-  }
-})();
+// این مخزن به دیتابیس از قبل ساخته‌شده متصل می‌شود.
+// schema.sql موجود متعلق به نسخه قدیمی است و نباید روی دیتابیس جدید اجرا شود.
+console.error('اجرای db:init غیرفعال است: ساختار دیتابیس سیمرغ از قبل در PostgreSQL ایجاد شده است.');
+console.error('برای جلوگیری از ایجاد جداول قدیمی، این دستور عمداً هیچ تغییری در دیتابیس نمی‌دهد.');
+process.exitCode=1;
