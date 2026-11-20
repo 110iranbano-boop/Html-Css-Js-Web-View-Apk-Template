@@ -93,6 +93,13 @@ app.post('/api/login',run(async(req,res)=>{
   const user=await userView(data.user);
   res.json({token:data.session.access_token,user});
 }));
+app.post('/api/refresh',run(async(req,res)=>{
+  const refresh_token=String(req.body.refresh_token||'');
+  if(!refresh_token)return fail(res,'نشست منقضی شده است',401);
+  const {data,error}=await authClient.auth.refreshSession({refresh_token});
+  if(error||!data.session)return fail(res,'نشست منقضی شده است؛ دوباره وارد شوید',401);
+  res.json({token:data.session.access_token,refresh_token:data.session.refresh_token});
+}));
 app.get('/api/profile',auth,run(async(req,res)=>res.json(await userView(req.user))));
 app.put('/api/profile',auth,run(async(req,res)=>{
   const name=String(req.body.full_name||'').trim(); if(!name)return fail(res,'نام را وارد کنید');
