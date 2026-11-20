@@ -9,7 +9,7 @@ set search_path = public, auth
 as $$
 declare v_title text; v_body text; v_kind text; v_user uuid;
 begin
-  if tg_table_name='book_requests' and new.status is distinct from old.status then
+  if tg_table_name='book_requests' and new.request_type<>'borrow' and new.status is distinct from old.status then
     v_title := case when new.request_type='borrow' then 'وضعیت درخواست امانت' else 'وضعیت درخواست کتاب' end;
     v_body := case new.status
       when 'approved' then 'درخواست شما تأیید شد.'
