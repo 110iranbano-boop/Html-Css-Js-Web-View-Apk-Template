@@ -10,6 +10,9 @@ alter table public.purchase_requests add column if not exists note text;
 alter table public.purchase_requests add column if not exists final_price_toman bigint;
 alter table public.notifications add column if not exists read_at timestamptz;
 alter table public.events add column if not exists location text;
+alter table public.purchase_requests drop constraint if exists purchase_requests_status_check;
+alter table public.purchase_requests add constraint purchase_requests_status_check
+  check (status in ('pending','registered','reviewing','approved','confirmed','awaiting_contact','ready','shipped','rejected','completed','cancelled'));
 
 -- Keep profile phone and display name in sync with Supabase Auth.
 create or replace function public.handle_new_user()
