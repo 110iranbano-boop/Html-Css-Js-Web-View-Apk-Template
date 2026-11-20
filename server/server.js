@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
-const wrap = f => (req, res) => f(req, res).catch(e => { console.error(e); res.status(500).json({ error: 'خطای سرور' }); });
+const wrap = f => (req, res, next) => Promise.resolve(f(req, res, next)).catch(e => { console.error(e); if (res.headersSent) return next(e); res.status(500).json({ error: 'خطای سرور' }); });
 const bad = (res, msg, code = 400) => res.status(code).json({ error: msg });
 const digits = s => String(s ?? '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim();
 const validPhone = p => /^09\d{9}$/.test(p);

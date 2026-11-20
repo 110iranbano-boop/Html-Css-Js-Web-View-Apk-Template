@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+      - fix/admin-loading-and-middleware
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -29,6 +33,19 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Check inline JavaScript syntax
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('www/index.html', 'utf8');
+          const scripts = [...html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)];
+          if (!scripts.length) throw new Error('No inline scripts found');
+          scripts.forEach((match, index) => {
+            new Function(match[1]);
+            console.log(`Inline script ${index + 1}: OK`);
+          });
+          NODE
 
       - name: Add Android platform
         run: npx cap add android
