@@ -122,6 +122,12 @@
       const {data,error}=await sb.rpc("request_book_loan",{p_book_id:Number(body.book_id),p_amount_toman:amount});
       if(error) throw error; return ok({id:data});
     }
+    if(p==="/loan-extensions/my"&&method==="GET"){
+      const {data,error}=await sb.from("loan_extensions").select("*,loan:book_loans(id,book_id,current_due_at,returned_at,book:books(title))").order("requested_at",{ascending:false});if(error)throw error;return ok(data||[]);
+    }
+    if(p==="/loan-extensions"&&method==="POST"){
+      const {data,error}=await sb.from("loan_extensions").insert({loan_id:body.loan_id,status:"pending"}).select().single();if(error)throw error;return ok(data);
+    }
     if(p==="/book-requests/my"&&method==="GET"){
       const {data,error}=await sb.from("book_requests").select("*").eq("user_id",uid).in("request_type",["suggestion","acquisition"]).order("created_at",{ascending:false});
       if(error) throw error;
@@ -212,6 +218,20 @@
       const {data,error}=await sb.rpc("review_book_loan_request",{p_request_id:m[1],p_approve:body.status==="approved",p_admin_note:body.admin_note||null});
       if(error)throw error;return ok({id:data});
     }
+    if(p==="/admin/loan-extensions"&&method==="GET"){
+      const {data,error}=await sb.from("loan_extensions").select("*,loan:book_loans(id,user_id,book:books(title))").order("requested_at",{ascending:false});if(error)throw error;
+      const ids=[...new Set((data||[]).map(x=>x.loan?.user_id).filter(Boolean))];const {data:profiles,error:pe}=ids.length?await sb.from("profiles").select("id,display_name,phone").in("id",ids):{data:[],error:null};if(pe)throw pe;const pm=Object.fromEntries((profiles||[]).map(x=>[x.id,x]));
+      return ok((data||[]).map(x=>({...x,full_name:pm[x.loan?.user_id]?.display_name||"",phone:pm[x.loan?.user_id]?.phone||"",book_title:x.loan?.book?.title||""})));
+    }
+    m=p.match(/^\/admin\/loan-extensions\/([^/]+)$/);
+    if(m&&method==="PUT"){const {data,error}=await sb.rpc("review_loan_extension",{p_extension_id:m[1],p_approve:body.status==="approved",p_admin_note:body.admin_note||null});if(error)throw error;return ok(data);}
+    if(p==="/admin/fines"&&method==="GET"){
+      const {data,error}=await sb.from("book_fines").select("*,loan:book_loans(book:books(title))").eq("status","open").order("fine_date",{ascending:false});if(error)throw error;
+      const ids=[...new Set((data||[]).map(x=>x.user_id))];const {data:profiles,error:pe}=ids.length?await sb.from("profiles").select("id,display_name,phone").in("id",ids):{data:[],error:null};if(pe)throw pe;const pm=Object.fromEntries((profiles||[]).map(x=>[x.id,x]));
+      return ok((data||[]).map(x=>({...x,full_name:pm[x.user_id]?.display_name||"",phone:pm[x.user_id]?.phone||"",book_title:x.loan?.book?.title||""})));
+    }
+    m=p.match(/^\/admin\/fines\/([^/]+)\/settle$/);
+    if(m&&method==="PUT"){const {data,error}=await sb.rpc("settle_user_book_fines",{p_user_id:m[1]});if(error)throw error;return ok({settled:data});}
     if(p==="/admin/book-requests"&&method==="GET"){
       const {data,error}=await sb.from("book_requests").select("*").in("request_type",["suggestion","acquisition"]).order("created_at",{ascending:false});if(error)throw error;
       const ids=[...new Set((data||[]).map(x=>x.user_id))];const {data:profiles,error:pe}=ids.length?await sb.from("profiles").select("id,display_name,phone").in("id",ids):{data:[],error:null};if(pe)throw pe;const pm=Object.fromEntries((profiles||[]).map(x=>[x.id,x]));
