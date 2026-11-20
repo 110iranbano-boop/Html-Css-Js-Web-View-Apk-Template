@@ -246,14 +246,15 @@ cart(){
   <button class="btn" onclick="submitCart()">ثبت درخواست خرید</button><p style="margin-top:6px">پرداخت اینترنتی در برنامه انجام نمی‌شود؛ این فقط ثبت درخواست است.</p></div>`;
 },
 async account(){
-  const [loans,fines,points,level,extensions]=await Promise.all([
+  const [loans,fines,points,level,extensions,balanceData]=await Promise.all([
     sb.from("book_loans").select("*,book:books(title)").eq("user_id",U.id).is("returned_at",null).order("handed_over_at",{ascending:false}),
     sb.from("book_fines").select("*").eq("user_id",U.id).eq("status","open"),
     sb.from("points_transactions").select("*").eq("user_id",U.id).order("created_at",{ascending:false}).limit(12),
     sb.from("membership_levels").select("id,name,min_points").order("min_points",{ascending:true}),
-    sb.from("loan_extensions").select("loan_id,status").eq("status","pending")
+    sb.from("loan_extensions").select("loan_id,status").eq("status","pending"),
+    sb.from("user_points_balance").select("points_balance").eq("user_id",U.id).maybeSingle()
   ]);
-  const balance=(points.data||[]).reduce((n,x)=>n+x.points_delta,0);const levelName=(level.data||[]).filter(x=>balance>=x.min_points).slice(-1)[0]?.name||"سطح یک";
+  const balance=Number(balanceData.data?.points_balance||0);const levelName=(level.data||[]).filter(x=>balance>=x.min_points).slice(-1)[0]?.name||"سطح یک";
   const suspended=U.is_suspended?'<span class="badge no">حساب تعلیق‌شده</span>':'<span class="badge ok">حساب فعال</span>';
   $("main").innerHTML='<div class="mc"><div class="row"><div><b style="font-size:18px">'+esc(U.full_name)+'</b><p>'+esc(U.phone)+'</p></div>'+(U.avatar_url?'<img src="'+esc(U.avatar_url)+'" style="width:66px;height:66px;border-radius:50%;object-fit:cover">':'<div class="ph" style="width:66px;height:66px;border-radius:50%">👤</div>')+'</div><p style="margin-top:8px">'+suspended+' '+badge(U.role==="admin"?(U.is_super_admin?"مدیر ارشد":"مدیر بخش"):"عضو")+'</p><div style="margin-top:10px;color:var(--gold);font-size:15px">کارت عضویت سیمرغ</div><div class="code">'+esc(U.member_code||"")+'</div><div class="row" style="margin-top:12px"><span>سطح عضویت: '+esc(levelName)+'</span><b>امتیاز: '+fa(balance)+'</b></div></div>'+
   '<button class="menu" onclick="editProfile()">'+ic("account")+'<span>مشخصات کاربری</span>‹</button><button class="menu" onclick="go(\'mine\')">'+ic("receipt")+'<span>درخواست‌های من</span>‹</button><button class="menu" onclick="go(\'notifs\')">'+ic("bell")+'<span>اعلان‌ها</span>‹</button>'+
@@ -315,7 +316,7 @@ async admin(){
     <input placeholder="مبلغ نهایی (تومان)" inputmode="numeric" value="${r.final_price??''}" onchange="send('/admin/purchase-requests/${r.id}','PUT',{final_price:latin(this.value)}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px">
     <input placeholder="پیام برای کاربر" value="${esc(r.admin_note||'')}" onchange="send('/admin/purchase-requests/${r.id}','PUT',{admin_note:this.value}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px"></div>`).join('')||'<div class="empty">درخواستی نیست</div>'}
   else if(admTab==='loan'){const{d=[]}=await api('/admin/loan-requests');
-    body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt(${r.id},'approved')">تأیید</button> <button class="btn r s" onclick="loanSt(${r.id},'rejected')">رد</button>`:gb(r.status)}</div>`).join('')+
+    body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt(${r.id},'approved')">تأیید و ثبت تحویل</button> <button class="btn r s" onclick="loanSt(${r.id},'rejected')">رد</button>`:gb(r.status)}</div>`).join('')+
     `<div class="sec">بازگشت کتاب</div><p class="sub">برای ثبت بازگشت کتاب، تب «کتاب‌ها» را باز کنید.</p>`||'';}
   else if(admTab==='breq'){const{d=[]}=await api('/admin/book-requests');
     body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.author||'')} — ${esc(r.full_name)} · ${esc(r.phone)}</p>${r.description?`<p>${esc(r.description)}</p>`:''}
