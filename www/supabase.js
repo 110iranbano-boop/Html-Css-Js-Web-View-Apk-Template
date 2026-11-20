@@ -26,11 +26,12 @@
   async function userContext(){
     const {data:{user},error}=await sb.auth.getUser();
     if(error||!user) throw new Error("ابتدا وارد حساب شوید");
-    const [{data:profile,error:pe},{data:roles,error:re}] = await Promise.all([
+    const [{data:profile,error:pe},{data:roles,error:re},{data:forumPermission,error:fe}] = await Promise.all([
       sb.from("profiles").select("*").eq("id",user.id).maybeSingle(),
-      sb.from("user_roles").select("role").eq("user_id",user.id)
+      sb.from("user_roles").select("role").eq("user_id",user.id),
+      sb.from("forum_permissions").select("can_create_topic").eq("user_id",user.id).maybeSingle()
     ]);
-    if(pe) throw pe; if(re) throw re;
+    if(pe) throw pe; if(re) throw re; if(fe && fe.code!=="PGRST116") throw fe;
     const roleRows=roles||[];
     const role=roleRows.some(x=>["super_admin","admin","manager"].includes(x.role))?"admin":"user";
     return {authUser:user,profile:profile||{},roles:roleRows,user:{
@@ -40,7 +41,7 @@
       avatar_key:profile?.avatar_key || "", bio:profile?.bio || "",
       role, member_code:"S-"+user.id.slice(0,8).toUpperCase(),
       is_suspended:!!profile?.is_suspended,
-      can_create_topic:!!profile?.can_create_topic
+      can_create_topic:!!profile?.can_create_topic||!!forumPermission?.can_create_topic, is_super_admin:roleRows.some(x=>x.role==="super_admin")
     }};
   }
   const getProfile = async id => {
@@ -117,9 +118,8 @@
     }
     if(p==="/loan-requests"&&method==="POST"){
       const amount=Number(body?.proposed_amount_toman||body?.amount||0);
-      if(amount<20000) throw new Error("مبلغ پیشنهادی امانت نباید کمتر از ۲۰٬۰۰۰ تومان باشد");
-      await single("book_requests",{user_id:uid,book_id:Number(body.book_id),request_type:"borrow",proposed_amount_toman:amount});
-      return ok({ok:true});
+      const {data,error}=await sb.rpc("request_book_loan",{p_book_id:Number(body.book_id),p_amount_toman:amount});
+      if(error) throw error; return ok({id:data});
     }
     if(p==="/book-requests/my"&&method==="GET"){
       const {data,error}=await sb.from("book_requests").select("*").eq("user_id",uid).in("request_type",["suggestion","acquisition"]).order("created_at",{ascending:false});
@@ -205,16 +205,8 @@
     }
     m=p.match(/^\/admin\/loan-requests\/([^/]+)$/);
     if(m&&method==="PUT"){
-      const {data:request,error}=await sb.from("book_requests").select("*").eq("id",m[1]).single();if(error)throw error;
-      const status=body.status==="approved"?"approved":"rejected";
-      const {error:ue}=await sb.from("book_requests").update({status,reviewed_by:uid,reviewed_at:new Date().toISOString()}).eq("id",m[1]).eq("status","pending");if(ue)throw ue;
-      if(status==="approved"){
-        const now=new Date(),due=new Date(now.getTime()+7*86400000);
-        const {error:le}=await sb.from("book_loans").insert({book_id:request.book_id,user_id:request.user_id,request_id:request.id,handed_over_at:now.toISOString(),current_due_at:due.toISOString(),status:"active"});if(le)throw le;
-        const {data:b,error:be}=await sb.from("books").select("available_copies").eq("id",request.book_id).single();if(be)throw be;
-        const {error:de}=await sb.from("books").update({available_copies:Math.max(0,b.available_copies-1)}).eq("id",request.book_id);if(de)throw de;
-      }
-      return ok({ok:true});
+      const {data,error}=await sb.rpc("review_book_loan_request",{p_request_id:m[1],p_approve:body.status==="approved",p_admin_note:body.admin_note||null});
+      if(error)throw error;return ok({id:data});
     }
     if(p==="/admin/book-requests"&&method==="GET"){
       const {data,error}=await sb.from("book_requests").select("*,profile:profiles(display_name)").in("request_type",["suggestion","acquisition"]).order("created_at",{ascending:false});
