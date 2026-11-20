@@ -279,5 +279,24 @@ app.put('/api/admin/book-requests/:id',auth,run(async(req,res)=>{
 }));
 
 app.use((req,res)=>res.status(404).json({error:'مسیر موردنظر پیدا نشد'}));
+async function bootstrapAdmin() {
+  const phone=digits(process.env.ADMIN_PHONE), password=String(process.env.ADMIN_PASSWORD||'');
+  if(!phone && !password) return;
+  if(!validPhone(phone)||password.length<8) throw new Error('برای ساخت مدیر اولیه، ADMIN_PHONE معتبر و ADMIN_PASSWORD حداقل ۸ کاراکتری لازم است.');
+  const email=emailForPhone(phone);
+  let user=null;
+  const {data:listed,error:listError}=await adminClient.auth.admin.listUsers({page:1,perPage:1000});
+  if(listError) throw listError;
+  user=(listed.users||[]).find(x=>x.email===email)||null;
+  if(!user){
+    const {data,error}=await adminClient.auth.admin.createUser({email,password,email_confirm:true,user_metadata:{display_name:process.env.ADMIN_NAME||'مدیر سیمرغ',phone}});
+    if(error) throw error;
+    user=data.user;
+  }
+  await result(adminClient.from('profiles').upsert({id:user.id,display_name:process.env.ADMIN_NAME||'مدیر سیمرغ',phone},{onConflict:'id'}));
+  await result(adminClient.from('user_roles').upsert({user_id:user.id,role:'super_admin'},{onConflict:'user_id,role'}));
+  console.log('حساب مدیر ارشد Supabase آماده است.');
+}
 const port=Number(process.env.PORT)||3000;
-app.listen(port,()=>console.log('Simorgh Supabase API listening on',port));
+bootstrapAdmin().then(()=>app.listen(port,()=>console.log('Simorgh Supabase API listening on',port)))
+  .catch(e=>{console.error('خطا در آماده‌سازی مدیر اولیه:',e.message);process.exit(1);});
