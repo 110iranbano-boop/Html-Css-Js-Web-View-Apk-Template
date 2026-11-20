@@ -1,230 +1,283 @@
 require('dotenv').config();
-const express = require('express'), cors = require('cors'), bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken'), { Pool } = require('pg'), fs = require('fs'), path = require('path');
+const express = require('express');
+const cors = require('cors');
+const { createClient } = require('@supabase/supabase-js');
 
-const SECRET = process.env.JWT_SECRET;
-if (!SECRET || SECRET.length < 16) { console.error('JWT_SECRET تنظیم نشده یا کوتاه است'); process.exit(1); }
-const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false });
-const q = (s, p) => pool.query(s, p).then(r => r.rows);
+const URL = process.env.SUPABASE_URL;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ANON_KEY = process.env.SUPABASE_ANON_KEY;
+if (!URL || !SERVICE_KEY || !ANON_KEY) {
+  console.error('SUPABASE_URL, SUPABASE_ANON_KEY و SUPABASE_SERVICE_ROLE_KEY الزامی هستند.');
+  process.exit(1);
+}
+const adminClient = createClient(URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+const authClient = createClient(URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '2mb' }));
 
-const wrap = f => (req, res) => f(req, res).catch(e => { console.error(e); res.status(500).json({ error: 'خطای سرور' }); });
-const bad = (res, msg, code = 400) => res.status(code).json({ error: msg });
 const digits = s => String(s ?? '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim();
 const validPhone = p => /^09\d{9}$/.test(p);
-const notify = (uid, title, body) => q('INSERT INTO notifications(user_id,title,body) VALUES($1,$2,$3)', [uid, title, body || null]);
-const pub = u => ({ id: u.id, full_name: u.full_name, phone: u.phone, role: u.role, level: u.level, member_code: u.member_code });
-
-function auth(req, res, next) {
-  const h = req.headers.authorization || '';
-  try { req.user = jwt.verify(h.replace('Bearer ', ''), SECRET); next(); }
-  catch { bad(res, 'نشست معتبر نیست', 401); }
+const emailForPhone = p => `${p}@phone.simorgh.invalid`;
+const fail = (res, message, status=400) => res.status(status).json({ error: message });
+const run = fn => (req,res) => Promise.resolve(fn(req,res)).catch(e => {
+  console.error(e);
+  if (!res.headersSent) res.status(500).json({ error: 'خطای سرور یا پایگاه داده' });
+});
+async function result(query) {
+  const { data, error } = await query;
+  if (error) throw error;
+  return data;
 }
-// نقش از دیتابیس خوانده می‌شود تا توکن قدیمی بعد از تغییر نقش دسترسی ندهد
-const admin = [auth, wrap(async (req, res, next) => {
-  const [u] = await q('SELECT role FROM users WHERE id=$1', [req.user.id]);
-  if (!u || u.role !== 'admin') return bad(res, 'دسترسی ندارید', 403);
+async function auth(req,res,next) {
+  const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i,'');
+  if (!token) return fail(res,'ابتدا وارد حساب شوید',401);
+  const { data, error } = await adminClient.auth.getUser(token);
+  if (error || !data.user) return fail(res,'نشست معتبر نیست',401);
+  req.user = data.user;
   next();
-})];
+}
+const protectedRoute = [auth];
+async function profile(userId) {
+  return result(adminClient.from('profiles').select('*').eq('id',userId).single());
+}
+async function isAdmin(userId, permission) {
+  const roles = await result(adminClient.from('user_roles').select('role').eq('user_id',userId));
+  if (roles.some(x => x.role === 'super_admin')) return true;
+  if (!permission || !roles.some(x => x.role === 'admin')) return false;
+  const p = await result(adminClient.from('admin_permissions').select('*').eq('user_id',userId).eq('permission_key',permission).maybeSingle());
+  return !!p && (p.can_view || p.can_create || p.can_update || p.can_delete);
+}
+async function requireAdmin(req,res,permission) {
+  if (!(await isAdmin(req.user.id, permission))) { fail(res,'دسترسی ندارید',403); return false; }
+  return true;
+}
+async function notify(userId,title,body,type='general') {
+  return result(adminClient.from('notifications').insert({user_id:userId,title,body:body || '',notification_type:type}));
+}
+const userView = async u => {
+  const p = await profile(u.id);
+  const roles = await result(adminClient.from('user_roles').select('role').eq('user_id',u.id));
+  return { id:u.id, full_name:p.display_name || u.user_metadata?.display_name || '', phone:p.phone || u.user_metadata?.phone || '', role:roles.some(x=>x.role==='super_admin'||x.role==='admin')?'admin':'user', level:'member', member_code:p.username || '' };
+};
+app.get('/api/health',(req,res)=>res.json({ok:true,service:'supabase'}));
 
-app.get('/api/health', (req, res) => res.json({ ok: true }));
-
-// ---------- احراز هویت ----------
-app.post('/api/register', wrap(async (req, res) => {
-  const full_name = String(req.body.full_name || '').trim(), phone = digits(req.body.phone), password = String(req.body.password || '');
-  if (!full_name) return bad(res, 'نام را وارد کنید');
-  if (!validPhone(phone)) return bad(res, 'شماره همراه معتبر نیست (مثال: 09123456789)');
-  if (password.length < 6) return bad(res, 'رمز عبور باید حداقل ۶ کاراکتر باشد');
-  if ((await q('SELECT 1 FROM users WHERE phone=$1', [phone])).length) return bad(res, 'این شماره قبلاً ثبت‌نام کرده است', 409);
-  const [u] = await q('INSERT INTO users(phone,password_hash,full_name) VALUES($1,$2,$3) RETURNING id', [phone, await bcrypt.hash(password, 10), full_name]);
-  await q('UPDATE users SET member_code=$1 WHERE id=$2', [`S-${new Date().getFullYear()}-${String(u.id).padStart(4, '0')}`, u.id]);
-  res.status(201).json({ ok: true });
+// ورود و ثبت‌نام با شماره و رمز؛ شماره در پشت‌صحنه به شناسه ایمیل داخلی تبدیل می‌شود.
+// هیچ SMS یا ارائه‌دهنده پیامکی استفاده نمی‌شود.
+app.post('/api/register',run(async(req,res)=>{
+  const full_name=String(req.body.full_name||'').trim(), phone=digits(req.body.phone), password=String(req.body.password||'');
+  if(!full_name) return fail(res,'نام را وارد کنید');
+  if(!validPhone(phone)) return fail(res,'شماره همراه معتبر نیست');
+  if(password.length<6) return fail(res,'رمز عبور باید حداقل ۶ کاراکتر باشد');
+  const {data:created,error}=await adminClient.auth.admin.createUser({
+    email:emailForPhone(phone),password,email_confirm:true,
+    user_metadata:{display_name:full_name,phone}
+  });
+  if(error) return fail(res,error.message.includes('already')?'این شماره قبلاً ثبت‌نام کرده است':error.message, error.status===422?409:400);
+  const {error:pe}=await adminClient.from('profiles').upsert({id:created.user.id,display_name:full_name,phone,profile_visibility:'private'},{onConflict:'id'});
+  if(pe) { await adminClient.auth.admin.deleteUser(created.user.id); throw pe; }
+  res.status(201).json({ok:true});
 }));
-app.post('/api/login', wrap(async (req, res) => {
-  const phone = digits(req.body.phone), password = String(req.body.password || '');
-  const [u] = await q('SELECT * FROM users WHERE phone=$1', [phone]);
-  if (!u || !(await bcrypt.compare(password, u.password_hash))) return bad(res, 'شماره یا رمز عبور اشتباه است', 401);
-  res.json({ token: jwt.sign({ id: u.id }, SECRET, { expiresIn: '30d' }), user: pub(u) });
+app.post('/api/login',run(async(req,res)=>{
+  const phone=digits(req.body.phone), password=String(req.body.password||'');
+  if(!validPhone(phone)||!password) return fail(res,'شماره یا رمز عبور اشتباه است',401);
+  const {data,error}=await authClient.auth.signInWithPassword({email:emailForPhone(phone),password});
+  if(error||!data.session) return fail(res,'شماره یا رمز عبور اشتباه است',401);
+  const user=await userView(data.user);
+  res.json({token:data.session.access_token,user});
 }));
-app.get('/api/profile', auth, wrap(async (req, res) => {
-  const [u] = await q('SELECT * FROM users WHERE id=$1', [req.user.id]);
-  u ? res.json(pub(u)) : bad(res, 'کاربر یافت نشد', 401);
-}));
-app.put('/api/profile', auth, wrap(async (req, res) => {
-  const name = String(req.body.full_name || '').trim();
-  if (!name) return bad(res, 'نام را وارد کنید');
-  const [u] = await q('UPDATE users SET full_name=$1 WHERE id=$2 RETURNING *', [name, req.user.id]);
-  res.json(pub(u));
-}));
-
-// ---------- محتوای عمومی (فقط نمایش) ----------
-app.get('/api/menu', auth, wrap(async (req, res) => res.json(await q('SELECT * FROM cafe_items WHERE active ORDER BY sort,id'))));
-app.get('/api/books', auth, wrap(async (req, res) => res.json(await q('SELECT * FROM books WHERE active ORDER BY id DESC'))));
-app.get('/api/art', auth, wrap(async (req, res) => res.json(await q('SELECT * FROM art_products WHERE active ORDER BY id DESC'))));
-app.get('/api/events', auth, wrap(async (req, res) => res.json(await q(
-  `SELECT e.*, (SELECT count(*)::int FROM event_registrations r WHERE r.event_id=e.id) AS registered,
-   EXISTS(SELECT 1 FROM event_registrations r WHERE r.event_id=e.id AND r.user_id=$1) AS mine
-   FROM events e WHERE e.active ORDER BY e.event_date`, [req.user.id]))));
-
-// ---------- رویدادها ----------
-app.post('/api/events/:id/register', auth, wrap(async (req, res) => {
-  const [e] = await q('SELECT *, (SELECT count(*)::int FROM event_registrations WHERE event_id=events.id) AS n FROM events WHERE id=$1 AND active', [req.params.id]);
-  if (!e) return bad(res, 'رویداد یافت نشد', 404);
-  if (!e.registration_open) return bad(res, 'ثبت‌نام این رویداد بسته است');
-  if (e.capacity && e.n >= e.capacity) return bad(res, 'ظرفیت رویداد تکمیل است');
-  await q('INSERT INTO event_registrations(event_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING', [e.id, req.user.id]);
-  await notify(req.user.id, 'ثبت‌نام رویداد', `ثبت‌نام شما در «${e.title}» انجام شد.`);
-  res.json({ ok: true });
-}));
-app.delete('/api/events/:id/register', auth, wrap(async (req, res) => {
-  await q('DELETE FROM event_registrations WHERE event_id=$1 AND user_id=$2', [req.params.id, req.user.id]);
-  res.json({ ok: true });
+app.get('/api/profile',auth,run(async(req,res)=>res.json(await userView(req.user))));
+app.put('/api/profile',auth,run(async(req,res)=>{
+  const name=String(req.body.full_name||'').trim(); if(!name)return fail(res,'نام را وارد کنید');
+  await result(adminClient.from('profiles').update({display_name:name}).eq('id',req.user.id));
+  res.json(await userView(req.user));
 }));
 
-// ---------- امانت (مدل نسخهٔ ۱، جدا از فروش و سبد) ----------
-app.post('/api/loan-requests', auth, wrap(async (req, res) => {
-  const [b] = await q("SELECT * FROM books WHERE id=$1 AND active AND type='loan'", [req.body.book_id]);
-  if (!b) return bad(res, 'کتاب امانی یافت نشد', 404);
-  if (b.status !== 'available') return bad(res, 'این کتاب در حال حاضر امانت داده شده است');
-  if ((await q("SELECT 1 FROM loan_requests WHERE user_id=$1 AND book_id=$2 AND status='pending'", [req.user.id, b.id])).length) return bad(res, 'درخواست قبلی شما در حال بررسی است');
-  await q('INSERT INTO loan_requests(user_id,book_id) VALUES($1,$2)', [req.user.id, b.id]);
-  res.status(201).json({ ok: true });
+// فهرست‌های عمومی اپ
+app.get('/api/menu',auth,run(async(req,res)=>{
+  const rows=await result(adminClient.from('cafe_products').select('*,cafe_categories(name)').eq('is_available',true).order('sort_order'));
+  res.json(rows.map(x=>({...x,category:x.cafe_categories?.name||'سایر',active:x.is_available,price:x.price_toman,image_url:x.image_path})));
 }));
-app.get('/api/loan-requests/my', auth, wrap(async (req, res) => res.json(await q(
-  'SELECT l.*, b.title AS book_title FROM loan_requests l JOIN books b ON b.id=l.book_id WHERE l.user_id=$1 ORDER BY l.id DESC', [req.user.id]))));
-
-// ---------- درخواست/پیشنهاد کتاب ----------
-app.post('/api/book-requests', auth, wrap(async (req, res) => {
-  const t = String(req.body.book_title || '').trim();
-  if (!t) return bad(res, 'عنوان کتاب الزامی است');
-  await q('INSERT INTO book_requests(user_id,book_title,author,description) VALUES($1,$2,$3,$4)',
-    [req.user.id, t, req.body.author || null, req.body.description || null]);
-  res.status(201).json({ ok: true });
+app.get('/api/books',auth,run(async(req,res)=>{
+  const rows=await result(adminClient.from('books').select('*,book_categories(name)').eq('is_active',true).order('id',{ascending:false}));
+  res.json(rows.map(x=>({...x,category:x.book_categories?.name||'',type:x.book_type==='both'?'loan':x.book_type,price:x.sale_price_toman,status:x.available_copies>0?'available':'loaned',active:x.is_active,image_url:x.cover_path})));
 }));
-app.get('/api/book-requests/my', auth, wrap(async (req, res) => res.json(await q('SELECT * FROM book_requests WHERE user_id=$1 ORDER BY id DESC', [req.user.id]))));
+app.get('/api/art',auth,run(async(req,res)=>{
+  const rows=await result(adminClient.from('store_products').select('*,store_categories(name)').eq('is_available',true).order('id',{ascending:false}));
+  res.json(rows.map(x=>({...x,category:x.store_categories?.name||'',price:x.price_toman,active:x.is_available,image_url:x.image_path,stock_status:x.is_available?'in_stock':'out'})));
+}));
+app.get('/api/events',auth,run(async(req,res)=>{
+  const rows=await result(adminClient.from('events').select('*').in('status',['published','completed']).order('starts_at'));
+  const regs=await result(adminClient.from('event_registrations').select('event_id,user_id,people_count,status').eq('user_id',req.user.id).neq('status','cancelled'));
+  const counts=await Promise.all(rows.map(e=>adminClient.from('event_registrations').select('people_count').eq('event_id',e.id).neq('status','cancelled')));
+  res.json(rows.map((e,i)=>({...e,event_date:e.starts_at,active:e.status==='published',registration_open:e.is_registration_open,capacity:e.capacity_people,registered:(counts[i].data||[]).reduce((n,x)=>n+x.people_count,0),mine:regs.some(r=>r.event_id===e.id)})));
+}));
 
-// ---------- سبد مشترک ← درخواست خرید (بدون پرداخت آنلاین) ----------
-app.post('/api/purchase-requests', auth, wrap(async (req, res) => {
-  const items = Array.isArray(req.body.items) ? req.body.items.slice(0, 50) : [];
-  const phone = digits(req.body.contact_phone);
-  if (!items.length) return bad(res, 'سبد خرید خالی است');
-  if (!validPhone(phone)) return bad(res, 'شمارهٔ تماس معتبر نیست');
-  const rows = [];
-  for (const it of items) {
-    const qty = Math.min(Math.max(parseInt(it.qty) || 1, 1), 99);
-    const [r] = it.type === 'book'
-      ? await q("SELECT id,title,price FROM books WHERE id=$1 AND active AND type='sale'", [it.id])
-      : await q("SELECT id,name AS title,price FROM art_products WHERE id=$1 AND active AND stock_status<>'out'", [it.id]);
-    if (!r) return bad(res, 'یکی از اقلام سبد دیگر در دسترس نیست؛ سبد را بازبینی کنید');
-    rows.push({ type: it.type === 'book' ? 'book' : 'art', ...r, qty, note: String(it.note || '').slice(0, 500) || null });
+// رویداد: ثبت‌نام فردی؛ ظرفیت و وضعیت توسط سرور کنترل می‌شود.
+app.post('/api/events/:id/register',auth,run(async(req,res)=>{
+  const e=await result(adminClient.from('events').select('*').eq('id',req.params.id).single());
+  if(e.status!=='published'||e.event_type!=='timed'||!e.is_registration_open)return fail(res,'ثبت‌نام این رویداد باز نیست');
+  const p=await profile(req.user.id); if(p.is_suspended)return fail(res,'حساب شما موقتاً تعلیق شده است',403);
+  const existing=await result(adminClient.from('event_registrations').select('id').eq('event_id',e.id).eq('user_id',req.user.id).neq('status','cancelled').maybeSingle());
+  if(existing)return fail(res,'قبلاً در این رویداد ثبت‌نام کرده‌اید',409);
+  const count=await result(adminClient.from('event_registrations').select('people_count').eq('event_id',e.id).neq('status','cancelled'));
+  const total=count.reduce((n,x)=>n+x.people_count,0);
+  if(e.capacity_people!==null&&total>=e.capacity_people)return fail(res,'ظرفیت رویداد تکمیل است');
+  await result(adminClient.from('event_registrations').insert({event_id:e.id,user_id:req.user.id,registrant_name:p.display_name||'',registrant_phone:p.phone||'',people_count:1}));
+  await notify(req.user.id,'ثبت‌نام رویداد',`ثبت‌نام شما در «${e.title}» انجام شد.`);
+  res.json({ok:true});
+}));
+app.delete('/api/events/:id/register',auth,run(async(req,res)=>{
+  await result(adminClient.from('event_registrations').update({status:'cancelled'}).eq('event_id',req.params.id).eq('user_id',req.user.id));
+  res.json({ok:true});
+}));
+
+// درخواست امانت و پیشنهاد کتاب
+app.post('/api/loan-requests',auth,run(async(req,res)=>{
+  const b=await result(adminClient.from('books').select('*').eq('id',req.body.book_id).eq('is_active',true).single());
+  if(!['loan','both'].includes(b.book_type)||b.available_copies<1)return fail(res,'این کتاب برای امانت در دسترس نیست');
+  const old=await result(adminClient.from('book_requests').select('id').eq('user_id',req.user.id).eq('book_id',b.id).eq('request_type','borrow').eq('status','pending').maybeSingle());
+  if(old)return fail(res,'درخواست قبلی شما در حال بررسی است',409);
+  await result(adminClient.from('book_requests').insert({user_id:req.user.id,book_id:b.id,request_type:'borrow',proposed_amount_toman:20000}));
+  res.status(201).json({ok:true});
+}));
+app.get('/api/loan-requests/my',auth,run(async(req,res)=>{
+  const rows=await result(adminClient.from('book_requests').select('*,books(title)').eq('user_id',req.user.id).eq('request_type','borrow').order('created_at',{ascending:false}));
+  res.json(rows.map(x=>({id:x.id,book_id:x.book_id,status:x.status,created_at:x.created_at,book_title:x.books?.title})));
+}));
+app.post('/api/book-requests',auth,run(async(req,res)=>{
+  const title=String(req.body.book_title||'').trim();if(!title)return fail(res,'عنوان کتاب الزامی است');
+  await result(adminClient.from('book_requests').insert({user_id:req.user.id,request_type:'suggestion',requested_title:title,requested_author:req.body.author||null,message:req.body.description||null}));
+  res.status(201).json({ok:true});
+}));
+app.get('/api/book-requests/my',auth,run(async(req,res)=>{
+  const rows=await result(adminClient.from('book_requests').select('*').eq('user_id',req.user.id).eq('request_type','suggestion').order('created_at',{ascending:false}));
+  res.json(rows.map(x=>({id:x.id,book_title:x.requested_title,author:x.requested_author,description:x.message,status:x.status,admin_note:x.admin_note,created_at:x.created_at})));
+}));
+
+// درخواست خرید حضوری: هر قلم به‌عنوان درخواست مستقل ذخیره و در خروجی در قالب قبلی نمایش داده می‌شود.
+app.post('/api/purchase-requests',auth,run(async(req,res)=>{
+  const items=Array.isArray(req.body.items)?req.body.items.slice(0,30):[];
+  if(!items.length)return fail(res,'سبد خرید خالی است');
+  const p=await profile(req.user.id);if(p.is_suspended)return fail(res,'حساب شما موقتاً تعلیق شده است',403);
+  const created=[];
+  for(const it of items){
+    const qty=Math.min(Math.max(parseInt(it.qty)||1,1),20);
+    let row,bookId=null,storeId=null,name,price;
+    if(it.type==='book'){
+      row=await result(adminClient.from('books').select('*').eq('id',it.id).eq('is_active',true).single());
+      if(!['sale','both'].includes(row.book_type)||row.sale_price_toman==null) return fail(res,'یکی از کتاب‌ها برای فروش موجود نیست');
+      bookId=row.id;name=row.title;price=row.sale_price_toman;
+    } else {
+      row=await result(adminClient.from('store_products').select('*').eq('id',it.id).eq('is_available',true).single());
+      storeId=row.id;name=row.name;price=row.price_toman;
+    }
+    const pr=await result(adminClient.from('purchase_requests').insert({user_id:req.user.id,book_id:bookId,store_product_id:storeId,item_name_snapshot:name,unit_price_toman_snapshot:price,quantity:qty}));
+    created.push(pr[0]);
   }
-  const c = await pool.connect();
-  try {
-    await c.query('BEGIN');
-    const { rows: [pr] } = await c.query('INSERT INTO purchase_requests(user_id,contact_phone,note) VALUES($1,$2,$3) RETURNING id', [req.user.id, phone, String(req.body.note || '').slice(0, 1000) || null]);
-    for (const r of rows) await c.query('INSERT INTO purchase_request_items(request_id,item_type,item_id,title,price,qty,note) VALUES($1,$2,$3,$4,$5,$6,$7)', [pr.id, r.type, r.id, r.title, r.price, r.qty, r.note]);
-    await c.query('COMMIT');
-    await notify(req.user.id, 'درخواست خرید ثبت شد', `درخواست شمارهٔ ${pr.id} ثبت شد. مدیریت برای هماهنگی با شما تماس می‌گیرد.`);
-    res.status(201).json({ id: pr.id });
-  } catch (e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
+  await notify(req.user.id,'درخواست خرید ثبت شد','درخواست خرید حضوری شما ثبت شد؛ مدیریت برای هماهنگی تماس می‌گیرد.');
+  res.status(201).json({ids:created.map(x=>x.id)});
 }));
-const withItems = async rows => {
-  if (!rows.length) return rows;
-  const items = await q('SELECT * FROM purchase_request_items WHERE request_id = ANY($1) ORDER BY id', [rows.map(r => r.id)]);
-  return rows.map(r => ({ ...r, items: items.filter(i => i.request_id === r.id) }));
-};
-app.get('/api/purchase-requests/my', auth, wrap(async (req, res) =>
-  res.json(await withItems(await q('SELECT * FROM purchase_requests WHERE user_id=$1 ORDER BY id DESC', [req.user.id])))));
+app.get('/api/purchase-requests/my',auth,run(async(req,res)=>{
+  const rows=await result(adminClient.from('purchase_requests').select('*').eq('user_id',req.user.id).order('created_at',{ascending:false}));
+  res.json(rows.map(x=>({id:x.id,status:x.status,created_at:x.created_at,contact_phone:(p=>p)(null),note:'',final_price:null,admin_note:x.admin_note,items:[{item_type:x.book_id?'book':'art',title:x.item_name_snapshot,price:x.unit_price_toman_snapshot,qty:x.quantity,note:''}]})));
+}));
 
-// ---------- اعلان‌ها ----------
-app.get('/api/notifications', auth, wrap(async (req, res) => res.json(await q('SELECT * FROM notifications WHERE user_id=$1 ORDER BY id DESC LIMIT 50', [req.user.id]))));
-app.put('/api/notifications/read', auth, wrap(async (req, res) => { await q('UPDATE notifications SET is_read=true WHERE user_id=$1', [req.user.id]); res.json({ ok: true }); }));
+// اعلان‌ها
+app.get('/api/notifications',auth,run(async(req,res)=>res.json(await result(adminClient.from('notifications').select('*').eq('user_id',req.user.id).order('created_at',{ascending:false}).limit(50)))));
+app.put('/api/notifications/read',auth,run(async(req,res)=>{
+  await result(adminClient.from('notifications').update({is_read:true}).eq('user_id',req.user.id));res.json({ok:true});
+}));
 
-// ---------- پنل مدیریت ----------
-const RES = {
-  menu: { t: 'cafe_items', f: ['category', 'name', 'description', 'price', 'image_url', 'sort', 'active'] },
-  books: { t: 'books', f: ['title', 'author', 'description', 'category', 'type', 'price', 'status', 'image_url', 'active'] },
-  art: { t: 'art_products', f: ['category', 'name', 'description', 'price', 'image_url', 'stock_status', 'allow_custom', 'active'] },
-  events: { t: 'events', f: ['title', 'description', 'event_date', 'location', 'capacity', 'registration_open', 'image_url', 'active'] },
+// پنل مدیریت
+const RES={
+  menu:{table:'cafe_products',permission:'cafe.manage',fields:{name:'name',description:'description',price:'price_toman',image_url:'image_path',sort:'sort_order',active:'is_available'}},
+  books:{table:'books',permission:'library.manage',fields:{title:'title',author:'author',description:'description',category_id:'category_id',type:'book_type',price:'sale_price_toman',image_url:'cover_path',active:'is_active'}},
+  art:{table:'store_products',permission:'store.manage',fields:{name:'name',description:'description',price:'price_toman',image_url:'image_path',active:'is_available'}},
+  events:{table:'events',permission:'events.manage',fields:{title:'title',description:'description',event_date:'starts_at',location:'rules_text',capacity:'capacity_people',registration_open:'is_registration_open',image_url:'poster_path',active:'status'}}
 };
-const pick = (r, body) => {
-  const cols = r.f.filter(k => k in body);
-  return { cols, vals: cols.map(k => body[k] === '' ? null : body[k]) };
-};
-app.get('/api/admin/:res(menu|books|art|events)', admin, wrap(async (req, res) =>
-  res.json(await q(`SELECT * FROM ${RES[req.params.res].t} ORDER BY id DESC`))));
-app.post('/api/admin/:res(menu|books|art|events)', admin, wrap(async (req, res) => {
-  const r = RES[req.params.res], { cols, vals } = pick(r, req.body);
-  if (!cols.length) return bad(res, 'اطلاعاتی ارسال نشده');
-  try {
-    const [row] = await q(`INSERT INTO ${r.t}(${cols.join(',')}) VALUES(${cols.map((_, i) => '$' + (i + 1)).join(',')}) RETURNING *`, vals);
-    res.status(201).json(row);
-  } catch (e) { bad(res, 'اطلاعات واردشده معتبر نیست (فیلدهای الزامی را بررسی کنید)'); }
+app.get('/api/admin/:res(menu|books|art|events)',auth,run(async(req,res)=>{
+  const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission))return;
+  res.json(await result(adminClient.from(c.table).select('*').order('id',{ascending:false})));
 }));
-app.put('/api/admin/:res(menu|books|art|events)/:id', admin, wrap(async (req, res) => {
-  const r = RES[req.params.res], { cols, vals } = pick(r, req.body);
-  if (!cols.length) return bad(res, 'اطلاعاتی ارسال نشده');
-  try {
-    const [row] = await q(`UPDATE ${r.t} SET ${cols.map((c, i) => `${c}=$${i + 1}`).join(',')} WHERE id=$${cols.length + 1} RETURNING *`, [...vals, req.params.id]);
-    row ? res.json(row) : bad(res, 'یافت نشد', 404);
-  } catch (e) { bad(res, 'اطلاعات واردشده معتبر نیست'); }
+app.post('/api/admin/:res(menu|books|art|events)',auth,run(async(req,res)=>{
+  const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission))return;
+  const data={};for(const [old,key] of Object.entries(c.fields))if(old in req.body)data[key]=req.body[old]===''?null:req.body[old];
+  if(req.params.res==='events'){data.event_type='timed';data.status=data.status==='inactive'?'inactive':'published';}
+  const row=await result(adminClient.from(c.table).insert(data).select().single());res.status(201).json(row);
 }));
-app.delete('/api/admin/:res(menu|books|art|events)/:id', admin, wrap(async (req, res) => {
-  await q(`UPDATE ${RES[req.params.res].t} SET active=false WHERE id=$1`, [req.params.id]); // غیرفعال‌سازی، نه حذف
-  res.json({ ok: true });
+app.put('/api/admin/:res(menu|books|art|events)/:id',auth,run(async(req,res)=>{
+  const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission))return;
+  const data={};for(const [old,key] of Object.entries(c.fields))if(old in req.body)data[key]=req.body[old]===''?null:req.body[old];
+  if(req.params.res==='events'&&'active'in req.body)data.status=req.body.active?'published':'inactive';
+  res.json(await result(adminClient.from(c.table).update(data).eq('id',req.params.id).select().single()));
 }));
-app.get('/api/admin/events/:id/registrations', admin, wrap(async (req, res) => res.json(await q(
-  'SELECT u.full_name,u.phone,r.created_at FROM event_registrations r JOIN users u ON u.id=r.user_id WHERE r.event_id=$1 ORDER BY r.id', [req.params.id]))));
-
-const PSTATUS = ['registered', 'reviewing', 'confirmed', 'awaiting_contact', 'ready', 'shipped', 'completed', 'cancelled'];
-const PLABEL = { registered: 'ثبت‌شده', reviewing: 'در حال بررسی', confirmed: 'تأییدشده', awaiting_contact: 'در انتظار هماهنگی', ready: 'آماده تحویل', shipped: 'ارسال‌شده', completed: 'تکمیل‌شده', cancelled: 'ردشده یا لغوشده' };
-app.get('/api/admin/purchase-requests', admin, wrap(async (req, res) => res.json(await withItems(await q(
-  'SELECT p.*,u.full_name,u.phone FROM purchase_requests p JOIN users u ON u.id=p.user_id ORDER BY p.id DESC LIMIT 200')))));
-app.put('/api/admin/purchase-requests/:id', admin, wrap(async (req, res) => {
-  const { status, admin_note, final_price } = req.body;
-  if (status && !PSTATUS.includes(status)) return bad(res, 'وضعیت نامعتبر است');
-  const [p] = await q('UPDATE purchase_requests SET status=COALESCE($1,status), admin_note=COALESCE($2,admin_note), final_price=COALESCE($3,final_price) WHERE id=$4 RETURNING *',
-    [status || null, admin_note ?? null, final_price === '' ? null : final_price ?? null, req.params.id]);
-  if (!p) return bad(res, 'یافت نشد', 404);
-  if (status) await notify(p.user_id, 'تغییر وضعیت درخواست خرید', `درخواست شمارهٔ ${p.id}: ${PLABEL[status]}`);
-  res.json(p);
+app.delete('/api/admin/:res(menu|books|art|events)/:id',auth,run(async(req,res)=>{
+  const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission))return;
+  const field=req.params.res==='events'?'status':req.params.res==='books'?'is_active':req.params.res==='menu'?'is_available':'is_available';
+  await result(adminClient.from(c.table).update({[field]:req.params.res==='events'?'inactive':false}).eq('id',req.params.id));res.json({ok:true});
 }));
-app.get('/api/admin/loan-requests', admin, wrap(async (req, res) => res.json(await q(
-  `SELECT l.*,b.title AS book_title,u.full_name,u.phone FROM loan_requests l JOIN books b ON b.id=l.book_id JOIN users u ON u.id=l.user_id ORDER BY l.id DESC LIMIT 200`))));
-app.put('/api/admin/loan-requests/:id', admin, wrap(async (req, res) => {
-  const st = req.body.status;
-  if (!['approved', 'rejected'].includes(st)) return bad(res, 'وضعیت نامعتبر است');
-  const [l] = await q('UPDATE loan_requests SET status=$1 WHERE id=$2 AND status=$3 RETURNING *', [st, req.params.id, 'pending']);
-  if (!l) return bad(res, 'این درخواست قبلاً بررسی شده است', 409);
-  if (st === 'approved') await q("UPDATE books SET status='loaned' WHERE id=$1", [l.book_id]);
-  await notify(l.user_id, 'درخواست امانت', st === 'approved' ? 'درخواست امانت شما تأیید شد.' : 'درخواست امانت شما رد شد.');
-  res.json(l);
+app.get('/api/admin/events/:id/registrations',auth,run(async(req,res)=>{
+  if(!await requireAdmin(req,res,'events.manage'))return;
+  const rows=await result(adminClient.from('event_registrations').select('*').eq('event_id',req.params.id).neq('status','cancelled'));
+  const out=[];for(const x of rows){const p=await profile(x.user_id);out.push({full_name:p.display_name,phone:p.phone,created_at:x.created_at});}
+  res.json(out);
 }));
-app.put('/api/admin/books/:id/return', admin, wrap(async (req, res) => { await q("UPDATE books SET status='available' WHERE id=$1", [req.params.id]); res.json({ ok: true }); }));
-app.get('/api/admin/book-requests', admin, wrap(async (req, res) => res.json(await q(
-  'SELECT r.*,u.full_name,u.phone FROM book_requests r JOIN users u ON u.id=r.user_id ORDER BY r.id DESC LIMIT 200'))));
-app.put('/api/admin/book-requests/:id', admin, wrap(async (req, res) => {
-  const { status, admin_note } = req.body;
-  if (status && !['pending', 'approved', 'rejected'].includes(status)) return bad(res, 'وضعیت نامعتبر است');
-  const [r] = await q('UPDATE book_requests SET status=COALESCE($1,status), admin_note=COALESCE($2,admin_note) WHERE id=$3 RETURNING *', [status || null, admin_note ?? null, req.params.id]);
-  if (!r) return bad(res, 'یافت نشد', 404);
-  if (status && status !== 'pending') await notify(r.user_id, 'درخواست کتاب', `نتیجهٔ بررسی «${r.book_title}»: ${status === 'approved' ? 'تأیید شد' : 'رد شد'}`);
+app.get('/api/admin/purchase-requests',auth,run(async(req,res)=>{
+  if(!await requireAdmin(req,res,'store.manage'))return;
+  const rows=await result(adminClient.from('purchase_requests').select('*').order('created_at',{ascending:false}).limit(200));
+  const out=[];for(const x of rows){const p=await profile(x.user_id);out.push({...x,full_name:p.display_name,phone:p.phone,contact_phone:p.phone,note:'',final_price:x.unit_price_toman_snapshot,items:[{title:x.item_name_snapshot,price:x.unit_price_toman_snapshot,qty:x.quantity,note:''}]});}
+  res.json(out);
+}));
+app.put('/api/admin/purchase-requests/:id',auth,run(async(req,res)=>{
+  if(!await requireAdmin(req,res,'store.manage'))return;
+  const data={};if(req.body.status)data.status=req.body.status;if('admin_note'in req.body)data.admin_note=req.body.admin_note;
+  const row=await result(adminClient.from('purchase_requests').update(data).eq('id',req.params.id).select().single());
+  await notify(row.user_id,'تغییر وضعیت درخواست خرید',`وضعیت درخواست «${row.item_name_snapshot}» تغییر کرد.`);res.json(row);
+}));
+app.get('/api/admin/loan-requests',auth,run(async(req,res)=>{
+  if(!await requireAdmin(req,res,'library.manage'))return;
+  const rows=await result(adminClient.from('book_requests').select('*,books(title)').eq('request_type','borrow').order('created_at',{ascending:false}));
+  const out=[];for(const x of rows){const p=await profile(x.user_id);out.push({...x,book_title:x.books?.title,full_name:p.display_name,phone:p.phone});}
+  res.json(out);
+}));
+app.put('/api/admin/loan-requests/:id',auth,run(async(req,res)=>{
+  if(!await requireAdmin(req,res,'library.manage'))return;
+  const st=req.body.status;if(!['approved','rejected'].includes(st))return fail(res,'وضعیت نامعتبر است');
+  const r=await result(adminClient.from('book_requests').update({status:st,reviewed_by:req.user.id,reviewed_at:new Date().toISOString()}).eq('id',req.params.id).eq('status','pending').select().maybeSingle());
+  if(!r)return fail(res,'این درخواست قبلاً بررسی شده است',409);
+  if(st==='approved'){
+    const b=await result(adminClient.from('books').select('*').eq('id',r.book_id).single());
+    if(b.available_copies<1)return fail(res,'نسخهٔ آزاد موجود نیست');
+    await result(adminClient.from('books').update({available_copies:b.available_copies-1}).eq('id',b.id));
+    const now=new Date();const due=new Date(now.getTime()+7*86400000);
+    await result(adminClient.from('book_loans').insert({book_id:b.id,user_id:r.user_id,request_id:r.id,handed_over_at:now.toISOString(),current_due_at:due.toISOString(),status:'active'}));
+  }
+  await notify(r.user_id,'درخواست امانت',st==='approved'?'درخواست امانت شما تأیید شد.':'درخواست امانت شما رد شد.');
   res.json(r);
 }));
+app.put('/api/admin/books/:id/return',auth,run(async(req,res)=>{
+  if(!await requireAdmin(req,res,'library.manage'))return;
+  const loan=await result(adminClient.from('book_loans').select('*').eq('book_id',req.params.id).in('status',['active','overdue']).maybeSingle());
+  if(!loan)return fail(res,'امانت فعالی برای این کتاب پیدا نشد',404);
+  await result(adminClient.from('book_loans').update({status:'returned',returned_at:new Date().toISOString()}).eq('id',loan.id));
+  const b=await result(adminClient.from('books').select('available_copies,total_copies').eq('id',req.params.id).single());
+  await result(adminClient.from('books').update({available_copies:Math.min(b.total_copies,b.available_copies+1)}).eq('id',req.params.id));
+  res.json({ok:true});
+}));
+app.get('/api/admin/book-requests',auth,run(async(req,res)=>{
+  if(!await requireAdmin(req,res,'library.manage'))return;
+  const rows=await result(adminClient.from('book_requests').select('*').eq('request_type','suggestion').order('created_at',{ascending:false}));
+  const out=[];for(const x of rows){const p=await profile(x.user_id);out.push({...x,book_title:x.requested_title,author:x.requested_author,description:x.message,full_name:p.display_name,phone:p.phone});}
+  res.json(out);
+}));
+app.put('/api/admin/book-requests/:id',auth,run(async(req,res)=>{
+  if(!await requireAdmin(req,res,'library.manage'))return;
+  const data={};if(req.body.status)data.status=req.body.status;if('admin_note'in req.body)data.admin_note=req.body.admin_note;
+  const row=await result(adminClient.from('book_requests').update(data).eq('id',req.params.id).select().single());
+  await notify(row.user_id,'درخواست کتاب',`نتیجهٔ بررسی «${row.requested_title}» ثبت شد.`);res.json(row);
+}));
 
-// فرانت‌اند (حالت وب) از همین سرور سرو می‌شود
-const www = path.join(__dirname, '..', 'www');
-if (fs.existsSync(www)) app.use(express.static(www));
-
-(async () => {
-  await pool.query(fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8'));
-  const ap = digits(process.env.ADMIN_PHONE), pw = process.env.ADMIN_PASSWORD;
-  if (validPhone(ap) && pw && !(await q('SELECT 1 FROM users WHERE phone=$1', [ap])).length) {
-    const [u] = await q("INSERT INTO users(phone,password_hash,full_name,role) VALUES($1,$2,'مدیر سیمرغ','admin') RETURNING id", [ap, await bcrypt.hash(pw, 10)]);
-    await q('UPDATE users SET member_code=$1 WHERE id=$2', [`S-${new Date().getFullYear()}-${String(u.id).padStart(4, '0')}`, u.id]);
-    console.log('مدیر اولیه ساخته شد');
-  }
-  app.listen(process.env.PORT || 3000, () => console.log('API آماده است'));
-})().catch(e => { console.error('خطا در راه‌اندازی:', e.message); process.exit(1); });
+app.use((req,res)=>res.status(404).json({error:'مسیر موردنظر پیدا نشد'}));
+const port=Number(process.env.PORT)||3000;
+app.listen(port,()=>console.log('Simorgh Supabase API listening on',port));
