@@ -30,7 +30,7 @@
       sb.from("profiles").select("*").eq("id",user.id).maybeSingle(),
       sb.from("user_roles").select("role").eq("user_id",user.id),
       sb.from("forum_permissions").select("can_create_topic").eq("user_id",user.id).maybeSingle(),
-      sb.from("admin_permissions").select("permission_key").eq("user_id",user.id)
+      sb.from("admin_permissions").select("permission_key,can_view,can_create,can_update,can_delete").eq("user_id",user.id)
     ]);
     if(pe) throw pe; if(re) throw re; if(fe && fe.code!=="PGRST116") throw fe; if(ae) throw ae;
     const roleRows=roles||[];
@@ -42,7 +42,7 @@
       avatar_key:profile?.avatar_key || "", bio:profile?.bio || "",
       role, member_code:"S-"+user.id.slice(0,8).toUpperCase(),
       is_suspended:!!profile?.is_suspended, profile_visibility:profile?.profile_visibility||"private", membership_level_id:profile?.membership_level_id||null,
-      can_create_topic:!!profile?.can_create_topic||!!forumPermission?.can_create_topic, is_super_admin:roleRows.some(x=>x.role==="super_admin"), permissions:(adminPermissions||[]).map(x=>x.permission_key)
+      can_create_topic:!!profile?.can_create_topic||!!forumPermission?.can_create_topic, is_super_admin:roleRows.some(x=>x.role==="super_admin"), permissions:(adminPermissions||[]).filter(x=>x.can_view).map(x=>x.permission_key)
     }};
   }
   const getProfile = async id => {
