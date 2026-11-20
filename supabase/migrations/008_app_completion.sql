@@ -223,7 +223,7 @@ returns public.loan_extensions
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   x public.loan_extensions%rowtype;
   l public.book_loans%rowtype;
@@ -395,7 +395,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   if new.points_snapshot>0 then
     insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
@@ -404,7 +404,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 -- Storage bucket for forum attachments.
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
@@ -440,7 +440,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public, auth
-as $
+as $$
 declare v_title text; v_body text; v_kind text; v_user uuid;
 begin
   if tg_table_name='book_requests' and new.request_type<>'borrow' and new.status is distinct from old.status then
@@ -475,14 +475,14 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 create or replace function public.send_book_due_reminders()
 returns integer
 language plpgsql
 security definer
 set search_path = public, auth
-as $
+as $$
 declare l public.book_loans%rowtype; n integer := 0;
 begin
   for l in
@@ -501,7 +501,7 @@ begin
   end loop;
   return n;
 end;
-$;
+$$;
 
 -- Tighten direct-table access: sensitive state transitions must use the RPCs above.
 drop policy if exists "event_registrations_owner_insert" on public.event_registrations;
@@ -559,7 +559,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   if auth.uid() is not null and auth.uid()=old.id
      and not public.is_super_admin()
@@ -576,7 +576,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists protect_profile_sensitive_fields_trigger on public.profiles;
 create trigger protect_profile_sensitive_fields_trigger
@@ -589,7 +589,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_name text;
   v_price bigint;
@@ -621,7 +621,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists validate_member_purchase_request_trigger on public.purchase_requests;
 create trigger validate_member_purchase_request_trigger
