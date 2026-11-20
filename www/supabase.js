@@ -42,7 +42,7 @@
       avatar_key:profile?.avatar_key || "", bio:profile?.bio || "",
       role, member_code:"S-"+user.id.slice(0,8).toUpperCase(),
       is_suspended:!!profile?.is_suspended, profile_visibility:profile?.profile_visibility||"private", membership_level_id:profile?.membership_level_id||null,
-      can_create_topic:!!profile?.can_create_topic||!!forumPermission?.can_create_topic, is_super_admin:roleRows.some(x=>x.role==="super_admin")
+      can_create_topic:!!profile?.can_create_topic||!!forumPermission?.can_create_topic, is_super_admin:roleRows.some(x=>x.role==="super_admin"), permissions:(adminPermissions||[]).map(x=>x.permission_key)
     }};
   }
   const getProfile = async id => {
