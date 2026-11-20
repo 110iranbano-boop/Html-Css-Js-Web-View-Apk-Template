@@ -35,11 +35,12 @@ const one = async (table, query) => {
   return data;
 };
 const profileOf = async id => {
-  const [profile, roles] = await Promise.all([
+  const [profile, roles, balance] = await Promise.all([
     one('profiles', db.from('profiles').select('*').eq('id', id).maybeSingle()),
-    one('user_roles', db.from('user_roles').select('role').eq('user_id', id))
+    one('user_roles', db.from('user_roles').select('role').eq('user_id', id)),
+    one('user_points_balance', db.from('user_points_balance').select('points_balance').eq('user_id', id).maybeSingle())
   ]);
-  return { profile: profile || {}, roles: (roles || []).map(x => x.role) };
+  return { profile: { ...(profile || {}), points_balance: Number(balance?.points_balance || 0) }, roles: (roles || []).map(x => x.role) };
 };
 const phoneOf = user => digits(user.user_metadata && user.user_metadata.phone);
 const displayOf = (user, profile) => profile.display_name || user.user_metadata?.display_name || '';
@@ -296,12 +297,71 @@ app.post('/api/events/:id/register', ...signedIn, wrap(async(req,res)=>{
   res.status(201).json({ok:true,id:registrationId});
 }));
 app.delete('/api/events/:id/register', ...signedIn, wrap(async(req,res)=>{
-  const {data,error}=await db.from('event_registrations').update({status:'cancelled',cancelled_at:new Date().toISOString()}).eq('event_id',req.params.id).eq('user_id',req.user.id).eq('status','registered').select().maybeSingle();
-  if(error) throw error; if(!data) return fail(res,'ثبت‌نام فعال پیدا نشد',404);
-  res.json({ok:true});
+  const {data,error}=await db.rpc('cancel_event_registration_atomic',{p_event_id:Number(req.params.id),p_user_id:req.user.id});
+  if(error) return fail(res,error.message||'لغو ثبت‌نام انجام نشد',409);
+  res.json({ok:true,points_delta:data});
 }));
 
 // تاالر سیمرغ
+app.get('/api/loans/my', ...signedIn, wrap(async(req,res)=>{
+  const {data,error}=await db.from('book_loans').select('*,books(title,author,cover_path)').eq('user_id',req.user.id).order('created_at',{ascending:false});
+  if(error) throw error; res.json(data||[]);
+}));
+app.get('/api/book-fines/my', ...signedIn, wrap(async(req,res)=>{
+  const {data,error}=await db.from('book_fines').select('*').eq('user_id',req.user.id).order('fine_date',{ascending:false});
+  if(error) throw error; res.json(data||[]);
+}));
+app.post('/api/loans/:id/extensions', ...signedIn, wrap(async(req,res)=>{
+  await assertActive(req.user.id);
+  const {data:loan,error:loanError}=await db.from('book_loans').select('id,user_id,status').eq('id',req.params.id).single();
+  if(loanError||!loan||loan.user_id!==req.user.id||!['active','overdue'].includes(loan.status)) return fail(res,'امانت فعال پیدا نشد',404);
+  const {data:pending}=await db.from('loan_extensions').select('id').eq('loan_id',loan.id).eq('status','pending').maybeSingle();
+  if(pending) return fail(res,'درخواست تمدید قبلی در حال بررسی است');
+  const {data,error}=await db.from('loan_extensions').insert({loan_id:loan.id}).select().single();
+  if(error) throw error; res.status(201).json(data);
+}));
+app.get('/api/admin/loan-extensions', ...signedIn, wrap(async(req,res)=>{
+  if(!await can(req,'library.manage','view')) return fail(res,'دسترسی ندارید',403);
+  const {data,error}=await db.from('loan_extensions').select('*,book_loans(book_id,user_id,books(title))').order('requested_at',{ascending:false});
+  if(error) throw error; res.json(data||[]);
+}));
+app.put('/api/admin/loan-extensions/:id', ...signedIn, wrap(async(req,res)=>{
+  if(!await can(req,'library.manage','update')) return fail(res,'دسترسی ندارید',403);
+  const status=req.body.status; if(!['approved','rejected'].includes(status)) return fail(res,'وضعیت نامعتبر است');
+  const {data:ext,error}=await db.from('loan_extensions').select('*').eq('id',req.params.id).eq('status','pending').single();
+  if(error||!ext) return fail(res,'درخواست تمدید قبلاً بررسی شده است',409);
+  let patch={status,decided_by:req.user.id,decided_at:new Date().toISOString()};
+  if(status==='approved'){
+    const {data:loan,error:le}=await db.from('book_loans').select('current_due_at').eq('id',ext.loan_id).single();
+    if(le) throw le;
+    const next=new Date(new Date(loan.current_due_at).getTime()+7*86400000).toISOString();
+    patch.previous_due_at=loan.current_due_at; patch.new_due_at=next;
+    const {error:updateLoan}=await db.from('book_loans').update({current_due_at:next,status:'active'}).eq('id',ext.loan_id);
+    if(updateLoan) throw updateLoan;
+  }
+  const {data,error:updateError}=await db.from('loan_extensions').update(patch).eq('id',ext.id).select().single();
+  if(updateError) throw updateError; res.json(data);
+}));
+app.post('/api/internal/run-loan-penalties', wrap(async(req,res)=>{
+  if(!process.env.CRON_SECRET||req.headers['x-cron-secret']!==process.env.CRON_SECRET) return fail(res,'دسترسی ندارید',403);
+  const {data,error}=await db.rpc('apply_loan_late_fines');
+  if(error) throw error; res.json({ok:true,fines_created:data});
+}));
+app.put('/api/admin/book-fines/:id/settle', ...signedIn, wrap(async(req,res)=>{
+  if(!await can(req,'library.manage','update')) return fail(res,'دسترسی ندارید',403);
+  const {data:fine,error}=await db.from('book_fines').update({status:'settled',settled_at:new Date().toISOString()}).eq('id',req.params.id).eq('status','open').select().single();
+  if(error) throw error;
+  const {data:openFines}=await db.from('book_fines').select('id').eq('user_id',fine.user_id).eq('status','open').limit(1);
+  const {data:openLoans}=await db.from('book_loans').select('id').eq('user_id',fine.user_id).in('status',['active','overdue']).limit(1);
+  if(!openFines?.length&&!openLoans?.length) await db.from('profiles').update({is_suspended:false,suspension_reason:null,suspended_at:null,suspension_ends_at:null}).eq('id',fine.user_id);
+  res.json({ok:true});
+}));
+app.put('/api/admin/event-attendance/:personId', ...signedIn, wrap(async(req,res)=>{
+  if(!await can(req,'events.manage','update')) return fail(res,'دسترسی ندارید',403);
+  const {data,error}=await db.rpc('mark_event_attendance_atomic',{p_registration_person_id:req.params.personId,p_attendance_status:req.body.status,p_admin_id:req.user.id});
+  if(error) return fail(res,error.message||'ثبت حضور انجام نشد',409);
+  res.json({ok:true,points_delta:data});
+}));
 app.get('/api/forum/topics', ...signedIn, wrap(async(req,res)=>{
   const {data,error}=await db.from('forum_topics').select('*, forum_topic_images(*)').eq('status','published').order('created_at',{ascending:false});
   if(error) throw error;
