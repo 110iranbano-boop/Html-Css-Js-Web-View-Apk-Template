@@ -215,11 +215,15 @@ home(){
   <div class="wheel"><div class="core"><img src="img/logo-512.png" alt=""></div>${seg}</div><div class="tag">جایی برای رویاها، کتاب‌ها و هنر…</div>`;
 },
 async cafe(){
-  const{ok,d}=await api('/menu');if(!ok)return $('main').innerHTML='<div class="empty">منو بارگذاری نشد</div>';
-  const cats=[...new Set(d.map(i=>i.category||'سایر'))];
-  $('main').innerHTML=cats.map(c=>`<div class="sec">${esc(c)}</div>`+d.filter(i=>(i.category||'سایر')===c).map(i=>`
-    <div class="card">${i.image_url?img(i.image_url,'☕'):''}<div class="row"><h3>${esc(i.name)}</h3><span class="price">${money(i.price)}</span></div>${i.description?`<p>${esc(i.description)}</p>`:''}</div>`).join('')).join('')||'<div class="empty">منو هنوز ثبت نشده است</div>';
-  /* کافه فقط نمایش منو است؛ دکمهٔ سفارش یا سبد وجود ندارد */
+  const[m,cr]=await Promise.all([api('/menu'),api('/cafe-categories')]);
+  if(!m.ok)return $('main').innerHTML='<div class="empty">منو بارگذاری نشد</div>';
+  const cats=cr.ok?cr.d:[], byName=new Map(cats.map(x=>[x.name,x]));
+  const groups=[...new Set(m.d.map(x=>x.category||'سایر'))];
+  $('main').innerHTML=groups.map(name=>{
+    const cat=byName.get(name);
+    return `<div class="card">${cat?.image_path?img(cat.image_path,'☕'):''}<div class="sec">${esc(name)}</div>${m.d.filter(x=>(x.category||'سایر')===name).map(i=>`<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><div><b>${esc(i.name)}</b>${i.description?`<p>${esc(i.description)}</p>`:''}</div><span class="price">${money(i.price)}</span></div>`).join('')}</div>`;
+  }).join('')||'<div class="empty">منو هنوز ثبت نشده است</div>';
+  /* کافه در نسخه فعلی فقط نمایش منو است؛ سفارش‌گیری تعریف نشده است. */
 },
 async library(){
   const[b,l]=await Promise.all([api('/books'),api('/loan-requests/my')]);
@@ -244,11 +248,15 @@ async events(){
     ${e.mine?`${badge('ثبت‌نام شده‌اید','ok')}<button class="btn r s" style="margin-inline-start:8px" onclick="unreg(${e.id})">لغو ثبت‌نام</button>`:!e.registration_open?badge('ثبت‌نام بسته است','no'):full?badge('ظرفیت تکمیل است','no'):`<button class="btn" onclick="reg(${e.id})">ثبت‌نام در رویداد</button>`}</div>`}).join('')||'<div class="empty">رویداد فعالی نیست</div>';
 },
 async art(){
-  const{ok,d}=await api('/art');if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
-  cache.art=d;const cats=['همه',...new Set(d.map(i=>i.category).filter(Boolean))],cur=cache.artCat||'همه';
+  const[p,cr]=await Promise.all([api('/art'),api('/store-categories')]);
+  if(!p.ok)return $('main').innerHTML='<div class="empty">بارگذاری فروشگاه انجام نشد</div>';
+  cache.art=p.d;const cats=cr.ok?cr.d:[],cur=cache.artCat||'همه';
   const SL={in_stock:'موجود',made_to_order:'ساخت بر اساس سفارش',out:'ناموجود'};
-  $('main').innerHTML=`<div class="tabs">${cats.map(c=>`<button class="${c===cur?'on':''}" onclick="cache.artCat='${esc(c).replace(/'/g,'')}';go('art')">${esc(c)}</button>`).join('')}</div><div class="grid">`+
-   d.filter(i=>cur==='همه'||i.category===cur).map(i=>`<div class="card">${img(i.image_url,'🎨')}<h3>${esc(i.name)}</h3><div class="price">${money(i.price)}</div><p>${SL[i.stock_status]}${i.allow_custom?' · سفارشی‌سازی':''}</p><button class="btn s" ${i.stock_status==='out'?'disabled':''} onclick="addCart('art',${i.id})">افزودن به سبد</button></div>`).join('')+'</div>';
+  const categoryCards=`<div class="grid">`+cats.map(x=>`<div class="card" onclick="cache.artCat='${esc(x.name).replace(/'/g,'')}';go('art')">${img(x.image_path,'🛍️')}<h3>${esc(x.name)}</h3>${x.description?`<p>${esc(x.description)}</p>`:''}</div>`).join('')+`</div>`;
+  const tabs=`<div class="tabs"><button class="${cur==='همه'?'on':''}" onclick="cache.artCat='همه';go('art')">همه</button>${cats.map(x=>`<button class="${cur===x.name?'on':''}" onclick="cache.artCat='${esc(x.name).replace(/'/g,'')}';go('art')">${esc(x.name)}</button>`).join('')}</div>`;
+  const products=p.d.filter(i=>cur==='همه'||i.category===cur);
+  $('main').innerHTML=(cur==='همه'?categoryCards:'')+tabs+`<div class="grid">`+
+   products.map(i=>`<div class="card">${img(i.image_url,'🎨')}<h3>${esc(i.name)}</h3><div class="price">${money(i.price)}</div><p>${SL[i.stock_status]||'موجود'}${i.allow_custom?' · سفارشی‌سازی':''}</p><button class="btn s" onclick="addCart('art',${i.id})">درخواست خرید</button></div>`).join('')+`</div>`+(products.length?'':'<div class="empty">محصولی در این دسته ثبت نشده است</div>');
 },
 cart(){
   if(!cart.length)return $('main').innerHTML='<div class="empty">سبد خرید خالی است.<br>کتاب فروشی یا محصول گالری را به سبد اضافه کنید.</div>';
