@@ -187,7 +187,7 @@ app.get('/api/events', ...signedIn, wrap(async (req, res) => {
   if (re) throw re;
   res.json((data || []).map(e => {
     const rs=(regs||[]).filter(r=>r.event_id===e.id);
-    return { id:e.id,title:e.title,description:e.description,event_date:e.starts_at,location:'',capacity:e.capacity_people,registered:rs.reduce((n,r)=>n+r.people_count,0),mine:rs.some(r=>r.user_id===req.user.id),registration_open:e.is_registration_open && e.event_type==='timed',active:e.status==='published',image_url:e.poster_path,event_type:e.event_type };
+    return { id:e.id,title:e.title,description:e.description,event_date:e.starts_at,location:'',capacity:e.capacity_people,registered:rs.reduce((n,r)=>n+r.people_count,0),mine:rs.some(r=>r.user_id===req.user.id),registration_open:e.is_registration_open && e.event_type==='timed',active:e.status==='published',image_url:e.poster_path,event_type:e.event_type,required_teammates:e.required_teammates,points_on_registration:e.points_on_registration,rules_text:e.rules_text };
   }));
 }));
 
