@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - supabase-completion-final
   workflow_dispatch:
 
 jobs:
@@ -20,6 +21,12 @@ jobs:
         with:
           node-version: 20
           cache: npm
+
+      - name: Validate JavaScript
+        run: |
+          node --check www/supabase.js
+          python -c "import re,pathlib; h=pathlib.Path('www/index.html').read_text(encoding='utf-8'); s=re.findall(r'<script(?:\\s[^>]*)?>([\\s\\S]*?)</script>',h,re.I); pathlib.Path('/tmp/simorgh-inline.js').write_text(s[-1],encoding='utf-8')"
+          node --check /tmp/simorgh-inline.js
 
       - name: Setup Java
         uses: actions/setup-java@v4
