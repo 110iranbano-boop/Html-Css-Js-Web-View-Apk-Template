@@ -109,7 +109,7 @@ async function api(p,o={}){
 }
 const send=(p,m,b)=>api(p,{method:m,body:b?JSON.stringify(b):undefined});
 
-/* ---------- ورود ---------- */
+/* ---------- ورود و ثبت‌نام ---------- */
 function showAuth(signup){
   document.body.dataset.pg='home';
   $('app').classList.add('hidden');$('auth').classList.remove('hidden');
@@ -117,35 +117,41 @@ function showAuth(signup){
   ${signup?`<label>نام و نام خانوادگی</label><input id="an" autocomplete="name">`:''}
   <label>شمارهٔ همراه</label><input id="ap" type="tel" inputmode="numeric" placeholder="09123456789" style="direction:ltr;text-align:left" autocomplete="tel">
   <label>رمز عبور${signup?' (حداقل ۶ کاراکتر)':''}</label><input id="aw" type="password" autocomplete="${signup?'new-password':'current-password'}">
-  <button class="btn" onclick="${signup?'doSignup()':'doLogin()'}">${signup?'ساخت حساب':'ورود'}</button>
+  <button class="btn" id="authSubmit" onclick="${signup?'doSignup()':'doLogin()'}">${signup?'ساخت حساب':'ورود'}</button>
   <button class="btn o" onclick="showAuth(${!signup})">${signup?'حساب دارم، ورود':'حساب ندارم، ثبت‌نام'}</button>`;
 }
 async function doLogin(){
-  const phoneInput = document.getElementById('ap');
-  const passInput = document.getElementById('aw');
-  
-  if(!phoneInput || !passInput) {
-      alert("خطای فنی: فیلدهای ورودی پیدا نشدند!");
-      return;
-  }
-
-  const rawPhone = phoneInput.value;
-  const rawPass = passInput.value;
-
-  const phone = latin(rawPhone);
-  const password = rawPass;
-
-  if(!phone || !password) return toast('شماره و رمز عبور را وارد کنید');
-  
+  const phoneInput=$('ap'),passInput=$('aw'),button=$('authSubmit');
+  if(!phoneInput||!passInput)return toast('فرم ورود پیدا نشد؛ صفحه را دوباره باز کنید');
+  const phone=latin(phoneInput.value),password=passInput.value;
+  if(!phone||!password)return toast('شماره همراه و رمز عبور را وارد کنید');
+  if(!/^09\\d{9}$/.test(phone))return toast('شماره همراه باید ۱۱ رقم و با 09 شروع شود');
+  if(button)button.disabled=true;
   const{ok,d}=await send('/login','POST',{phone,password});
-  
-  if(!ok) {
-      // این خط را تغییر دادیم تا دقیقاً جواب سرور را ببینیم
-      alert("خطای سرور: " + (d.error || JSON.stringify(d) || "خطای ناشناخته"));
-      return;
-  }
-  
-  localStorage.setItem('token',d.token);localStorage.setItem('user',JSON.stringify(d.user));boot();
+  if(button)button.disabled=false;
+  if(!ok)return toast(d.error||'ورود انجام نشد؛ اتصال سرور را بررسی کنید');
+  if(!d.token||!d.user)return toast('پاسخ سرور برای ورود معتبر نیست');
+  localStorage.setItem('token',d.token);
+  localStorage.setItem('user',JSON.stringify(d.user));
+  boot();
+}
+async function doSignup(){
+  const nameInput=$('an'),phoneInput=$('ap'),passInput=$('aw'),button=$('authSubmit');
+  if(!nameInput||!phoneInput||!passInput)return toast('فرم ثبت‌نام پیدا نشد؛ صفحه را دوباره باز کنید');
+  const full_name=nameInput.value.trim(),phone=latin(phoneInput.value),password=passInput.value;
+  if(!full_name)return toast('نام و نام خانوادگی را وارد کنید');
+  if(!phone)return toast('شماره همراه را وارد کنید');
+  if(!/^09\\d{9}$/.test(phone))return toast('شماره همراه باید ۱۱ رقم و با 09 شروع شود');
+  if(!password)return toast('رمز عبور را وارد کنید');
+  if(password.length<6)return toast('رمز عبور باید حداقل ۶ کاراکتر باشد');
+  if(button)button.disabled=true;
+  const{ok,d}=await send('/register','POST',{full_name,phone,password});
+  if(button)button.disabled=false;
+  if(!ok)return toast(d.error||'ثبت‌نام انجام نشد؛ اتصال سرور را بررسی کنید');
+  toast('حساب ساخته شد. اکنون با شماره و رمز عبور وارد شوید');
+  showAuth(false);
+  $('ap').value=phone;
+  $('aw').focus();
 }
 /* ---------- راه‌اندازی و ناوبری ---------- */
 function boot(){
