@@ -302,7 +302,7 @@ async forum(){
   $("main").innerHTML=html;
 },
 async admin(){
-  const T=[['purchase','خرید'],['loan','درخواست امانت'],['activeLoans','امانت‌های فعال'],['extensions','تمدید امانت'],['fines','جریمه‌ها'],['breq','درخواست کتاب'],['cafeCats','دسته‌های کافه'],['menu','منوی کافه'],['bookCats','موضوعات کتاب'],['books','کتاب‌ها'],['storeCats','موضوعات فروشگاه'],['art','فروشگاه'],['events','رویدادها']];if(U.is_super_admin)T.push(['access','دسترسی‌ها']);
+  const P=U.permissions||[],can=k=>U.is_super_admin||P.includes(k);const T=[['purchase','خرید',can('store.manage')||can('library.manage')],['loan','درخواست امانت',can('library.manage')],['activeLoans','امانت‌های فعال',can('library.manage')],['extensions','تمدید امانت',can('library.manage')],['fines','جریمه‌ها',can('library.manage')],['breq','درخواست کتاب',can('library.manage')],['cafeCats','دسته‌های کافه',can('cafe.manage')],['menu','منوی کافه',can('cafe.manage')],['bookCats','موضوعات کتاب',can('library.manage')],['books','کتاب‌ها',can('library.manage')],['storeCats','موضوعات فروشگاه',can('store.manage')],['art','فروشگاه',can('store.manage')],['events','رویدادها',can('events.manage')]].filter(x=>x[2]).map(x=>x.slice(0,2));if(U.is_super_admin)T.push(['access','دسترسی‌ها']);
   const head=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===admTab?'on':''}" onclick="admTab='${k}';go('admin')">${t}</button>`).join('')}</div>`;
   let body='';
   if(admTab==='purchase'){const{d=[]}=await api('/admin/purchase-requests');
