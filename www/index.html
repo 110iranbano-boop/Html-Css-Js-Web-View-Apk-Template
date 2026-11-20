@@ -161,11 +161,11 @@ function boot(){
   try{cart=JSON.parse(localStorage.getItem('cart_'+U.id)||'[]')}catch{cart=[]}
   $('auth').classList.add('hidden');$('app').classList.remove('hidden');
   $('userCard').innerHTML=(U.avatar_url?'<img src="'+esc(U.avatar_url)+'" alt="">':'<span style="font-size:20px">👤</span>')+'<span>'+esc(U.full_name||'حساب کاربری')+'</span>'+(U.is_suspended?'<i class="suspension-dot"></i>':'');
-  const N=[['home','home','خانه'],['library','library','کتابخانه'],['events','events','رویدادها'],['forum','forum','تاالر'],['art','art','گالری هنری'],['cafe','cafe','کافه'],['account','account','حساب']];
+  const N=[['home','home','خانه'],['library','library','کتابخانه'],['events','events','رویدادها'],['forum','forum','تاالر'],['art','art','فروشگاه سیمرغ'],['cafe','cafe','کافه'],['account','account','حساب']];
   $('nav').innerHTML=N.map(([k,i,t])=>`<button data-k="${k}" onclick="go('${k}')">${ic(i)}${t}</button>`).join('');
   go('home');refreshBadges();
 }
-const TITLES={home:'سیمرغ',cafe:'کافه‌کتاب',library:'کتابخانه',events:'رویدادها',forum:'تاالر سیمرغ',art:'گالری هنری سیمرغ',cart:'سبد خرید',account:'حساب کاربری',notifs:'اعلان‌ها',mine:'درخواست‌های من',admin:'پنل مدیریت'};
+const TITLES={home:'سیمرغ',cafe:'کافه‌کتاب',library:'کتابخانه',events:'رویدادها',forum:'تاالر سیمرغ',art:'فروشگاه سیمرغ',cart:'سبد خرید',account:'حساب کاربری',notifs:'اعلان‌ها',mine:'درخواست‌های من',admin:'پنل مدیریت'};
 async function go(p,arg){
   page=p;document.body.dataset.pg=p;if(p==='library'&&arg)libTab=arg;
   $('title').textContent=TITLES[p];$('back').classList.toggle('hidden',p==='home');
