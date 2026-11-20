@@ -50,6 +50,20 @@ const grantBootstrapAdmin = async (userId, phone) => {
     if (error) throw error;
   }
 };
+const userDetails = async ids => {
+  const wanted = new Set(ids || []);
+  if (!wanted.size) return {};
+  const { data: authData, error: authError } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (authError) throw authError;
+  const { data: profiles, error: profileError } = await db.from('profiles').select('id,display_name,avatar_url').in('id', [...wanted]);
+  if (profileError) throw profileError;
+  const pmap = Object.fromEntries((profiles || []).map(p => [p.id,p]));
+  return Object.fromEntries((authData.users || []).filter(u => wanted.has(u.id)).map(u => [u.id, {
+    full_name: pmap[u.id]?.display_name || u.user_metadata?.display_name || '',
+    phone: phoneOf(u),
+    avatar_url: pmap[u.id]?.avatar_url || null
+  }]));
+};
 const publicUser = (user, profile, roles) => ({
   id: user.id,
   full_name: displayOf(user, profile),
@@ -289,8 +303,10 @@ app.delete('/api/events/:id/register', ...signedIn, wrap(async(req,res)=>{
 
 // تاالر سیمرغ
 app.get('/api/forum/topics', ...signedIn, wrap(async(req,res)=>{
-  const {data,error}=await db.from('forum_topics').select('*, profiles(display_name,avatar_url), forum_topic_images(*)').eq('status','published').order('created_at',{ascending:false});
-  if(error) throw error; res.json(data||[]);
+  const {data,error}=await db.from('forum_topics').select('*, forum_topic_images(*)').eq('status','published').order('created_at',{ascending:false});
+  if(error) throw error;
+  const authors=await userDetails((data||[]).map(x=>x.user_id));
+  res.json((data||[]).map(x=>({...x,profiles:{display_name:authors[x.user_id]?.full_name||'',avatar_url:authors[x.user_id]?.avatar_url||null}})));
 }));
 app.post('/api/forum/topics', ...signedIn, wrap(async(req,res)=>{
   await assertActive(req.user.id);
@@ -302,8 +318,10 @@ app.post('/api/forum/topics', ...signedIn, wrap(async(req,res)=>{
   if(error) throw error; res.status(201).json(data);
 }));
 app.get('/api/forum/topics/:id/comments', ...signedIn, wrap(async(req,res)=>{
-  const {data,error}=await db.from('forum_comments').select('*, profiles(display_name,avatar_url)').eq('topic_id',req.params.id).eq('status','published').order('created_at');
-  if(error) throw error; res.json(data||[]);
+  const {data,error}=await db.from('forum_comments').select('*').eq('topic_id',req.params.id).eq('status','published').order('created_at');
+  if(error) throw error;
+  const authors=await userDetails((data||[]).map(x=>x.user_id));
+  res.json((data||[]).map(x=>({...x,profiles:{display_name:authors[x.user_id]?.full_name||'',avatar_url:authors[x.user_id]?.avatar_url||null}})));
 }));
 app.post('/api/forum/topics/:id/comments', ...signedIn, wrap(async(req,res)=>{
   await assertActive(req.user.id);
@@ -343,7 +361,8 @@ app.delete('/api/admin/:res(menu|books|art|events)/:id', ...signedIn, wrap(async
 app.get('/api/admin/purchase-requests', ...signedIn, wrap(async(req,res)=>{
   if(!await can(req,'store.manage','view')&&!await can(req,'library.manage','view')) return fail(res,'دسترسی ندارید',403);
   const {data,error}=await db.from('purchase_requests').select('*').order('created_at',{ascending:false}).limit(200); if(error) throw error;
-  res.json((data||[]).map(x=>({...x,full_name:'',contact_phone:'',final_price:x.unit_price_toman_snapshot*x.quantity,items:[{title:x.item_name_snapshot,qty:x.quantity,price:x.unit_price_toman_snapshot}]})));
+  const users=await userDetails((data||[]).map(x=>x.user_id));
+  res.json((data||[]).map(x=>({...x,full_name:users[x.user_id]?.full_name||'',contact_phone:users[x.user_id]?.phone||'',final_price:x.unit_price_toman_snapshot*x.quantity,items:[{title:x.item_name_snapshot,qty:x.quantity,price:x.unit_price_toman_snapshot}]})));
 }));
 app.put('/api/admin/purchase-requests/:id', ...signedIn, wrap(async(req,res)=>{
   if(!await can(req,'store.manage','update')&&!await can(req,'library.manage','update')) return fail(res,'دسترسی ندارید',403);
@@ -353,7 +372,8 @@ app.put('/api/admin/purchase-requests/:id', ...signedIn, wrap(async(req,res)=>{
 app.get('/api/admin/loan-requests', ...signedIn, wrap(async(req,res)=>{
   if(!await can(req,'library.manage','view')) return fail(res,'دسترسی ندارید',403);
   const {data,error}=await db.from('book_requests').select('*,books(title)').eq('request_type','borrow').order('created_at',{ascending:false}); if(error) throw error;
-  res.json((data||[]).map(x=>({id:x.id,book_title:x.books?.title||'کتاب',status:x.status,user_id:x.user_id,proposed_amount_toman:x.proposed_amount_toman})));
+  const users=await userDetails((data||[]).map(x=>x.user_id));
+  res.json((data||[]).map(x=>({id:x.id,book_title:x.books?.title||'کتاب',status:x.status,user_id:x.user_id,full_name:users[x.user_id]?.full_name||'',phone:users[x.user_id]?.phone||'',proposed_amount_toman:x.proposed_amount_toman})));
 }));
 app.put('/api/admin/loan-requests/:id', ...signedIn, wrap(async(req,res)=>{
   if(!await can(req,'library.manage','update')) return fail(res,'دسترسی ندارید',403);
@@ -386,7 +406,8 @@ app.put('/api/admin/book-requests/:id', ...signedIn, wrap(async(req,res)=>{
 app.get('/api/admin/events/:id/registrations', ...signedIn, wrap(async(req,res)=>{
   if(!await can(req,'events.manage','view')) return fail(res,'دسترسی ندارید',403);
   const {data,error}=await db.from('event_registrations').select('*,event_registration_people(*)').eq('event_id',req.params.id); if(error) throw error;
-  res.json(data||[]);
+  const users=await userDetails((data||[]).map(x=>x.user_id));
+  res.json((data||[]).map(x=>({...x,full_name:users[x.user_id]?.full_name||x.registrant_name,phone:users[x.user_id]?.phone||x.registrant_phone})));
 }));
 
 // Serve web build
