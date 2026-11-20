@@ -210,7 +210,7 @@ async library(){
   $('main').innerHTML=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===libTab?'on':''}" onclick="go('library','${k}')">${t}</button>`).join('')}</div>`+body;
 },
 async events(){
-  const{ok,d}=await api('/events');if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
+  const{ok,d}=await api('/events');if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';cache.events=d;
   $('main').innerHTML=d.map(e=>{const full=e.capacity&&e.registered>=e.capacity;
     return `<div class="card">${e.image_url?img(e.image_url,'📅'):''}<h3>${esc(e.title)}</h3><p>📅 ${when(e.event_date)}${e.location?' · 📍 '+esc(e.location):''}</p>${e.description?`<p>${esc(e.description)}</p>`:''}${e.capacity?`<p>ظرفیت: ${fa(e.registered)} از ${fa(e.capacity)}</p>`:''}
     ${e.mine?`${badge('ثبت‌نام شده‌اید','ok')}<button class="btn r s" style="margin-inline-start:8px" onclick="unreg(${e.id})">لغو ثبت‌نام</button>`:!e.registration_open?badge('ثبت‌نام بسته است','no'):full?badge('ظرفیت تکمیل است','no'):`<button class="btn" onclick="reg(${e.id})">ثبت‌نام در رویداد</button>`}</div>`}).join('')||'<div class="empty">رویداد فعالی نیست</div>';
@@ -289,13 +289,15 @@ async function submitCart(){
   if(!ok)return toast(d.error||'ثبت نشد');
   cart=[];saveCart();toast('درخواست خرید ثبت شد؛ مدیریت با شما تماس می‌گیرد');go('mine');
 }
-async function reqLoan(id){const{ok,d}=await send('/loan-requests','POST',{book_id:id});toast(ok?'درخواست امانت ثبت شد':d.error);if(ok)go('library')}
+function reqLoan(id){openM('<h3 style="color:var(--gold2)">درخواست امانت</h3><p class="sub">حداقل مبلغ پیشنهادی ۲۰٬۰۰۰ تومان است.</p><label>مبلغ پیشنهادی (تومان)</label><input id="loanAmount" inputmode="numeric" placeholder="۲۰۰۰۰"><button class="btn" onclick="submitLoan(${id})">ثبت درخواست</button><button class="btn o" onclick="closeM()">انصراف</button>')}
+async function submitLoan(id){const amount=Number(latin($('loanAmount').value));if(amount<20000)return toast('مبلغ پیشنهادی نباید کمتر از ۲۰٬۰۰۰ تومان باشد');const{ok,d}=await send('/loan-requests','POST',{book_id:id,proposed_amount_toman:amount});if(!ok)return toast(d.error||'ثبت درخواست انجام نشد');closeM();toast('درخواست امانت ثبت شد');go('library')}
 async function sendBookReq(){
   const book_title=$('rt').value.trim();if(!book_title)return toast('عنوان کتاب را وارد کنید');
   const{ok,d}=await send('/book-requests','POST',{book_title,author:$('ra').value,description:$('rd').value});
   toast(ok?'درخواست ثبت شد':d.error);if(ok)go('library','request');
 }
-async function reg(id){const{ok,d}=await send(`/events/${id}/register`,'POST');toast(ok?'ثبت‌نام انجام شد':d.error);go('events')}
+function reg(id){const e=(cache.events||[]).find(x=>x.id===id)||{};const count=Number(e.required_teammates||0);let h='<h3 style="color:var(--gold2)">ثبت‌نام در رویداد</h3><label>نام و نام خانوادگی</label><input id="regName" value="'+esc(U.full_name)+'"><label>شماره تماس</label><input id="regPhone" value="'+esc(U.phone)+'" style="direction:ltr;text-align:left">';for(let i=0;i<count;i++)h+='<div class="sec">همراه '+(i+1)+'</div><label>نام و نام خانوادگی</label><input id="teamName'+i+'"><label>شماره تماس</label><input id="teamPhone'+i+'" style="direction:ltr;text-align:left">';h+='<button class="btn" onclick="submitEventReg('+id+','+count+')">تأیید ثبت‌نام</button><button class="btn o" onclick="closeM()">انصراف</button>';openM(h)}
+async function submitEventReg(id,count){const teammates=[];for(let i=0;i<count;i++){const full_name=$('teamName'+i).value.trim(),phone=latin($('teamPhone'+i).value);if(!full_name||!phone)return toast('اطلاعات همه همراهان را کامل کنید');teammates.push({full_name,phone,sort_order:i+1})}const{ok,d}=await send('/events/'+id+'/register','POST',{registrant_name:$('regName').value.trim(),registrant_phone:latin($('regPhone').value),teammates});if(!ok)return toast(d.error||'ثبت‌نام انجام نشد');closeM();toast('ثبت‌نام انجام شد');go('events')}
 async function unreg(id){const{ok}=await send(`/events/${id}/register`,'DELETE');toast(ok?'ثبت‌نام لغو شد':'خطا');go('events')}
 function editProfile(){openM(`<h3 style="color:var(--gold2)">مشخصات کاربری</h3><label>نام و نام خانوادگی</label><input id="pn" value="${esc(U.full_name)}"><label>شمارهٔ همراه</label><input value="${esc(U.phone)}" disabled style="direction:ltr;text-align:left"><button class="btn" onclick="saveProfile()">ذخیره</button><button class="btn o" onclick="closeM()">بستن</button>`)}
 async function saveProfile(){const{ok,d}=await send('/profile','PUT',{full_name:$('pn').value});if(!ok)return toast(d.error||'خطا');U=d;localStorage.setItem('user',JSON.stringify(U));closeM();go('account')}
