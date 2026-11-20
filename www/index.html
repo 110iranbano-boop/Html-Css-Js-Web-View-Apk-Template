@@ -99,16 +99,38 @@ const gb=s=>badge(GST[s]||s,s==='approved'?'ok':s==='rejected'?'no':'');
 function toast(m){const t=$('toast');t.textContent=m;t.classList.remove('hidden');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.add('hidden'),3000)}
 function openM(h){$('mbox').innerHTML=h;$('modal').classList.remove('hidden')}
 function closeM(){$('modal').classList.add('hidden')}
-async function api(p,o={}){
+async function api(p,o={},retried=false){
   const h={'Content-Type':'application/json'},t=localStorage.getItem('token');if(t)h.Authorization='Bearer '+t;
   let r,d={};
   try{r=await fetch(API+p,{...o,headers:h,signal:AbortSignal.timeout(20000)});d=await r.json().catch(()=>({}))}
   catch{toast('ارتباط با سرور برقرار نشد');return{ok:false,d:{}}}
-  if(r.status===401&&t&&!/^\/(login|register)/.test(p)){logout(true);return{ok:false,d}}
+  if(r.status===401&&t&&!retried&&!/^\/(login|register|refresh)/.test(p)){
+    const refresh=localStorage.getItem('refresh_token');
+    if(refresh){
+      try{
+        const rr=await fetch(API+'/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:refresh})});
+        const rd=await rr.json().catch(()=>({}));
+        if(rr.ok&&rd.token){
+          localStorage.setItem('token',rd.token);
+          if(rd.refresh_token)localStorage.setItem('refresh_token',rd.refresh_token);
+          return api(p,o,true);
+        }
+      }catch{}
+    }
+    logout(true);return{ok:false,d};
+  }
   return{ok:r.ok,d}
 }
 const send=(p,m,b)=>api(p,{method:m,body:b?JSON.stringify(b):undefined});
 
+function logout(silent=false){
+  localStorage.removeItem('token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+  U=null;cart=[];$('app').classList.add('hidden');
+  showAuth(false);
+  if(!silent)toast('از حساب خارج شدید');
+}
 /* ---------- ورود و ثبت‌نام ---------- */
 function showAuth(signup){
   document.body.dataset.pg='home';
@@ -132,6 +154,7 @@ async function doLogin(){
   if(!ok)return toast(d.error||'ورود انجام نشد؛ اتصال سرور را بررسی کنید');
   if(!d.token||!d.user)return toast('پاسخ سرور برای ورود معتبر نیست');
   localStorage.setItem('token',d.token);
+  if(d.refresh_token)localStorage.setItem('refresh_token',d.refresh_token);
   localStorage.setItem('user',JSON.stringify(d.user));
   boot();
 }
@@ -266,7 +289,7 @@ async admin(){
     <input placeholder="مبلغ نهایی (تومان)" inputmode="numeric" value="${r.final_price??''}" onchange="send('/admin/purchase-requests/${r.id}','PUT',{final_price:latin(this.value)}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px">
     <input placeholder="پیام برای کاربر" value="${esc(r.admin_note||'')}" onchange="send('/admin/purchase-requests/${r.id}','PUT',{admin_note:this.value}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px"></div>`).join('')||'<div class="empty">درخواستی نیست</div>'}
   else if(admTab==='loan'){const{d=[]}=await api('/admin/loan-requests');
-    body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt(${r.id},'approved')">تأیید</button> <button class="btn r s" onclick="loanSt(${r.id},'rejected')">رد</button>`:gb(r.status)}</div>`).join('')+
+    body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt('${r.id}','approved')">تأیید</button> <button class="btn r s" onclick="loanSt('${r.id}','rejected')">رد</button>`:gb(r.status)}</div>`).join('')+
     `<div class="sec">بازگشت کتاب</div><p class="sub">برای ثبت بازگشت کتاب، تب «کتاب‌ها» را باز کنید.</p>`||'';}
   else if(admTab==='breq'){const{d=[]}=await api('/admin/book-requests');
     body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.author||'')} — ${esc(r.full_name)} · ${esc(r.phone)}</p>${r.description?`<p>${esc(r.description)}</p>`:''}
