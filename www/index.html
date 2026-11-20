@@ -266,7 +266,7 @@ async admin(){
     <input placeholder="مبلغ نهایی (تومان)" inputmode="numeric" value="${r.final_price??''}" onchange="send('/admin/purchase-requests/${r.id}','PUT',{final_price:latin(this.value)}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px">
     <input placeholder="پیام برای کاربر" value="${esc(r.admin_note||'')}" onchange="send('/admin/purchase-requests/${r.id}','PUT',{admin_note:this.value}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px"></div>`).join('')||'<div class="empty">درخواستی نیست</div>'}
   else if(admTab==='loan'){const{d=[]}=await api('/admin/loan-requests');
-    body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt(${r.id},'approved')">تأیید</button> <button class="btn r s" onclick="loanSt(${r.id},'rejected')">رد</button>`:gb(r.status)}</div>`).join('')+
+    body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt('${r.id}','approved')">تأیید</button> <button class="btn r s" onclick="loanSt('${r.id}','rejected')">رد</button>`:gb(r.status)}</div>`).join('')+
     `<div class="sec">بازگشت کتاب</div><p class="sub">برای ثبت بازگشت کتاب، تب «کتاب‌ها» را باز کنید.</p>`||'';}
   else if(admTab==='breq'){const{d=[]}=await api('/admin/book-requests');
     body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.author||'')} — ${esc(r.full_name)} · ${esc(r.phone)}</p>${r.description?`<p>${esc(r.description)}</p>`:''}
