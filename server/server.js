@@ -91,7 +91,7 @@ app.post('/api/login',run(async(req,res)=>{
   const {data,error}=await authClient.auth.signInWithPassword({email:emailForPhone(phone),password});
   if(error||!data.session) return fail(res,'شماره یا رمز عبور اشتباه است',401);
   const user=await userView(data.user);
-  res.json({token:data.session.access_token,user});
+  res.json({token:data.session.access_token,refresh_token:data.session.refresh_token,user});
 }));
 app.post('/api/refresh',run(async(req,res)=>{
   const refresh_token=String(req.body.refresh_token||'');
