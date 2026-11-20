@@ -26,21 +26,22 @@
   async function userContext(){
     const {data:{user},error}=await sb.auth.getUser();
     if(error||!user) throw new Error("ابتدا وارد حساب شوید");
-    const [{data:profile,error:pe},{data:roles,error:re},{data:forumPermission,error:fe}] = await Promise.all([
+    const [{data:profile,error:pe},{data:roles,error:re},{data:forumPermission,error:fe},{data:adminPermissions,error:ae}] = await Promise.all([
       sb.from("profiles").select("*").eq("id",user.id).maybeSingle(),
       sb.from("user_roles").select("role").eq("user_id",user.id),
-      sb.from("forum_permissions").select("can_create_topic").eq("user_id",user.id).maybeSingle()
+      sb.from("forum_permissions").select("can_create_topic").eq("user_id",user.id).maybeSingle(),
+      sb.from("admin_permissions").select("permission_key").eq("user_id",user.id)
     ]);
-    if(pe) throw pe; if(re) throw re; if(fe && fe.code!=="PGRST116") throw fe;
+    if(pe) throw pe; if(re) throw re; if(fe && fe.code!=="PGRST116") throw fe; if(ae) throw ae;
     const roleRows=roles||[];
-    const role=roleRows.some(x=>["super_admin","admin","manager"].includes(x.role))?"admin":"user";
+    const role=roleRows.some(x=>["super_admin","admin","manager","librarian","cafe_manager","store_manager","event_manager","moderator"].includes(x.role))||(adminPermissions||[]).length?"admin":"user";
     return {authUser:user,profile:profile||{},roles:roleRows,user:{
       id:user.id, phone:profile?.phone || user.phone || user.user_metadata?.phone || "",
       full_name:profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.display_name || "",
       username:profile?.username || "", avatar_url:profile?.avatar_url || "",
       avatar_key:profile?.avatar_key || "", bio:profile?.bio || "",
       role, member_code:"S-"+user.id.slice(0,8).toUpperCase(),
-      is_suspended:!!profile?.is_suspended,
+      is_suspended:!!profile?.is_suspended, profile_visibility:profile?.profile_visibility||"private", membership_level_id:profile?.membership_level_id||null,
       can_create_topic:!!profile?.can_create_topic||!!forumPermission?.can_create_topic, is_super_admin:roleRows.some(x=>x.role==="super_admin")
     }};
   }
@@ -185,8 +186,9 @@
       if(error) throw error; return ok({ok:true});
     }
     if(p==="/profile"&&method==="PUT"){
-      const {data,error}=await sb.from("profiles").update({display_name:String(body.full_name||"").trim()}).eq("id",uid).select().single();
-      if(error) throw error; return ok({...ctx.user,full_name:data.display_name});
+      const patch={display_name:String(body.full_name||"").trim(),username:String(body.username||"").trim()||null,bio:String(body.bio||"").trim()||null,avatar_url:String(body.avatar_url||"").trim()||null,profile_visibility:body.profile_visibility==="members"?"members":"private"};
+      const {data,error}=await sb.from("profiles").update(patch).eq("id",uid).select().single();
+      if(error) throw error; return ok({...ctx.user,full_name:data.display_name,username:data.username,bio:data.bio,avatar_url:data.avatar_url,profile_visibility:data.profile_visibility});
     }
     if(p==="/admin/purchase-requests"&&method==="GET"){
       const {data,error}=await sb.from("purchase_requests").select("*,profile:profiles!purchase_requests_user_id_fkey(display_name),book:books(title),product:store_products(name)").order("created_at",{ascending:false}).limit(200);
