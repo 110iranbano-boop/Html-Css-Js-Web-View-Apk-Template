@@ -34,7 +34,7 @@
     const roleRows=roles||[];
     const role=roleRows.some(x=>["super_admin","admin","manager"].includes(x.role))?"admin":"user";
     return {authUser:user,profile:profile||{},roles:roleRows,user:{
-      id:user.id, phone:user.phone || user.user_metadata?.phone || "",
+      id:user.id, phone:profile?.phone || user.phone || user.user_metadata?.phone || "",
       full_name:profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.display_name || "",
       username:profile?.username || "", avatar_url:profile?.avatar_url || "",
       avatar_key:profile?.avatar_key || "", bio:profile?.bio || "",
@@ -88,7 +88,7 @@
     });
     if(error) throw error;
     if(data.user && data.session){
-      const {error:pe}=await sb.from("profiles").upsert({id:data.user.id,display_name:String(body.full_name||"").trim()},{onConflict:"id"});
+      const {error:pe}=await sb.from("profiles").upsert({id:data.user.id,display_name:String(body.full_name||"").trim(),phone:phoneE164(body.phone)},{onConflict:"id"});
       if(pe) throw pe;
     }
     return {created:true,session_created:!!data.session};
@@ -146,9 +146,8 @@
       if(error) throw error; return ok({id:data});
     }
     if(regMatch&&method==="DELETE"){
-      const {data,error}=await sb.from("event_registrations").update({status:"cancelled",cancelled_at:new Date().toISOString()}).eq("event_id",Number(regMatch[1])).eq("user_id",uid).eq("status","registered").select();
-      if(error) throw error; if(!data?.length) throw new Error("ثبت‌نام فعالی برای لغو پیدا نشد");
-      return ok({ok:true});
+      const {data:reg,error:re}=await sb.from("event_registrations").select("id").eq("event_id",Number(regMatch[1])).eq("user_id",uid).eq("status","registered").single();if(re)throw re;
+      const {data,error}=await sb.rpc("cancel_event_registration",{p_registration_id:reg.id});if(error)throw error;return ok({ok:true});
     }
     if(p==="/art"&&method==="GET"){
       const data=await rows("store_products","*,category:store_categories(name)");
@@ -173,7 +172,7 @@
           inserts.push({user_id:uid,store_product_id:data.id,item_name_snapshot:data.name,unit_price_toman_snapshot:data.price_toman||0,quantity:Math.max(1,Number(item.qty)||1),status:"pending"});
         }
       }
-      const {error}=await sb.from("purchase_requests").insert(inserts);if(error)throw error;
+      const {error}=for(const row of inserts){row.contact_phone=phone;row.note=body.note||null;}\n      const {error}=await sb.from("purchase_requests").insert(inserts);if(error)throw error;
       return ok({ok:true});
     }
     if(p==="/notifications"&&method==="GET"){
@@ -248,6 +247,9 @@
       return ok(await single(table,payload));
     }
     if(p==="/admin/events/registrations"&&method==="GET") return ok([]);
+    m=p.match(/^\/admin\/books\/(.+)\/return$/);
+    if(m&&method==="PUT"){const {data,error}=await sb.rpc("return_book",{p_loan_id:m[1]});if(error)throw error;return ok(data);}
+
     m=p.match(/^\/admin\/events\/(\d+)\/registrations$/);
     if(m&&method==="GET"){
       const {data,error}=await sb.from("event_registrations").select("*,profile:profiles(display_name),people:event_registration_people(full_name,phone,person_role)").eq("event_id",Number(m[1])).order("created_at",{ascending:true});
