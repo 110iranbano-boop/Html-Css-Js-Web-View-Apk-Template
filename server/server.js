@@ -196,7 +196,7 @@ app.post('/api/purchase-requests',auth,run(async(req,res)=>{
 }));
 app.get('/api/purchase-requests/my',auth,run(async(req,res)=>{
   const rows=await result(adminClient.from('purchase_requests').select('*').eq('user_id',req.user.id).order('created_at',{ascending:false}));
-  res.json(rows.map(x=>({id:x.id,status:x.status,created_at:x.created_at,contact_phone:(p=>p)(null),note:'',final_price:null,admin_note:x.admin_note,items:[{item_type:x.book_id?'book':'art',title:x.item_name_snapshot,price:x.unit_price_toman_snapshot,qty:x.quantity,note:''}]})));
+  res.json(rows.map(x=>({id:x.id,status:x.status==='pending'?'registered':x.status==='approved'?'confirmed':x.status,created_at:x.created_at,contact_phone:'',note:'',final_price:x.final_price_toman,admin_note:x.admin_note,items:[{item_type:x.book_id?'book':'art',title:x.item_name_snapshot,price:x.unit_price_toman_snapshot,qty:x.quantity,note:''}]})));
 }));
 
 // اعلان‌ها
@@ -273,12 +273,12 @@ app.get('/api/admin/events/:id/registrations',auth,run(async(req,res)=>{
 app.get('/api/admin/purchase-requests',auth,run(async(req,res)=>{
   if(!await requireAdmin(req,res,'store.manage'))return;
   const rows=await result(adminClient.from('purchase_requests').select('*').order('created_at',{ascending:false}).limit(200));
-  const out=[];for(const x of rows){const p=await profile(x.user_id);out.push({...x,full_name:p.display_name,phone:p.phone,contact_phone:p.phone,note:'',final_price:x.unit_price_toman_snapshot,items:[{title:x.item_name_snapshot,price:x.unit_price_toman_snapshot,qty:x.quantity,note:''}]});}
+  const out=[];for(const x of rows){const p=await profile(x.user_id);out.push({...x,status:x.status==='pending'?'registered':x.status==='approved'?'confirmed':x.status,full_name:p.display_name,phone:p.phone,contact_phone:p.phone,note:'',final_price:x.final_price_toman,items:[{title:x.item_name_snapshot,price:x.unit_price_toman_snapshot,qty:x.quantity,note:''}]});}
   res.json(out);
 }));
 app.put('/api/admin/purchase-requests/:id',auth,run(async(req,res)=>{
   if(!await requireAdmin(req,res,'store.manage','update'))return;
-  const data={};if(req.body.status)data.status=req.body.status;if('admin_note'in req.body)data.admin_note=req.body.admin_note;
+  const data={};if(req.body.status)data.status=({registered:'pending',reviewing:'reviewing',confirmed:'approved',awaiting_contact:'approved',ready:'approved',shipped:'approved',completed:'completed',cancelled:'cancelled'})[req.body.status]||req.body.status;if('admin_note'in req.body)data.admin_note=req.body.admin_note;if('final_price'in req.body)data.final_price_toman=req.body.final_price===''?null:Number(req.body.final_price);
   const row=await result(adminClient.from('purchase_requests').update(data).eq('id',req.params.id).select().single());
   await notify(row.user_id,'تغییر وضعیت درخواست خرید',`وضعیت درخواست «${row.item_name_snapshot}» تغییر کرد.`);res.json(row);
 }));
