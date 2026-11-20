@@ -199,7 +199,7 @@ async cafe(){
 async library(){
   const[b,l]=await Promise.all([api('/books'),api('/loan-requests/my')]);
   if(!b.ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
-  cache.books=b.d;const pend=new Set((l.ok?l.d:[]).filter(x=>x.status==='pending').map(x=>x.book_id));
+  cache.books=b.d;const pend=new Set((l.ok?l.d:[]).filter(x=>['pending','approved'].includes(x.status)).map(x=>x.book_id));
   const T=[['sale','فروش کتاب'],['loan','امانی'],['request','درخواست کتاب']];
   let body='';
   if(libTab==='sale')body=b.d.filter(x=>x.type==='sale').map(x=>`<div class="card"><div class="row"><h3>${esc(x.title)}</h3><span class="price">${money(x.price)}</span></div><p>${esc(x.author||'')}${x.category?' · '+esc(x.category):''}</p>${x.description?`<p>${esc(x.description)}</p>`:''}<button class="btn s" onclick="addCart('book',${x.id})">افزودن به سبد</button></div>`).join('')||'<div class="empty">کتابی برای فروش ثبت نشده است</div>';
