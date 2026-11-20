@@ -161,7 +161,7 @@
     }
     if(p==="/art"&&method==="GET"){
       const data=await rows("store_products","*,category:store_categories(name)");
-      return ok(data.filter(x=>x.is_available).map(x=>({id:x.id,name:x.name,category:x.category?.name||"سایر",description:x.description,price:x.price_toman,image_url:x.image_path,stock_status:"in_stock",allow_custom:false})));
+      return ok(data.filter(x=>x.is_available).map(x=>({id:x.id,name:x.name,category:x.category?.name||"سایر",description:x.description,price:x.price_toman,image_url:x.image_path,stock_status:x.stock_status||"in_stock",allow_custom:!!x.allow_custom})));
     }
     if(p==="/purchase-requests/my"&&method==="GET"){
       const {data,error}=await sb.from("purchase_requests").select("*,book:books(title),product:store_products(name)").eq("user_id",uid).order("created_at",{ascending:false});
@@ -278,7 +278,7 @@
       if(res==="bookCats"){table="book_categories";payload={name:body.name,description:body.description||null,image_path:body.image_url||null,sort_order:Number(body.sort)||0,is_active:true};}
       if(res==="storeCats"){table="store_categories";payload={name:body.name,description:body.description||null,image_path:body.image_url||null,sort_order:Number(body.sort)||0,is_active:true};}
       if(res==="books"){table="books";payload={title:body.title,author:body.author||null,description:body.description||null,category_id:await categoryId("book_categories",body.category),sale_price_toman:body.type==="sale"||body.type==="both"?Number(body.price)||0:null,book_type:body.type==="sale"?"sale":body.type==="both"?"both":"loan",available_copies:1,total_copies:1,cover_path:body.image_url||null,is_active:true};}
-      if(res==="art"){table="store_products";payload={name:body.name,description:body.description||null,price_toman:Number(body.price)||0,image_path:body.image_url||null,is_available:true,category_id:await categoryId("store_categories",body.category)};}
+      if(res==="art"){table="store_products";payload={name:body.name,description:body.description||null,price_toman:Number(body.price)||0,image_path:body.image_url||null,is_available:true,stock_status:body.stock_status||"in_stock",allow_custom:!!body.allow_custom,category_id:await categoryId("store_categories",body.category)};}
       if(res==="events"){table="events";payload={title:body.title,description:body.description||null,starts_at:body.event_date||null,location:body.location||null,event_type:body.event_type||"timed",capacity_people:body.capacity?Number(body.capacity):null,required_teammates:Number(body.required_teammates)||0,points_on_registration:Number(body.points_on_registration)||0,points_on_attendance:Number(body.points_on_attendance)||0,award_points_when:body.award_points_when||"disabled",rules_text:body.rules_text||null,is_registration_open:body.event_type==="weekly"?false:!!body.registration_open,poster_path:body.image_url||null,status:"published"};}
       if(id){const {data,error}=await sb.from(table).update(payload).eq("id",id).select().single();if(error)throw error;return ok(data);}
       return ok(await single(table,payload));
