@@ -1,617 +1,230 @@
-'use strict';
 require('dotenv').config();
+const express = require('express'), cors = require('cors'), bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken'), { Pool } = require('pg'), fs = require('fs'), path = require('path');
 
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const { Pool } = require('pg');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-
-// ========== تنظیمات ==========
-const isProd = process.env.NODE_ENV === 'production';
-
-let JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET || JWT_SECRET.length < 16) {
-    if (isProd) {
-        console.error('❌ JWT_SECRET تنظیم نشده یا خیلی کوتاه است (حداقل ۱۶ کاراکتر). سرور بالا نمی‌آید.');
-        process.exit(1);
-    }
-    JWT_SECRET = crypto.randomBytes(32).toString('hex');
-    console.warn('⚠️ JWT_SECRET تنظیم نشده؛ یک کلید موقت ساخته شد (با هر ری‌استارت همه لاگین‌ها باطل می‌شوند).');
-}
-
-if (!process.env.DATABASE_URL) {
-    console.error('❌ DATABASE_URL تنظیم نشده است.');
-    process.exit(1);
-}
-
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-});
-pool.on('error', (e) => console.error('❌ pg pool:', e.message));
-
-const LEVELS = [
-    { name: 'bronze',   min: 0,   discount: 0  },
-    { name: 'silver',   min: 100, discount: 5  },
-    { name: 'gold',     min: 300, discount: 10 },
-    { name: 'platinum', min: 600, discount: 15 },
-];
-const POINTS = {
-    LOAN_APPROVED: 20,
-    BOOK_REQUEST_APPROVED: 15,
-    EVENT_REGISTER: 10,
-};
-
-// ========== ابزارها ==========
-class HttpError extends Error {
-    constructor(status, message) {
-        super(message);
-        this.status = status;
-    }
-}
-
-const asyncHandler = (fn) => (req, res, next) =>
-    Promise.resolve(fn(req, res, next)).catch(next);
-
-function levelFor(points) {
-    let result = LEVELS[0];
-    for (const l of LEVELS) if (points >= l.min) result = l;
-    return result;
-}
-
-// تبدیل ارقام فارسی/عربی به انگلیسی
-function toLatinDigits(s) {
-    return String(s ?? '')
-        .replace(/[۰-۹]/g, (d) => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
-        .replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-}
-
-function parseId(v) {
-    const n = Number(v);
-    if (!Number.isInteger(n) || n <= 0 || n > 2147483647) throw new HttpError(400, 'شناسه نامعتبر است');
-    return n;
-}
-
-function cleanStr(v, max, { required = false, label = 'فیلد' } = {}) {
-    const s = v == null ? '' : String(v).trim();
-    if (required && !s) throw new HttpError(400, `${label} الزامی است`);
-    if (s.length > max) throw new HttpError(400, `${label} حداکثر ${max} کاراکتر می‌تواند باشد`);
-    return s || null;
-}
-
-function cleanPrice(v, label = 'قیمت') {
-    const n = Number(v);
-    if (!Number.isFinite(n) || n <= 0 || n > 1e12) throw new HttpError(400, `${label} باید عددی مثبت باشد`);
-    return Math.round(n);
-}
-
-function cleanDate(v) {
-    const d = new Date(v);
-    if (!v || Number.isNaN(d.getTime())) throw new HttpError(400, 'تاریخ نامعتبر است');
-    return d.toISOString();
-}
-
-async function withTx(fn) {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        const result = await fn(client);
-        await client.query('COMMIT');
-        return result;
-    } catch (e) {
-        try { await client.query('ROLLBACK'); } catch (_) { /* ignore */ }
-        throw e;
-    } finally {
-        client.release();
-    }
-}
-
-// امتیاز: ردیف کاربر قفل می‌شود تا هم‌زمانی امتیازها را گم نکند.
-// once=true یعنی برای همان reason فقط یک‌بار امتیاز داده شود (جلوگیری از سوءاستفاده).
-async function addPoints(client, userId, amount, reason, { once = false } = {}) {
-    const cur = await client.query('SELECT points FROM user_points WHERE user_id = $1 FOR UPDATE', [userId]);
-
-    if (once) {
-        const dup = await client.query(
-            'SELECT 1 FROM points_log WHERE user_id = $1 AND reason = $2 LIMIT 1',
-            [userId, reason]
-        );
-        if (dup.rows.length > 0) return null;
-    }
-
-    const newPoints = (cur.rows[0]?.points || 0) + amount;
-    const lvl = levelFor(newPoints);
-
-    if (cur.rows.length === 0) {
-        await client.query(
-            'INSERT INTO user_points (user_id, points, level) VALUES ($1, $2, $3)',
-            [userId, newPoints, lvl.name]
-        );
-    } else {
-        await client.query(
-            'UPDATE user_points SET points = $1, level = $2 WHERE user_id = $3',
-            [newPoints, lvl.name, userId]
-        );
-    }
-    await client.query(
-        'UPDATE simorgh_cards SET discount_percent = $1 WHERE user_id = $2',
-        [lvl.discount, userId]
-    );
-    await client.query(
-        'INSERT INTO points_log (user_id, amount, reason) VALUES ($1, $2, $3)',
-        [userId, amount, reason]
-    );
-    return { points: newPoints, level: lvl.name, discount: lvl.discount };
-}
-
-async function createCard(client, userId) {
-    for (let i = 0; i < 5; i++) {
-        const cardNumber = 'SIM-' + crypto.randomInt(10000000, 100000000);
-        await client.query('SAVEPOINT card_try');
-        try {
-            await client.query(
-                'INSERT INTO simorgh_cards (user_id, card_number, discount_percent) VALUES ($1,$2,0)',
-                [userId, cardNumber]
-            );
-            await client.query('RELEASE SAVEPOINT card_try');
-            return cardNumber;
-        } catch (e) {
-            await client.query('ROLLBACK TO SAVEPOINT card_try');
-            if (e.code !== '23505') throw e; // فقط تکراری بودن شماره کارت دوباره تلاش می‌شود
-        }
-    }
-    throw new HttpError(500, 'ساخت کارت ناموفق بود، دوباره تلاش کن');
-}
-
-// ========== میان‌افزارها ==========
+const SECRET = process.env.JWT_SECRET;
+if (!SECRET || SECRET.length < 16) { console.error('JWT_SECRET تنظیم نشده یا کوتاه است'); process.exit(1); }
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.PGSSL === 'true' ? { rejectUnauthorized: false } : false });
+const q = (s, p) => pool.query(s, p).then(r => r.rows);
 const app = express();
-app.set('trust proxy', 1); // پشت پروکسی میزبان (برای rate limit درست)
-app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
+app.use(cors());
+app.use(express.json({ limit: '1mb' }));
 
-const corsOrigins = (process.env.CORS_ORIGIN || '*').split(',').map((s) => s.trim()).filter(Boolean);
-app.use(cors(corsOrigins.includes('*') ? {} : { origin: corsOrigins }));
-app.use(express.json({ limit: '100kb' }));
+const wrap = f => (req, res) => f(req, res).catch(e => { console.error(e); res.status(500).json({ error: 'خطای سرور' }); });
+const bad = (res, msg, code = 400) => res.status(code).json({ error: msg });
+const digits = s => String(s ?? '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim();
+const validPhone = p => /^09\d{9}$/.test(p);
+const notify = (uid, title, body) => q('INSERT INTO notifications(user_id,title,body) VALUES($1,$2,$3)', [uid, title, body || null]);
+const pub = u => ({ id: u.id, full_name: u.full_name, phone: u.phone, role: u.role, level: u.level, member_code: u.member_code });
 
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 30,
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { error: 'تلاش‌های زیاد؛ چند دقیقه بعد دوباره امتحان کن' },
-});
+function auth(req, res, next) {
+  const h = req.headers.authorization || '';
+  try { req.user = jwt.verify(h.replace('Bearer ', ''), SECRET); next(); }
+  catch { bad(res, 'نشست معتبر نیست', 401); }
+}
+// نقش از دیتابیس خوانده می‌شود تا توکن قدیمی بعد از تغییر نقش دسترسی ندهد
+const admin = [auth, wrap(async (req, res, next) => {
+  const [u] = await q('SELECT role FROM users WHERE id=$1', [req.user.id]);
+  if (!u || u.role !== 'admin') return bad(res, 'دسترسی ندارید', 403);
+  next();
+})];
 
-const authenticateToken = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'دسترسی غیرمجاز' });
-    try {
-        req.user = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
-        next();
-    } catch {
-        res.status(401).json({ error: 'توکن نامعتبر است' });
-    }
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// ---------- احراز هویت ----------
+app.post('/api/register', wrap(async (req, res) => {
+  const full_name = String(req.body.full_name || '').trim(), phone = digits(req.body.phone), password = String(req.body.password || '');
+  if (!full_name) return bad(res, 'نام را وارد کنید');
+  if (!validPhone(phone)) return bad(res, 'شماره همراه معتبر نیست (مثال: 09123456789)');
+  if (password.length < 6) return bad(res, 'رمز عبور باید حداقل ۶ کاراکتر باشد');
+  if ((await q('SELECT 1 FROM users WHERE phone=$1', [phone])).length) return bad(res, 'این شماره قبلاً ثبت‌نام کرده است', 409);
+  const [u] = await q('INSERT INTO users(phone,password_hash,full_name) VALUES($1,$2,$3) RETURNING id', [phone, await bcrypt.hash(password, 10), full_name]);
+  await q('UPDATE users SET member_code=$1 WHERE id=$2', [`S-${new Date().getFullYear()}-${String(u.id).padStart(4, '0')}`, u.id]);
+  res.status(201).json({ ok: true });
+}));
+app.post('/api/login', wrap(async (req, res) => {
+  const phone = digits(req.body.phone), password = String(req.body.password || '');
+  const [u] = await q('SELECT * FROM users WHERE phone=$1', [phone]);
+  if (!u || !(await bcrypt.compare(password, u.password_hash))) return bad(res, 'شماره یا رمز عبور اشتباه است', 401);
+  res.json({ token: jwt.sign({ id: u.id }, SECRET, { expiresIn: '30d' }), user: pub(u) });
+}));
+app.get('/api/profile', auth, wrap(async (req, res) => {
+  const [u] = await q('SELECT * FROM users WHERE id=$1', [req.user.id]);
+  u ? res.json(pub(u)) : bad(res, 'کاربر یافت نشد', 401);
+}));
+app.put('/api/profile', auth, wrap(async (req, res) => {
+  const name = String(req.body.full_name || '').trim();
+  if (!name) return bad(res, 'نام را وارد کنید');
+  const [u] = await q('UPDATE users SET full_name=$1 WHERE id=$2 RETURNING *', [name, req.user.id]);
+  res.json(pub(u));
+}));
+
+// ---------- محتوای عمومی (فقط نمایش) ----------
+app.get('/api/menu', auth, wrap(async (req, res) => res.json(await q('SELECT * FROM cafe_items WHERE active ORDER BY sort,id'))));
+app.get('/api/books', auth, wrap(async (req, res) => res.json(await q('SELECT * FROM books WHERE active ORDER BY id DESC'))));
+app.get('/api/art', auth, wrap(async (req, res) => res.json(await q('SELECT * FROM art_products WHERE active ORDER BY id DESC'))));
+app.get('/api/events', auth, wrap(async (req, res) => res.json(await q(
+  `SELECT e.*, (SELECT count(*)::int FROM event_registrations r WHERE r.event_id=e.id) AS registered,
+   EXISTS(SELECT 1 FROM event_registrations r WHERE r.event_id=e.id AND r.user_id=$1) AS mine
+   FROM events e WHERE e.active ORDER BY e.event_date`, [req.user.id]))));
+
+// ---------- رویدادها ----------
+app.post('/api/events/:id/register', auth, wrap(async (req, res) => {
+  const [e] = await q('SELECT *, (SELECT count(*)::int FROM event_registrations WHERE event_id=events.id) AS n FROM events WHERE id=$1 AND active', [req.params.id]);
+  if (!e) return bad(res, 'رویداد یافت نشد', 404);
+  if (!e.registration_open) return bad(res, 'ثبت‌نام این رویداد بسته است');
+  if (e.capacity && e.n >= e.capacity) return bad(res, 'ظرفیت رویداد تکمیل است');
+  await q('INSERT INTO event_registrations(event_id,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING', [e.id, req.user.id]);
+  await notify(req.user.id, 'ثبت‌نام رویداد', `ثبت‌نام شما در «${e.title}» انجام شد.`);
+  res.json({ ok: true });
+}));
+app.delete('/api/events/:id/register', auth, wrap(async (req, res) => {
+  await q('DELETE FROM event_registrations WHERE event_id=$1 AND user_id=$2', [req.params.id, req.user.id]);
+  res.json({ ok: true });
+}));
+
+// ---------- امانت (مدل نسخهٔ ۱، جدا از فروش و سبد) ----------
+app.post('/api/loan-requests', auth, wrap(async (req, res) => {
+  const [b] = await q("SELECT * FROM books WHERE id=$1 AND active AND type='loan'", [req.body.book_id]);
+  if (!b) return bad(res, 'کتاب امانی یافت نشد', 404);
+  if (b.status !== 'available') return bad(res, 'این کتاب در حال حاضر امانت داده شده است');
+  if ((await q("SELECT 1 FROM loan_requests WHERE user_id=$1 AND book_id=$2 AND status='pending'", [req.user.id, b.id])).length) return bad(res, 'درخواست قبلی شما در حال بررسی است');
+  await q('INSERT INTO loan_requests(user_id,book_id) VALUES($1,$2)', [req.user.id, b.id]);
+  res.status(201).json({ ok: true });
+}));
+app.get('/api/loan-requests/my', auth, wrap(async (req, res) => res.json(await q(
+  'SELECT l.*, b.title AS book_title FROM loan_requests l JOIN books b ON b.id=l.book_id WHERE l.user_id=$1 ORDER BY l.id DESC', [req.user.id]))));
+
+// ---------- درخواست/پیشنهاد کتاب ----------
+app.post('/api/book-requests', auth, wrap(async (req, res) => {
+  const t = String(req.body.book_title || '').trim();
+  if (!t) return bad(res, 'عنوان کتاب الزامی است');
+  await q('INSERT INTO book_requests(user_id,book_title,author,description) VALUES($1,$2,$3,$4)',
+    [req.user.id, t, req.body.author || null, req.body.description || null]);
+  res.status(201).json({ ok: true });
+}));
+app.get('/api/book-requests/my', auth, wrap(async (req, res) => res.json(await q('SELECT * FROM book_requests WHERE user_id=$1 ORDER BY id DESC', [req.user.id]))));
+
+// ---------- سبد مشترک ← درخواست خرید (بدون پرداخت آنلاین) ----------
+app.post('/api/purchase-requests', auth, wrap(async (req, res) => {
+  const items = Array.isArray(req.body.items) ? req.body.items.slice(0, 50) : [];
+  const phone = digits(req.body.contact_phone);
+  if (!items.length) return bad(res, 'سبد خرید خالی است');
+  if (!validPhone(phone)) return bad(res, 'شمارهٔ تماس معتبر نیست');
+  const rows = [];
+  for (const it of items) {
+    const qty = Math.min(Math.max(parseInt(it.qty) || 1, 1), 99);
+    const [r] = it.type === 'book'
+      ? await q("SELECT id,title,price FROM books WHERE id=$1 AND active AND type='sale'", [it.id])
+      : await q("SELECT id,name AS title,price FROM art_products WHERE id=$1 AND active AND stock_status<>'out'", [it.id]);
+    if (!r) return bad(res, 'یکی از اقلام سبد دیگر در دسترس نیست؛ سبد را بازبینی کنید');
+    rows.push({ type: it.type === 'book' ? 'book' : 'art', ...r, qty, note: String(it.note || '').slice(0, 500) || null });
+  }
+  const c = await pool.connect();
+  try {
+    await c.query('BEGIN');
+    const { rows: [pr] } = await c.query('INSERT INTO purchase_requests(user_id,contact_phone,note) VALUES($1,$2,$3) RETURNING id', [req.user.id, phone, String(req.body.note || '').slice(0, 1000) || null]);
+    for (const r of rows) await c.query('INSERT INTO purchase_request_items(request_id,item_type,item_id,title,price,qty,note) VALUES($1,$2,$3,$4,$5,$6,$7)', [pr.id, r.type, r.id, r.title, r.price, r.qty, r.note]);
+    await c.query('COMMIT');
+    await notify(req.user.id, 'درخواست خرید ثبت شد', `درخواست شمارهٔ ${pr.id} ثبت شد. مدیریت برای هماهنگی با شما تماس می‌گیرد.`);
+    res.status(201).json({ id: pr.id });
+  } catch (e) { await c.query('ROLLBACK'); throw e; } finally { c.release(); }
+}));
+const withItems = async rows => {
+  if (!rows.length) return rows;
+  const items = await q('SELECT * FROM purchase_request_items WHERE request_id = ANY($1) ORDER BY id', [rows.map(r => r.id)]);
+  return rows.map(r => ({ ...r, items: items.filter(i => i.request_id === r.id) }));
 };
+app.get('/api/purchase-requests/my', auth, wrap(async (req, res) =>
+  res.json(await withItems(await q('SELECT * FROM purchase_requests WHERE user_id=$1 ORDER BY id DESC', [req.user.id])))));
 
-// نقش از دیتابیس خوانده می‌شود، نه از توکن (تا ادمین حذف‌شده فوراً دسترسی‌اش را از دست بدهد)
-const requireAdmin = asyncHandler(async (req, res, next) => {
-    const r = await pool.query('SELECT role FROM profiles WHERE id = $1', [req.user.id]);
-    if (r.rows[0]?.role !== 'admin') throw new HttpError(403, 'فقط ادمین دسترسی دارد');
-    next();
-});
-const adminOnly = [authenticateToken, requireAdmin];
+// ---------- اعلان‌ها ----------
+app.get('/api/notifications', auth, wrap(async (req, res) => res.json(await q('SELECT * FROM notifications WHERE user_id=$1 ORDER BY id DESC LIMIT 50', [req.user.id]))));
+app.put('/api/notifications/read', auth, wrap(async (req, res) => { await q('UPDATE notifications SET is_read=true WHERE user_id=$1', [req.user.id]); res.json({ ok: true }); }));
 
-// ========== سلامت ==========
-app.get('/api/health', asyncHandler(async (req, res) => {
-    await pool.query('SELECT 1');
-    res.json({ ok: true });
+// ---------- پنل مدیریت ----------
+const RES = {
+  menu: { t: 'cafe_items', f: ['category', 'name', 'description', 'price', 'image_url', 'sort', 'active'] },
+  books: { t: 'books', f: ['title', 'author', 'description', 'category', 'type', 'price', 'status', 'image_url', 'active'] },
+  art: { t: 'art_products', f: ['category', 'name', 'description', 'price', 'image_url', 'stock_status', 'allow_custom', 'active'] },
+  events: { t: 'events', f: ['title', 'description', 'event_date', 'location', 'capacity', 'registration_open', 'image_url', 'active'] },
+};
+const pick = (r, body) => {
+  const cols = r.f.filter(k => k in body);
+  return { cols, vals: cols.map(k => body[k] === '' ? null : body[k]) };
+};
+app.get('/api/admin/:res(menu|books|art|events)', admin, wrap(async (req, res) =>
+  res.json(await q(`SELECT * FROM ${RES[req.params.res].t} ORDER BY id DESC`))));
+app.post('/api/admin/:res(menu|books|art|events)', admin, wrap(async (req, res) => {
+  const r = RES[req.params.res], { cols, vals } = pick(r, req.body);
+  if (!cols.length) return bad(res, 'اطلاعاتی ارسال نشده');
+  try {
+    const [row] = await q(`INSERT INTO ${r.t}(${cols.join(',')}) VALUES(${cols.map((_, i) => '$' + (i + 1)).join(',')}) RETURNING *`, vals);
+    res.status(201).json(row);
+  } catch (e) { bad(res, 'اطلاعات واردشده معتبر نیست (فیلدهای الزامی را بررسی کنید)'); }
+}));
+app.put('/api/admin/:res(menu|books|art|events)/:id', admin, wrap(async (req, res) => {
+  const r = RES[req.params.res], { cols, vals } = pick(r, req.body);
+  if (!cols.length) return bad(res, 'اطلاعاتی ارسال نشده');
+  try {
+    const [row] = await q(`UPDATE ${r.t} SET ${cols.map((c, i) => `${c}=$${i + 1}`).join(',')} WHERE id=$${cols.length + 1} RETURNING *`, [...vals, req.params.id]);
+    row ? res.json(row) : bad(res, 'یافت نشد', 404);
+  } catch (e) { bad(res, 'اطلاعات واردشده معتبر نیست'); }
+}));
+app.delete('/api/admin/:res(menu|books|art|events)/:id', admin, wrap(async (req, res) => {
+  await q(`UPDATE ${RES[req.params.res].t} SET active=false WHERE id=$1`, [req.params.id]); // غیرفعال‌سازی، نه حذف
+  res.json({ ok: true });
+}));
+app.get('/api/admin/events/:id/registrations', admin, wrap(async (req, res) => res.json(await q(
+  'SELECT u.full_name,u.phone,r.created_at FROM event_registrations r JOIN users u ON u.id=r.user_id WHERE r.event_id=$1 ORDER BY r.id', [req.params.id]))));
+
+const PSTATUS = ['registered', 'reviewing', 'confirmed', 'awaiting_contact', 'ready', 'shipped', 'completed', 'cancelled'];
+const PLABEL = { registered: 'ثبت‌شده', reviewing: 'در حال بررسی', confirmed: 'تأییدشده', awaiting_contact: 'در انتظار هماهنگی', ready: 'آماده تحویل', shipped: 'ارسال‌شده', completed: 'تکمیل‌شده', cancelled: 'ردشده یا لغوشده' };
+app.get('/api/admin/purchase-requests', admin, wrap(async (req, res) => res.json(await withItems(await q(
+  'SELECT p.*,u.full_name,u.phone FROM purchase_requests p JOIN users u ON u.id=p.user_id ORDER BY p.id DESC LIMIT 200')))));
+app.put('/api/admin/purchase-requests/:id', admin, wrap(async (req, res) => {
+  const { status, admin_note, final_price } = req.body;
+  if (status && !PSTATUS.includes(status)) return bad(res, 'وضعیت نامعتبر است');
+  const [p] = await q('UPDATE purchase_requests SET status=COALESCE($1,status), admin_note=COALESCE($2,admin_note), final_price=COALESCE($3,final_price) WHERE id=$4 RETURNING *',
+    [status || null, admin_note ?? null, final_price === '' ? null : final_price ?? null, req.params.id]);
+  if (!p) return bad(res, 'یافت نشد', 404);
+  if (status) await notify(p.user_id, 'تغییر وضعیت درخواست خرید', `درخواست شمارهٔ ${p.id}: ${PLABEL[status]}`);
+  res.json(p);
+}));
+app.get('/api/admin/loan-requests', admin, wrap(async (req, res) => res.json(await q(
+  `SELECT l.*,b.title AS book_title,u.full_name,u.phone FROM loan_requests l JOIN books b ON b.id=l.book_id JOIN users u ON u.id=l.user_id ORDER BY l.id DESC LIMIT 200`))));
+app.put('/api/admin/loan-requests/:id', admin, wrap(async (req, res) => {
+  const st = req.body.status;
+  if (!['approved', 'rejected'].includes(st)) return bad(res, 'وضعیت نامعتبر است');
+  const [l] = await q('UPDATE loan_requests SET status=$1 WHERE id=$2 AND status=$3 RETURNING *', [st, req.params.id, 'pending']);
+  if (!l) return bad(res, 'این درخواست قبلاً بررسی شده است', 409);
+  if (st === 'approved') await q("UPDATE books SET status='loaned' WHERE id=$1", [l.book_id]);
+  await notify(l.user_id, 'درخواست امانت', st === 'approved' ? 'درخواست امانت شما تأیید شد.' : 'درخواست امانت شما رد شد.');
+  res.json(l);
+}));
+app.put('/api/admin/books/:id/return', admin, wrap(async (req, res) => { await q("UPDATE books SET status='available' WHERE id=$1", [req.params.id]); res.json({ ok: true }); }));
+app.get('/api/admin/book-requests', admin, wrap(async (req, res) => res.json(await q(
+  'SELECT r.*,u.full_name,u.phone FROM book_requests r JOIN users u ON u.id=r.user_id ORDER BY r.id DESC LIMIT 200'))));
+app.put('/api/admin/book-requests/:id', admin, wrap(async (req, res) => {
+  const { status, admin_note } = req.body;
+  if (status && !['pending', 'approved', 'rejected'].includes(status)) return bad(res, 'وضعیت نامعتبر است');
+  const [r] = await q('UPDATE book_requests SET status=COALESCE($1,status), admin_note=COALESCE($2,admin_note) WHERE id=$3 RETURNING *', [status || null, admin_note ?? null, req.params.id]);
+  if (!r) return bad(res, 'یافت نشد', 404);
+  if (status && status !== 'pending') await notify(r.user_id, 'درخواست کتاب', `نتیجهٔ بررسی «${r.book_title}»: ${status === 'approved' ? 'تأیید شد' : 'رد شد'}`);
+  res.json(r);
 }));
 
-// ========== احراز هویت ==========
-app.post('/api/register', authLimiter, asyncHandler(async (req, res) => {
-    const username = toLatinDigits(req.body.username).trim();
-    const password = String(req.body.password ?? '');
-    const full_name = cleanStr(req.body.full_name, 100) || '';
+// فرانت‌اند (حالت وب) از همین سرور سرو می‌شود
+const www = path.join(__dirname, '..', 'www');
+if (fs.existsSync(www)) app.use(express.static(www));
 
-    if (!username || !password) throw new HttpError(400, 'شماره تماس و رمز الزامی است');
-    if (!/^09\d{9}$/.test(username)) throw new HttpError(400, 'شماره تماس نامعتبر است (مثال: 09123456789)');
-    if (password.length < 6) throw new HttpError(400, 'رمز باید حداقل ۶ کاراکتر باشد');
-    if (password.length > 72) throw new HttpError(400, 'رمز حداکثر ۷۲ کاراکتر می‌تواند باشد');
-
-    const exists = await pool.query('SELECT id FROM profiles WHERE username = $1', [username]);
-    if (exists.rows.length > 0) throw new HttpError(400, 'این شماره قبلاً ثبت شده است');
-
-    const hash = await bcrypt.hash(password, 10);
-    try {
-        const user = await withTx(async (client) => {
-            const r = await client.query(
-                'INSERT INTO profiles (username, password_hash, full_name) VALUES ($1,$2,$3) RETURNING id, username, full_name, role',
-                [username, hash, full_name]
-            );
-            const u = r.rows[0];
-            await client.query('INSERT INTO user_points (user_id, points, level) VALUES ($1, 0, $2)', [u.id, 'bronze']);
-            await createCard(client, u.id);
-            return u;
-        });
-        res.status(201).json({ message: 'ثبت‌نام موفق', user });
-    } catch (e) {
-        if (e.code === '23505') throw new HttpError(400, 'این شماره قبلاً ثبت شده است');
-        throw e;
-    }
-}));
-
-app.post('/api/login', authLimiter, asyncHandler(async (req, res) => {
-    const username = toLatinDigits(req.body.username).trim();
-    const password = String(req.body.password ?? '');
-    if (!username || !password) throw new HttpError(400, 'شماره تماس و رمز الزامی است');
-
-    const result = await pool.query('SELECT * FROM profiles WHERE username = $1', [username]);
-    const user = result.rows[0];
-    const valid = user ? await bcrypt.compare(password, user.password_hash) : false;
-    if (!valid) throw new HttpError(401, 'شماره یا رمز اشتباه است');
-
-    const token = jwt.sign(
-        { id: user.id, username: user.username, role: user.role },
-        JWT_SECRET,
-        { algorithm: 'HS256', expiresIn: '2d' }
-    );
-    res.json({
-        message: 'ورود موفق',
-        token,
-        user: { id: user.id, username: user.username, full_name: user.full_name, role: user.role },
-    });
-}));
-
-app.get('/api/profile', authenticateToken, asyncHandler(async (req, res) => {
-    const [user, points, card] = await Promise.all([
-        pool.query('SELECT id, username, full_name, role FROM profiles WHERE id = $1', [req.user.id]),
-        pool.query('SELECT points, level FROM user_points WHERE user_id = $1', [req.user.id]),
-        pool.query('SELECT card_number, discount_percent FROM simorgh_cards WHERE user_id = $1', [req.user.id]),
-    ]);
-    if (user.rows.length === 0) throw new HttpError(401, 'کاربر یافت نشد');
-    res.json({
-        user: user.rows[0],
-        points: points.rows[0] || { points: 0, level: 'bronze' },
-        card: card.rows[0] || { card_number: '---', discount_percent: 0 },
-    });
-}));
-
-app.get('/api/points/history', authenticateToken, asyncHandler(async (req, res) => {
-    const r = await pool.query(
-        'SELECT amount, reason, created_at FROM points_log WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
-        [req.user.id]
-    );
-    res.json(r.rows);
-}));
-
-// ========== منوی کافه ==========
-app.get('/api/menu', asyncHandler(async (req, res) => {
-    const r = await pool.query('SELECT * FROM menu_items ORDER BY category, name');
-    res.json(r.rows);
-}));
-
-app.post('/api/menu', adminOnly, asyncHandler(async (req, res) => {
-    const name = cleanStr(req.body.name, 150, { required: true, label: 'نام' });
-    const price = cleanPrice(req.body.price);
-    const category = cleanStr(req.body.category, 100, { label: 'دسته‌بندی' });
-    const description = cleanStr(req.body.description, 1000, { label: 'توضیحات' });
-    const r = await pool.query(
-        'INSERT INTO menu_items (name, price, category, description) VALUES ($1,$2,$3,$4) RETURNING *',
-        [name, price, category, description]
-    );
-    res.status(201).json(r.rows[0]);
-}));
-
-app.put('/api/menu/:id', adminOnly, asyncHandler(async (req, res) => {
-    const id = parseId(req.params.id);
-    const name = cleanStr(req.body.name, 150, { required: true, label: 'نام' });
-    const price = cleanPrice(req.body.price);
-    const category = cleanStr(req.body.category, 100, { label: 'دسته‌بندی' });
-    const description = cleanStr(req.body.description, 1000, { label: 'توضیحات' });
-    const r = await pool.query(
-        'UPDATE menu_items SET name=$1, price=$2, category=$3, description=$4 WHERE id=$5 RETURNING *',
-        [name, price, category, description, id]
-    );
-    if (r.rows.length === 0) throw new HttpError(404, 'یافت نشد');
-    res.json(r.rows[0]);
-}));
-
-app.delete('/api/menu/:id', adminOnly, asyncHandler(async (req, res) => {
-    const r = await pool.query('DELETE FROM menu_items WHERE id=$1', [parseId(req.params.id)]);
-    if (r.rowCount === 0) throw new HttpError(404, 'یافت نشد');
-    res.json({ message: 'حذف شد' });
-}));
-
-// ========== کتاب‌ها ==========
-function readBookBody(body) {
-    const title = cleanStr(body.title, 200, { required: true, label: 'عنوان' });
-    const author = cleanStr(body.author, 150, { label: 'نویسنده' });
-    const description = cleanStr(body.description, 2000, { label: 'توضیحات' });
-    const type = body.type;
-    if (!['loan', 'sale'].includes(type)) throw new HttpError(400, 'نوع باید loan یا sale باشد');
-    const price = type === 'sale' ? cleanPrice(body.price, 'قیمت کتاب فروشی') : null;
-    return { title, author, type, price, description };
-}
-
-app.get('/api/books', asyncHandler(async (req, res) => {
-    const r = await pool.query('SELECT * FROM books ORDER BY created_at DESC');
-    res.json(r.rows);
-}));
-
-app.post('/api/books', adminOnly, asyncHandler(async (req, res) => {
-    const b = readBookBody(req.body);
-    const r = await pool.query(
-        'INSERT INTO books (title, author, type, price, description, status) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
-        [b.title, b.author, b.type, b.price, b.description, 'available']
-    );
-    res.status(201).json(r.rows[0]);
-}));
-
-app.put('/api/books/:id', adminOnly, asyncHandler(async (req, res) => {
-    const id = parseId(req.params.id);
-    const b = readBookBody(req.body);
-    const r = await pool.query(
-        'UPDATE books SET title=$1, author=$2, type=$3, price=$4, description=$5 WHERE id=$6 RETURNING *',
-        [b.title, b.author, b.type, b.price, b.description, id]
-    );
-    if (r.rows.length === 0) throw new HttpError(404, 'یافت نشد');
-    res.json(r.rows[0]);
-}));
-
-// برگشت کتاب امانی (قبلاً هیچ راهی برای برگرداندن وضعیت «امانت داده شده» نبود)
-app.put('/api/books/:id/return', adminOnly, asyncHandler(async (req, res) => {
-    const id = parseId(req.params.id);
-    const r = await pool.query(
-        "UPDATE books SET status='available' WHERE id=$1 AND status='loaned' RETURNING *",
-        [id]
-    );
-    if (r.rows.length === 0) throw new HttpError(400, 'این کتاب در وضعیت امانت نیست');
-    res.json(r.rows[0]);
-}));
-
-app.delete('/api/books/:id', adminOnly, asyncHandler(async (req, res) => {
-    const r = await pool.query('DELETE FROM books WHERE id=$1', [parseId(req.params.id)]);
-    if (r.rowCount === 0) throw new HttpError(404, 'یافت نشد');
-    res.json({ message: 'حذف شد' });
-}));
-
-// ========== درخواست امانت ==========
-app.post('/api/loan-requests', authenticateToken, asyncHandler(async (req, res) => {
-    const book_id = parseId(req.body.book_id);
-    const book = await pool.query('SELECT * FROM books WHERE id=$1 AND type=$2', [book_id, 'loan']);
-    if (book.rows.length === 0) throw new HttpError(404, 'کتاب امانی یافت نشد');
-    if (book.rows[0].status !== 'available') throw new HttpError(400, 'این کتاب در دسترس نیست');
-
-    const dup = await pool.query(
-        'SELECT id FROM loan_requests WHERE user_id=$1 AND book_id=$2 AND status=$3',
-        [req.user.id, book_id, 'pending']
-    );
-    if (dup.rows.length > 0) throw new HttpError(400, 'درخواست قبلی شما در انتظار است');
-
-    const r = await pool.query(
-        'INSERT INTO loan_requests (user_id, book_id) VALUES ($1,$2) RETURNING *',
-        [req.user.id, book_id]
-    );
-    res.status(201).json(r.rows[0]);
-}));
-
-app.get('/api/loan-requests/my', authenticateToken, asyncHandler(async (req, res) => {
-    const r = await pool.query(
-        `SELECT lr.*, b.title AS book_title FROM loan_requests lr
-         JOIN books b ON lr.book_id = b.id
-         WHERE lr.user_id = $1 ORDER BY lr.requested_at DESC`,
-        [req.user.id]
-    );
-    res.json(r.rows);
-}));
-
-app.get('/api/loan-requests', adminOnly, asyncHandler(async (req, res) => {
-    const r = await pool.query(
-        `SELECT lr.*, b.title AS book_title, p.full_name AS user_name
-         FROM loan_requests lr
-         JOIN books b ON lr.book_id = b.id
-         JOIN profiles p ON lr.user_id = p.id
-         ORDER BY lr.requested_at DESC`
-    );
-    res.json(r.rows);
-}));
-
-app.put('/api/loan-requests/:id', adminOnly, asyncHandler(async (req, res) => {
-    const id = parseId(req.params.id);
-    const { status } = req.body;
-    if (!['approved', 'rejected'].includes(status)) throw new HttpError(400, 'وضعیت نامعتبر');
-
-    await withTx(async (client) => {
-        const lr = await client.query('SELECT * FROM loan_requests WHERE id=$1 FOR UPDATE', [id]);
-        if (lr.rows.length === 0) throw new HttpError(404, 'یافت نشد');
-        const request = lr.rows[0];
-        if (request.status !== 'pending') throw new HttpError(400, 'این درخواست قبلاً بررسی شده');
-
-        if (status === 'approved') {
-            // قفل کتاب: دو درخواست هم‌زمان برای یک کتاب نباید هر دو تأیید شوند
-            const book = await client.query('SELECT status FROM books WHERE id=$1 FOR UPDATE', [request.book_id]);
-            if (book.rows.length === 0) throw new HttpError(404, 'کتاب یافت نشد');
-            if (book.rows[0].status !== 'available') throw new HttpError(400, 'این کتاب دیگر در دسترس نیست');
-
-            await client.query('UPDATE loan_requests SET status=$1 WHERE id=$2', ['approved', id]);
-            await client.query('UPDATE books SET status=$1 WHERE id=$2', ['loaned', request.book_id]);
-            await client.query(
-                "UPDATE loan_requests SET status='rejected' WHERE book_id=$1 AND status='pending' AND id<>$2",
-                [request.book_id, id]
-            );
-            await addPoints(client, request.user_id, POINTS.LOAN_APPROVED, `loan_approved:${id}`, { once: true });
-        } else {
-            await client.query('UPDATE loan_requests SET status=$1 WHERE id=$2', ['rejected', id]);
-        }
-    });
-    res.json({ message: 'به‌روزرسانی شد' });
-}));
-
-// ========== درخواست کتاب ==========
-app.post('/api/book-requests', authenticateToken, asyncHandler(async (req, res) => {
-    const request_type = req.body.request_type;
-    if (!['bring_from_patio', 'donate_for_loan'].includes(request_type))
-        throw new HttpError(400, 'نوع درخواست نامعتبر');
-    const book_title = cleanStr(req.body.book_title, 200, { required: true, label: 'عنوان' });
-    const author = cleanStr(req.body.author, 150, { label: 'نویسنده' });
-    const description = cleanStr(req.body.description, 2000, { label: 'توضیحات' });
-    const r = await pool.query(
-        'INSERT INTO book_requests (user_id, request_type, book_title, author, description) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-        [req.user.id, request_type, book_title, author, description]
-    );
-    res.status(201).json(r.rows[0]);
-}));
-
-app.get('/api/book-requests/my', authenticateToken, asyncHandler(async (req, res) => {
-    const r = await pool.query(
-        'SELECT * FROM book_requests WHERE user_id=$1 ORDER BY created_at DESC',
-        [req.user.id]
-    );
-    res.json(r.rows);
-}));
-
-app.get('/api/book-requests', adminOnly, asyncHandler(async (req, res) => {
-    const r = await pool.query(
-        `SELECT br.*, p.full_name AS user_name FROM book_requests br
-         JOIN profiles p ON br.user_id = p.id ORDER BY br.created_at DESC`
-    );
-    res.json(r.rows);
-}));
-
-app.put('/api/book-requests/:id', adminOnly, asyncHandler(async (req, res) => {
-    const id = parseId(req.params.id);
-    const { status } = req.body;
-    if (!['approved', 'rejected'].includes(status)) throw new HttpError(400, 'وضعیت نامعتبر');
-
-    await withTx(async (client) => {
-        const br = await client.query('SELECT * FROM book_requests WHERE id=$1 FOR UPDATE', [id]);
-        if (br.rows.length === 0) throw new HttpError(404, 'یافت نشد');
-        if (br.rows[0].status !== 'pending') throw new HttpError(400, 'قبلاً بررسی شده');
-
-        await client.query('UPDATE book_requests SET status=$1 WHERE id=$2', [status, id]);
-        if (status === 'approved') {
-            await addPoints(client, br.rows[0].user_id, POINTS.BOOK_REQUEST_APPROVED, `book_request:${id}`, { once: true });
-        }
-    });
-    res.json({ message: 'به‌روزرسانی شد' });
-}));
-
-// ========== رویدادها ==========
-function readEventBody(body) {
-    const title = cleanStr(body.title, 200, { required: true, label: 'عنوان' });
-    const description = cleanStr(body.description, 2000, { label: 'توضیحات' });
-    const location = cleanStr(body.location, 200, { label: 'مکان' });
-    const event_date = cleanDate(body.event_date);
-    return { title, description, location, event_date };
-}
-
-app.get('/api/events', asyncHandler(async (req, res) => {
-    const r = await pool.query('SELECT * FROM events ORDER BY event_date ASC');
-    res.json(r.rows);
-}));
-
-app.get('/api/events/my', authenticateToken, asyncHandler(async (req, res) => {
-    const r = await pool.query(
-        `SELECT e.*, er.registered_at FROM event_registrations er
-         JOIN events e ON er.event_id = e.id
-         WHERE er.user_id = $1 ORDER BY e.event_date ASC`,
-        [req.user.id]
-    );
-    res.json(r.rows);
-}));
-
-app.post('/api/events', adminOnly, asyncHandler(async (req, res) => {
-    const e = readEventBody(req.body);
-    const r = await pool.query(
-        'INSERT INTO events (title, description, event_date, location) VALUES ($1,$2,$3,$4) RETURNING *',
-        [e.title, e.description, e.event_date, e.location]
-    );
-    res.status(201).json(r.rows[0]);
-}));
-
-app.put('/api/events/:id', adminOnly, asyncHandler(async (req, res) => {
-    const id = parseId(req.params.id);
-    const e = readEventBody(req.body);
-    const r = await pool.query(
-        'UPDATE events SET title=$1, description=$2, event_date=$3, location=$4 WHERE id=$5 RETURNING *',
-        [e.title, e.description, e.event_date, e.location, id]
-    );
-    if (r.rows.length === 0) throw new HttpError(404, 'یافت نشد');
-    res.json(r.rows[0]);
-}));
-
-app.delete('/api/events/:id', adminOnly, asyncHandler(async (req, res) => {
-    const r = await pool.query('DELETE FROM events WHERE id=$1', [parseId(req.params.id)]);
-    if (r.rowCount === 0) throw new HttpError(404, 'یافت نشد');
-    res.json({ message: 'حذف شد' });
-}));
-
-app.post('/api/events/register/:id', authenticateToken, asyncHandler(async (req, res) => {
-    const eventId = parseId(req.params.id);
-    await withTx(async (client) => {
-        const ev = await client.query('SELECT event_date FROM events WHERE id=$1', [eventId]);
-        if (ev.rows.length === 0) throw new HttpError(404, 'رویداد یافت نشد');
-        if (new Date(ev.rows[0].event_date) < new Date()) throw new HttpError(400, 'این رویداد برگزار شده است');
-
-        try {
-            await client.query(
-                'INSERT INTO event_registrations (user_id, event_id) VALUES ($1,$2)',
-                [req.user.id, eventId]
-            );
-        } catch (err) {
-            if (err.code === '23505') throw new HttpError(400, 'قبلاً ثبت‌نام کردی');
-            throw err;
-        }
-        // با ثبت‌نام/لغو/ثبت‌نام دوباره نمی‌شود امتیاز تکراری گرفت
-        await addPoints(client, req.user.id, POINTS.EVENT_REGISTER, `event:${eventId}`, { once: true });
-    });
-    res.json({ message: 'ثبت‌نام شد' });
-}));
-
-app.delete('/api/events/unregister/:id', authenticateToken, asyncHandler(async (req, res) => {
-    const r = await pool.query(
-        'DELETE FROM event_registrations WHERE user_id=$1 AND event_id=$2 RETURNING id',
-        [req.user.id, parseId(req.params.id)]
-    );
-    if (r.rows.length === 0) throw new HttpError(404, 'ثبت‌نامی یافت نشد');
-    res.json({ message: 'لغو شد' });
-}));
-
-// ========== فایل‌های وب (اختیاری؛ اگر پوشه www کنار سرور باشد، همان‌جا سرو می‌شود) ==========
-const webDir = path.join(__dirname, '..', 'www');
-if (process.env.SERVE_WEB !== 'false' && fs.existsSync(path.join(webDir, 'index.html'))) {
-    app.use(express.static(webDir));
-}
-
-// ========== خطاها ==========
-app.use('/api', (req, res) => res.status(404).json({ error: 'مسیر یافت نشد' }));
-
-// eslint-disable-next-line no-unused-vars
-app.use((err, req, res, next) => {
-    if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
-    if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'بدنه‌ی درخواست نامعتبر است' });
-    if (err.type === 'entity.too.large') return res.status(413).json({ error: 'درخواست خیلی بزرگ است' });
-    if (err.code === '23505') return res.status(409).json({ error: 'این مورد قبلاً وجود دارد' });
-    if (err.code === '23503') return res.status(409).json({ error: 'این مورد به داده‌های دیگر وابسته است' });
-    if (['22P02', '22007', '22008', '22003'].includes(err.code))
-        return res.status(400).json({ error: 'ورودی نامعتبر است' });
-    console.error('❌', err.message);
-    res.status(500).json({ error: 'خطای سرور' });
-});
-
-// ========== راه‌اندازی ==========
-const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => console.log(`🚀 سرور روی پورت ${PORT}`));
-
-function shutdown() {
-    console.log('خاموش شدن...');
-    server.close(() => pool.end().finally(() => process.exit(0)));
-    setTimeout(() => process.exit(1), 10000).unref();
-}
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
-process.on('unhandledRejection', (e) => console.error('❌ unhandledRejection:', e));
+(async () => {
+  await pool.query(fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8'));
+  const ap = digits(process.env.ADMIN_PHONE), pw = process.env.ADMIN_PASSWORD;
+  if (validPhone(ap) && pw && !(await q('SELECT 1 FROM users WHERE phone=$1', [ap])).length) {
+    const [u] = await q("INSERT INTO users(phone,password_hash,full_name,role) VALUES($1,$2,'مدیر سیمرغ','admin') RETURNING id", [ap, await bcrypt.hash(pw, 10)]);
+    await q('UPDATE users SET member_code=$1 WHERE id=$2', [`S-${new Date().getFullYear()}-${String(u.id).padStart(4, '0')}`, u.id]);
+    console.log('مدیر اولیه ساخته شد');
+  }
+  app.listen(process.env.PORT || 3000, () => console.log('API آماده است'));
+})().catch(e => { console.error('خطا در راه‌اندازی:', e.message); process.exit(1); });

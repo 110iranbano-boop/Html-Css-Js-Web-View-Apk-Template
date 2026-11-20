@@ -2,961 +2,312 @@
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>کافه کتاب سیمرغ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b2426">
+<title>فرهنگسرای سیمرغ</title>
+<link rel="icon" href="img/favicon.png">
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:Tahoma,sans-serif}
-body{background:#f5f0e8;color:#3d2b1f;padding-bottom:calc(70px + env(safe-area-inset-bottom,0px))}
-.header{background:#6b4c3a;color:#fff;padding:15px;padding-top:calc(15px + env(safe-area-inset-top,0px));text-align:center;font-size:20px;font-weight:bold;position:sticky;top:0;z-index:100}
-.container{padding:15px}
-.tab-content{display:none}.tab-content.active{display:block}
-.card{background:#fff;border-radius:12px;padding:15px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
-.card h3{font-size:16px;margin-bottom:6px;color:#6b4c3a}
-.card p{font-size:13px;color:#777;margin-bottom:4px}
-.price{color:#2e7d32;font-weight:bold}
-.btn{background:#6b4c3a;color:#fff;border:none;padding:10px 16px;border-radius:8px;font-size:14px;cursor:pointer;margin-top:8px;width:100%}
-.btn:active{opacity:.8}
-.btn-small{padding:6px 12px;font-size:12px;width:auto}
-.btn-green{background:#2e7d32}
-.btn-red{background:#c62828}
-.btn-outline{background:transparent;border:1px solid #6b4c3a;color:#6b4c3a}
-.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;justify-content:space-around;padding:8px 0;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));box-shadow:0 -2px 8px rgba(0,0,0,.1);z-index:100}
-.nav-item{text-align:center;font-size:11px;color:#999;cursor:pointer;flex:1;padding:4px}
-.nav-item.active{color:#6b4c3a;font-weight:bold}
-.nav-item .icon{font-size:20px;display:block;margin-bottom:2px}
-.form-group{margin-bottom:12px}
-.form-group label{display:block;font-size:13px;margin-bottom:4px;color:#555}
-.form-group input,.form-group textarea,.form-group select{width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;background:#fff;font-family:Tahoma,sans-serif}
-.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:bold}
-.badge-pending{background:#fff3cd;color:#856404}
-.badge-approved{background:#d4edda;color:#155724}
-.badge-rejected{background:#f8d7da;color:#721c24}
-.badge-bronze{background:#cd7f32;color:#fff}
-.badge-silver{background:#aaa;color:#fff}
-.badge-gold{background:#d4af37;color:#fff}
-.badge-platinum{background:#5c6bc0;color:#fff}
-.hidden{display:none !important}
-.btn:disabled{opacity:.5;cursor:default}
-.card-digital{background:linear-gradient(135deg,#6b4c3a,#a67c52);color:#fff;border-radius:16px;padding:20px;margin-bottom:15px;position:relative;overflow:hidden}
-.card-digital::before{content:"🦅";position:absolute;font-size:80px;opacity:.15;left:-10px;top:-10px}
-.card-digital .card-number{font-size:18px;letter-spacing:2px;margin:15px 0;font-weight:bold}
-.card-digital .card-name{font-size:14px;opacity:.9}
-.card-digital .card-discount{font-size:24px;font-weight:bold;margin-top:10px}
-.empty{text-align:center;padding:30px;color:#aaa;font-size:14px}
-.section-title{font-size:18px;font-weight:bold;color:#6b4c3a;margin:15px 0 10px;border-right:4px solid #6b4c3a;padding-right:10px}
-.tabs{display:flex;gap:8px;margin-bottom:15px;overflow-x:auto}
-.tab-btn{padding:8px 16px;border-radius:20px;border:1px solid #6b4c3a;background:#fff;color:#6b4c3a;font-size:13px;cursor:pointer;white-space:nowrap}
-.tab-btn.active{background:#6b4c3a;color:#fff}
-.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:12px 24px;border-radius:8px;font-size:14px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center;max-width:90vw}
-.toast.show{opacity:1}
-.auth-container{max-width:400px;margin:60px auto;padding:25px;background:#fff;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,.1)}
-.auth-container h2{text-align:center;margin-bottom:20px;color:#6b4c3a}
-.auth-switch{text-align:center;margin-top:15px;font-size:13px;color:#777}
-.auth-switch a{color:#6b4c3a;font-weight:bold;cursor:pointer;text-decoration:underline}
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
-.modal-box{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:400px;max-height:85vh;overflow-y:auto}
-.info-row{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;color:#555}
+:root{--bg:#0b2426;--s1:#10312f;--s2:#174240;--gold:#d8a84e;--gold2:#f0cf8a;--tx:#f1e8d4;--mu:#9db3ab;--line:rgba(216,168,78,.35);--bad:#e0735d;--ok:#79c79a}
+*{margin:0;padding:0;box-sizing:border-box;font-family:Vazirmatn,Vazir,Tahoma,sans-serif}
+body{background:var(--bg) url(img/bg-page.jpg) center top/cover fixed no-repeat;color:var(--tx);min-height:100vh;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+button,input,textarea,select{font:inherit;color:inherit}
+.hidden{display:none!important}
+.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;background:rgba(11,36,38,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top h1{flex:1;font-size:18px;color:var(--gold2)}
+body[data-pg=home]{background-image:url(img/bg-home.jpg)}
+.ic{width:100%;height:100%;display:block}
+.ib{position:relative;padding:9px;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--s1);font-size:18px;cursor:pointer}
+.ib b{position:absolute;top:-3px;left:-3px;min-width:18px;height:18px;border-radius:9px;background:var(--bad);font-size:11px;line-height:18px;text-align:center;padding:0 4px}
+main{padding:14px}
+.brand{text-align:center;padding:14px 0 4px}
+.brand .name{font-size:34px;color:var(--gold2);font-weight:700;letter-spacing:1px}
+.brand p{color:var(--gold);font-size:13px;margin-top:2px}
+.wheel{position:relative;width:min(92vw,380px);aspect-ratio:1;margin:14px auto;border-radius:50%;border:1.5px solid var(--gold);background:radial-gradient(circle,var(--s2),var(--s1) 70%);box-shadow:0 0 40px rgba(216,168,78,.18) inset,0 10px 30px #0008}
+.wheel .core{position:absolute;inset:34%;border-radius:50%;border:2px solid var(--gold);display:grid;place-items:center;background:var(--bg);box-shadow:0 0 24px rgba(216,168,78,.35)}
+.seg{position:absolute;width:27%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;border:1px solid var(--line);background:var(--s1);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11.5px;cursor:pointer;text-align:center;line-height:1.3}
+.wheel .core img{width:74%}.seg img{width:34px;height:34px}.lg{display:block;margin:0 auto;width:96px;height:96px}
+.seg:active{background:var(--s2);border-color:var(--gold)}
+.tag{text-align:center;color:var(--gold);font-size:15px;margin-top:8px}
+.nav{position:fixed;bottom:0;right:0;left:0;z-index:30;display:flex;background:rgba(11,36,38,.96);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+.nav button{flex:1;background:none;border:0;color:var(--mu);font-size:10.5px;padding:4px 0;cursor:pointer}
+.nav button img{display:block;width:24px;height:24px;margin:0 auto 2px;opacity:.5}
+.nav button.on{color:var(--gold)}
+.nav button.on img{opacity:1;filter:drop-shadow(0 0 6px var(--gold))}
+.card{background:linear-gradient(160deg,var(--s2),var(--s1));border:1px solid var(--line);border-radius:18px;padding:14px;margin-bottom:12px}
+.card h3{font-size:15.5px;color:var(--gold2);margin-bottom:4px}
+.card p,.sub{font-size:12.5px;color:var(--mu);line-height:1.8}
+.card img,.ph{width:100%;height:150px;object-fit:cover;border-radius:12px;margin-bottom:10px;background:var(--s1);display:grid;place-items:center;font-size:40px}
+.price{color:var(--gold2);font-weight:700;font-size:14px}
+.sec{color:var(--gold);font-size:15px;margin:16px 0 8px;display:flex;align-items:center;gap:8px}
+.sec::before{content:"◆";font-size:10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid .card{margin:0;padding:10px}.grid .card img,.grid .ph{height:110px}
+.btn{width:100%;margin-top:8px;padding:10px;border-radius:12px;border:1px solid var(--gold);background:linear-gradient(180deg,#e8bf6a,#c1902f);color:#1a1405;font-weight:700;cursor:pointer}
+.btn.o{background:none;color:var(--gold2)}.btn.r{background:none;border-color:var(--bad);color:var(--bad)}
+.btn:disabled{opacity:.45}.btn.s{width:auto;padding:6px 14px;font-size:12.5px;margin-top:6px}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px}
+.tabs button{flex:1;white-space:nowrap;padding:9px 12px;border-radius:14px;border:1px solid var(--line);background:var(--s1);color:var(--mu);cursor:pointer}
+.tabs button.on{background:linear-gradient(180deg,#e8bf6a,#c1902f);color:#1a1405;font-weight:700;border-color:var(--gold)}
+label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}
+input,textarea,select{width:100%;padding:11px;border-radius:12px;border:1px solid var(--line);background:var(--s1)}
+input:focus,textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+input[type=checkbox]{width:auto}
+.badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11.5px;border:1px solid var(--line);color:var(--gold2)}
+.badge.ok{color:var(--ok);border-color:var(--ok)}.badge.no{color:var(--bad);border-color:var(--bad)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.menu{display:flex;align-items:center;gap:10px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--s1);margin-bottom:10px;width:100%;cursor:pointer;text-align:right}
+.menu img{width:26px;height:26px}.menu span{flex:1}
+.mc{background:linear-gradient(135deg,#143c3a,#0b2426);border:1.5px solid var(--gold);border-radius:20px;padding:18px;margin-bottom:14px}
+.mc .code{letter-spacing:2px;direction:ltr;text-align:right;margin-top:14px;font-size:16px;color:var(--gold2)}
+.empty{text-align:center;color:var(--mu);padding:28px 10px;font-size:13.5px}
+.modal{position:fixed;inset:0;z-index:50;background:#000a;display:flex;align-items:flex-end}
+.modal>div{width:100%;max-height:88vh;overflow:auto;background:var(--bg);border-top:1.5px solid var(--gold);border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))}
+.toast{position:fixed;bottom:90px;right:50%;transform:translateX(50%);z-index:60;background:var(--gold);color:#1a1405;padding:10px 18px;border-radius:20px;font-size:13.5px;max-width:88vw;text-align:center}
+.auth{max-width:420px;margin:0 auto;padding:30px 18px}
+@media (prefers-reduced-motion:no-preference){.wheel{animation:fade .6s ease}@keyframes fade{from{opacity:0;transform:scale(.96)}}}
 </style>
 </head>
 <body>
-
-<!-- ====== ورود/ثبت‌نام ====== -->
-<div id="authPage" class="auth-container">
-    <h2>🦅 کافه کتاب سیمرغ</h2>
-    <div id="loginForm">
-        <div class="form-group">
-            <label>شماره تماس</label>
-            <input type="tel" id="loginUsername" placeholder="09xxxxxxxxx" style="direction:ltr;text-align:left" inputmode="numeric">
-        </div>
-        <div class="form-group">
-            <label>رمز عبور</label>
-            <input type="password" id="loginPassword" placeholder="••••••">
-        </div>
-        <button class="btn" onclick="doLogin()">ورود</button>
-        <div class="auth-switch">حساب نداری؟ <a onclick="showSignup()">ثبت‌نام کن</a></div>
-    </div>
-    <div id="signupForm" class="hidden">
-        <div class="form-group">
-            <label>نام و نام خانوادگی</label>
-            <input type="text" id="signupName" placeholder="نام شما">
-        </div>
-        <div class="form-group">
-            <label>شماره تماس</label>
-            <input type="tel" id="signupUsername" placeholder="09xxxxxxxxx" style="direction:ltr;text-align:left" inputmode="numeric">
-        </div>
-        <div class="form-group">
-            <label>رمز عبور</label>
-            <input type="password" id="signupPassword" placeholder="حداقل ۶ کاراکتر">
-        </div>
-        <button class="btn" onclick="doSignup()">ثبت‌نام</button>
-        <div class="auth-switch">حساب داری؟ <a onclick="showLogin()">وارد شو</a></div>
-    </div>
+<div id="auth" class="auth hidden"></div>
+<div id="app" class="hidden">
+  <div class="top">
+    <button class="ib" id="back" onclick="go('home')" aria-label="خانه">→</button>
+    <h1 id="title"></h1>
+    <button class="ib" onclick="go('notifs')" aria-label="اعلان‌ها"><img class="ic" src="img/icons/bell.svg" alt=""><b id="nb" class="hidden"></b></button>
+    <button class="ib" onclick="go('cart')" aria-label="سبد خرید"><img class="ic" src="img/icons/cart.svg" alt=""><b id="cb" class="hidden"></b></button>
+  </div>
+  <main id="main"></main>
+  <nav class="nav" id="nav"></nav>
 </div>
-
-<!-- ====== اپ اصلی ====== -->
-<div id="appPage" class="hidden">
-    <div class="header">🦅 کافه کتاب سیمرغ</div>
-
-    <div id="tab-menu" class="tab-content active container">
-        <div class="section-title">☕ منوی کافه</div>
-        <div id="menuList"></div>
-    </div>
-
-    <div id="tab-library" class="tab-content container">
-        <div class="section-title">📚 کتابخانه سیمرغ</div>
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchLibTab('loan',this)">امانی</button>
-            <button class="tab-btn" onclick="switchLibTab('sale',this)">فروش</button>
-            <button class="tab-btn" onclick="switchLibTab('request',this)">درخواست کتاب</button>
-        </div>
-        <div id="lib-loan"></div>
-        <div id="lib-sale" class="hidden"></div>
-        <div id="lib-request" class="hidden">
-            <div class="card">
-                <h3>درخواست آوردن کتاب از پاتوق</h3>
-                <button class="btn btn-small" onclick="showBookRequestForm('bring_from_patio')">ثبت درخواست</button>
-            </div>
-            <div class="card">
-                <h3>پیشنهاد کتاب خودت برای امانت</h3>
-                <button class="btn btn-small" onclick="showBookRequestForm('donate_for_loan')">ثبت پیشنهاد</button>
-            </div>
-            <div class="section-title">درخواست‌های من</div>
-            <div id="myBookRequests"></div>
-        </div>
-    </div>
-
-    <div id="tab-events" class="tab-content container">
-        <div class="section-title">🎉 رویدادهای سیمرغ</div>
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchEventTab('all',this)">همه رویدادها</button>
-            <button class="tab-btn" onclick="switchEventTab('mine',this)">ثبت‌نام‌شده‌ها</button>
-        </div>
-        <div id="eventsAll"></div>
-        <div id="eventsMine" class="hidden"></div>
-    </div>
-
-    <div id="tab-profile" class="tab-content container">
-        <div class="section-title">👤 پروفایل من</div>
-        <div id="profileContent"></div>
-    </div>
-
-       <div id="tab-admin" class="tab-content container">
-    <div class="section-title">⚙️ پنل مدیریت</div>
-    
-    <!-- تب‌های ادمین -->
-    <div class="tabs" id="adminTabs">
-        <button class="tab-btn active" onclick="switchAdminTab('requests',this)">درخواست‌ها</button>
-        <button class="tab-btn" onclick="switchAdminTab('menu',this)">منو</button>
-        <button class="tab-btn" onclick="switchAdminTab('books',this)">کتاب‌ها</button>
-        <button class="tab-btn" onclick="switchAdminTab('events',this)">رویدادها</button>
-    </div>
-    
-    <!-- محتواها -->
-    <div id="admin-requests"></div>
-    <div id="admin-menu" class="hidden"></div>
-    <div id="admin-books" class="hidden"></div>
-    <div id="admin-events" class="hidden"></div>
-</div>
-
-    <div class="bottom-nav">
-        <div class="nav-item active" onclick="switchTab('menu',this)"><span class="icon">☕</span>کافه</div>
-        <div class="nav-item" onclick="switchTab('library',this)"><span class="icon">📚</span>کتابخانه</div>
-        <div class="nav-item" onclick="switchTab('events',this)"><span class="icon">🎉</span>رویدادها</div>
-        <div class="nav-item" onclick="switchTab('profile',this)"><span class="icon">👤</span>پروفایل</div>
-        <div class="nav-item hidden" id="adminNav" onclick="switchTab('admin',this)"><span class="icon">⚙️</span>مدیریت</div>
-    </div>
-</div>
-
-<!-- ====== مودال ====== -->
-<div id="modal" class="hidden modal-backdrop">
-    <div class="modal-box">
-        <div id="modalContent"></div>
-        <button class="btn btn-outline" style="margin-top:10px" onclick="closeModal()">بستن</button>
-    </div>
-</div>
-
-<!-- ====== Confirm Modal ====== -->
-<div id="confirmModal" class="hidden modal-backdrop">
-    <div class="modal-box">
-        <p id="confirmText" style="font-size:15px;margin-bottom:15px;text-align:center"></p>
-        <div style="display:flex;gap:8px">
-            <button class="btn btn-green" onclick="confirmYes()">بله</button>
-            <button class="btn btn-outline" onclick="confirmNo()">لغو</button>
-        </div>
-    </div>
-</div>
-
-<div id="toast" class="toast"></div>
-
+<div id="modal" class="modal hidden" onclick="if(event.target===this)closeM()"><div id="mbox"></div></div>
+<div id="toast" class="toast hidden" role="status"></div>
 <script src="config.js"></script>
 <script>
-const _cfg = window.APP_CONFIG || {};
-// آدرس سرور از config.js خوانده می‌شود. اگر خالی باشد (حالت وب، وقتی سرور همین صفحه را سرو می‌کند) از همان دامنه استفاده می‌شود.
-const API_URL = (() => {
-    const base = String(_cfg.API_BASE || '').trim().replace(/\/+$/, '');
-    return base || (location.origin + '/api');
-})();
-const IS_NATIVE_APP = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const CFG=window.APP_CONFIG||{},API=(String(CFG.API_BASE||'').trim().replace(/\/+$/,''))||location.origin+'/api';
+const $=id=>document.getElementById(id);
+const ic=n=>`<img src="img/icons/${n}.svg" alt="">`;
+let U=null,page='home',cart=[],libTab='sale',cache={},admTab='purchase';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fa=n=>Number(n).toLocaleString('fa-IR');
+const money=n=>n==null||n===''?'قیمت: پس از استعلام':fa(Math.round(n))+' تومان';
+const when=d=>d?new Date(d).toLocaleString('fa-IR',{dateStyle:'medium',timeStyle:'short'}):'';
+const latin=s=>String(s||'').replace(/[۰-۹]/g,d=>'۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim();
+const PST={registered:'ثبت‌شده',reviewing:'در حال بررسی',confirmed:'تأییدشده',awaiting_contact:'در انتظار هماهنگی',ready:'آماده تحویل',shipped:'ارسال‌شده',completed:'تکمیل‌شده',cancelled:'ردشده یا لغوشده'};
+const GST={pending:'در انتظار بررسی',approved:'تأیید شد',rejected:'رد شد'};
+const badge=(t,c='')=>`<span class="badge ${c}">${esc(t)}</span>`;
+const gb=s=>badge(GST[s]||s,s==='approved'?'ok':s==='rejected'?'no':'');
+function toast(m){const t=$('toast');t.textContent=m;t.classList.remove('hidden');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.add('hidden'),3000)}
+function openM(h){$('mbox').innerHTML=h;$('modal').classList.remove('hidden')}
+function closeM(){$('modal').classList.add('hidden')}
+async function api(p,o={}){
+  const h={'Content-Type':'application/json'},t=localStorage.getItem('token');if(t)h.Authorization='Bearer '+t;
+  let r,d={};
+  try{r=await fetch(API+p,{...o,headers:h,signal:AbortSignal.timeout(20000)});d=await r.json().catch(()=>({}))}
+  catch{toast('ارتباط با سرور برقرار نشد');return{ok:false,d:{}}}
+  if(r.status===401&&t&&!/^\/(login|register)/.test(p)){logout(true);return{ok:false,d}}
+  return{ok:r.ok,d}
+}
+const send=(p,m,b)=>api(p,{method:m,body:b?JSON.stringify(b):undefined});
 
-let currentUser = null;
-let token = null;
-let _confirmResolver = null;
-// ========== ابزارها ==========
-function toast(msg) {
-    const t = document.getElementById('toast');
-    t.innerText = msg;
-    t.classList.add('show');
-    clearTimeout(t._timer);
-    t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+/* ---------- ورود ---------- */
+function showAuth(signup){
+  document.body.dataset.pg='home';
+  $('app').classList.add('hidden');$('auth').classList.remove('hidden');
+  $('auth').innerHTML=`<div class="brand"><img class="lg" style="width:130px;height:130px" src="img/logo-512.png" alt=""><div class="name">سیمرغ</div><p>فرهنگ، هنر، کتاب و تجربه</p></div>
+  ${signup?`<label>نام و نام خانوادگی</label><input id="an" autocomplete="name">`:''}
+  <label>شمارهٔ همراه</label><input id="ap" type="tel" inputmode="numeric" placeholder="09123456789" style="direction:ltr;text-align:left" autocomplete="tel">
+  <label>رمز عبور${signup?' (حداقل ۶ کاراکتر)':''}</label><input id="aw" type="password" autocomplete="${signup?'new-password':'current-password'}">
+  <button class="btn" onclick="${signup?'doSignup()':'doLogin()'}">${signup?'ساخت حساب':'ورود'}</button>
+  <button class="btn o" onclick="showAuth(${!signup})">${signup?'حساب دارم، ورود':'حساب ندارم، ثبت‌نام'}</button>`;
 }
-function openModal(html) {
-    document.getElementById('modalContent').innerHTML = html;
-    document.getElementById('modal').classList.remove('hidden');
+async function doLogin(){
+  const phone=latin($('ap').value),password=$('aw').value;
+  if(!phone||!password)return toast('شماره و رمز عبور را وارد کنید');
+  const{ok,d}=await send('/login','POST',{phone,password});
+  if(!ok)return toast(d.error||'ورود انجام نشد');
+  localStorage.setItem('token',d.token);localStorage.setItem('user',JSON.stringify(d.user));boot();
 }
-function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+async function doSignup(){
+  const full_name=$('an').value.trim(),phone=latin($('ap').value),password=$('aw').value;
+  const{ok,d}=await send('/register','POST',{full_name,phone,password});
+  if(!ok)return toast(d.error||'ثبت‌نام انجام نشد');
+  toast('حساب ساخته شد. وارد شوید');showAuth(false);
+}
+function logout(expired){localStorage.removeItem('token');localStorage.removeItem('user');U=null;cache={};if(expired)toast('نشست تمام شد، دوباره وارد شوید');showAuth(false)}
 
-function confirmDialog(text) {
-    return new Promise((resolve) => {
-        _confirmResolver = resolve;
-        document.getElementById('confirmText').innerText = text;
-        document.getElementById('confirmModal').classList.remove('hidden');
-    });
+/* ---------- راه‌اندازی و ناوبری ---------- */
+function boot(){
+  try{U=JSON.parse(localStorage.getItem('user')||'null')}catch{U=null}
+  if(!U||!localStorage.getItem('token'))return showAuth(false);
+  try{cart=JSON.parse(localStorage.getItem('cart_'+U.id)||'[]')}catch{cart=[]}
+  $('auth').classList.add('hidden');$('app').classList.remove('hidden');
+  const N=[['home','home','خانه'],['library','library','کتابخانه'],['events','events','رویدادها'],['art','art','گالری هنری'],['cafe','cafe','کافه'],['account','account','حساب']];
+  $('nav').innerHTML=N.map(([k,i,t])=>`<button data-k="${k}" onclick="go('${k}')">${ic(i)}${t}</button>`).join('');
+  go('home');refreshBadges();
 }
-function confirmYes() {
-    document.getElementById('confirmModal').classList.add('hidden');
-    if (_confirmResolver) _confirmResolver(true);
-    _confirmResolver = null;
+const TITLES={home:'سیمرغ',cafe:'کافه‌کتاب',library:'کتابخانه',events:'رویدادها',art:'گالری هنری سیمرغ',cart:'سبد خرید',account:'حساب کاربری',notifs:'اعلان‌ها',mine:'درخواست‌های من',admin:'پنل مدیریت'};
+async function go(p,arg){
+  page=p;document.body.dataset.pg=p;if(p==='library'&&arg)libTab=arg;
+  $('title').textContent=TITLES[p];$('back').classList.toggle('hidden',p==='home');
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===p));
+  $('main').innerHTML='<div class="empty">در حال بارگذاری…</div>';scrollTo(0,0);
+  await R[p]();
 }
-function confirmNo() {
-    document.getElementById('confirmModal').classList.add('hidden');
-    if (_confirmResolver) _confirmResolver(false);
-    _confirmResolver = null;
+function saveCart(){localStorage.setItem('cart_'+U.id,JSON.stringify(cart));refreshBadges()}
+async function refreshBadges(){
+  const n=cart.reduce((s,i)=>s+i.qty,0);$('cb').textContent=fa(n);$('cb').classList.toggle('hidden',!n);
+  const{ok,d}=await api('/notifications');const u=ok?d.filter(x=>!x.is_read).length:0;
+  $('nb').textContent=fa(u);$('nb').classList.toggle('hidden',!u);
 }
+const img=(u,i)=>u?`<img src="${esc(u)}" alt="" loading="lazy" onerror="this.outerHTML='<div class=ph>${i}</div>'">`:`<div class="ph">${i}</div>`;
+const list=(a,empty)=>a.length?a:`<div class="empty">${empty}</div>`;
 
-function esc(s) {
-    return (s == null ? '' : String(s))
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-// برای attribute با داده داینامیک (جلوگیری از خرابی onclick)
-function attr(obj) {
-    return encodeURIComponent(JSON.stringify(obj)).replace(/'/g, '%27');
-}
-function parseAttr(s) { return JSON.parse(decodeURIComponent(s)); }
-function toLatinDigits(s) {
-    return String(s == null ? '' : s)
-        .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d))
-        .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-}
+/* ---------- صفحه‌ها ---------- */
+const R={
+home(){
+  const S=[['cafe','cafe','کافه‌کتاب'],['library','library','کتابخانه'],['events','events','رویدادها'],['art','art','گالری هنری'],['cart','cart','سبد خرید'],['request','request','درخواست کتاب'],['account','account','حساب کاربری']];
+  const seg=S.map(([k,i,t],n)=>{const a=n*2*Math.PI/7-Math.PI/2;
+    return `<button class="seg" style="left:${50-37*Math.cos(a)}%;top:${50+37*Math.sin(a)}%" onclick="${k==='request'?"go('library','request')":`go('${k}')`}">${ic(i)}${t}</button>`}).join('');
+  $('main').innerHTML=`<div class="brand"><img class="lg" src="img/logo-512.png" alt=""><div class="name">سیمرغ</div><p>فرهنگ، هنر، کتاب و تجربه</p></div>
+  <div class="wheel"><div class="core"><img src="img/logo-512.png" alt=""></div>${seg}</div><div class="tag">جایی برای رویاها، کتاب‌ها و هنر…</div>`;
+},
+async cafe(){
+  const{ok,d}=await api('/menu');if(!ok)return $('main').innerHTML='<div class="empty">منو بارگذاری نشد</div>';
+  const cats=[...new Set(d.map(i=>i.category||'سایر'))];
+  $('main').innerHTML=cats.map(c=>`<div class="sec">${esc(c)}</div>`+d.filter(i=>(i.category||'سایر')===c).map(i=>`
+    <div class="card">${i.image_url?img(i.image_url,'☕'):''}<div class="row"><h3>${esc(i.name)}</h3><span class="price">${money(i.price)}</span></div>${i.description?`<p>${esc(i.description)}</p>`:''}</div>`).join('')).join('')||'<div class="empty">منو هنوز ثبت نشده است</div>';
+  /* کافه فقط نمایش منو است؛ دکمهٔ سفارش یا سبد وجود ندارد */
+},
+async library(){
+  const[b,l]=await Promise.all([api('/books'),api('/loan-requests/my')]);
+  if(!b.ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
+  cache.books=b.d;const pend=new Set((l.ok?l.d:[]).filter(x=>x.status==='pending').map(x=>x.book_id));
+  const T=[['sale','فروش کتاب'],['loan','امانی'],['request','درخواست کتاب']];
+  let body='';
+  if(libTab==='sale')body=b.d.filter(x=>x.type==='sale').map(x=>`<div class="card"><div class="row"><h3>${esc(x.title)}</h3><span class="price">${money(x.price)}</span></div><p>${esc(x.author||'')}${x.category?' · '+esc(x.category):''}</p>${x.description?`<p>${esc(x.description)}</p>`:''}<button class="btn s" onclick="addCart('book',${x.id})">افزودن به سبد</button></div>`).join('')||'<div class="empty">کتابی برای فروش ثبت نشده است</div>';
+  if(libTab==='loan')body=b.d.filter(x=>x.type==='loan').map(x=>`<div class="card"><h3>${esc(x.title)}</h3><p>${esc(x.author||'')}</p>${x.description?`<p>${esc(x.description)}</p>`:''}${x.status!=='available'?badge('امانت داده شده','no'):pend.has(x.id)?badge('درخواست شما در حال بررسی است'):`<button class="btn s" onclick="reqLoan(${x.id})">درخواست امانت</button>`}</div>`).join('')||'<div class="empty">کتاب امانی ثبت نشده است</div>';
+  if(libTab==='request'){
+    const r=await api('/book-requests/my');
+    body=`<div class="card"><h3>کتابی می‌خواهید که در سیمرغ نیست؟</h3><label>عنوان کتاب</label><input id="rt"><label>نویسنده یا ناشر (اختیاری)</label><input id="ra"><label>توضیح (اختیاری)</label><textarea id="rd" rows="2"></textarea><button class="btn" onclick="sendBookReq()">ارسال درخواست</button></div>
+    <div class="sec">درخواست‌های کتاب من</div>`+((r.ok?r.d:[]).map(x=>`<div class="card"><h3>${esc(x.book_title)}</h3><p>${esc(x.author||'')}</p>${gb(x.status)}${x.admin_note?`<p>پاسخ مدیریت: ${esc(x.admin_note)}</p>`:''}</div>`).join('')||'<div class="empty">هنوز درخواستی ثبت نکرده‌اید</div>');
+  }
+  $('main').innerHTML=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===libTab?'on':''}" onclick="go('library','${k}')">${t}</button>`).join('')}</div>`+body;
+},
+async events(){
+  const{ok,d}=await api('/events');if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
+  $('main').innerHTML=d.map(e=>{const full=e.capacity&&e.registered>=e.capacity;
+    return `<div class="card">${e.image_url?img(e.image_url,'📅'):''}<h3>${esc(e.title)}</h3><p>📅 ${when(e.event_date)}${e.location?' · 📍 '+esc(e.location):''}</p>${e.description?`<p>${esc(e.description)}</p>`:''}${e.capacity?`<p>ظرفیت: ${fa(e.registered)} از ${fa(e.capacity)}</p>`:''}
+    ${e.mine?`${badge('ثبت‌نام شده‌اید','ok')}<button class="btn r s" style="margin-inline-start:8px" onclick="unreg(${e.id})">لغو ثبت‌نام</button>`:!e.registration_open?badge('ثبت‌نام بسته است','no'):full?badge('ظرفیت تکمیل است','no'):`<button class="btn" onclick="reg(${e.id})">ثبت‌نام در رویداد</button>`}</div>`}).join('')||'<div class="empty">رویداد فعالی نیست</div>';
+},
+async art(){
+  const{ok,d}=await api('/art');if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
+  cache.art=d;const cats=['همه',...new Set(d.map(i=>i.category).filter(Boolean))],cur=cache.artCat||'همه';
+  const SL={in_stock:'موجود',made_to_order:'ساخت بر اساس سفارش',out:'ناموجود'};
+  $('main').innerHTML=`<div class="tabs">${cats.map(c=>`<button class="${c===cur?'on':''}" onclick="cache.artCat='${esc(c).replace(/'/g,'')}';go('art')">${esc(c)}</button>`).join('')}</div><div class="grid">`+
+   d.filter(i=>cur==='همه'||i.category===cur).map(i=>`<div class="card">${img(i.image_url,'🎨')}<h3>${esc(i.name)}</h3><div class="price">${money(i.price)}</div><p>${SL[i.stock_status]}${i.allow_custom?' · سفارشی‌سازی':''}</p><button class="btn s" ${i.stock_status==='out'?'disabled':''} onclick="addCart('art',${i.id})">افزودن به سبد</button></div>`).join('')+'</div>';
+},
+cart(){
+  if(!cart.length)return $('main').innerHTML='<div class="empty">سبد خرید خالی است.<br>کتاب فروشی یا محصول گالری را به سبد اضافه کنید.</div>';
+  const tot=cart.reduce((s,i)=>s+(i.price||0)*i.qty,0);
+  $('main').innerHTML=cart.map((i,n)=>`<div class="card"><div class="row"><h3>${esc(i.title)}</h3>${badge(i.type==='book'?'کتاب':'گالری')}</div><div class="row"><span class="price">${money(i.price)}</span>
+    <span><button class="btn o s" onclick="qty(${n},-1)">−</button> <b>${fa(i.qty)}</b> <button class="btn o s" onclick="qty(${n},1)">+</button></span></div>
+    <input placeholder="توضیح یا ویژگی سفارش (اختیاری)" value="${esc(i.note||'')}" onchange="cart[${n}].note=this.value;saveCart()" style="margin-top:8px"></div>`).join('')+
+  `<div class="card"><div class="row"><span>جمع مبلغ اعلامی</span><span class="price">${fa(tot)} تومان</span></div><p>مبلغ نهایی و نحوهٔ تحویل پس از بررسی، تلفنی هماهنگ می‌شود.</p>
+  <label>شمارهٔ تماس</label><input id="cp" type="tel" inputmode="numeric" value="${esc(U.phone||'')}" style="direction:ltr;text-align:left">
+  <label>توضیحات (اختیاری)</label><textarea id="cn" rows="2"></textarea>
+  <button class="btn" onclick="submitCart()">ثبت درخواست خرید</button><p style="margin-top:6px">پرداخت اینترنتی در برنامه انجام نمی‌شود؛ این فقط ثبت درخواست است.</p></div>`;
+},
+account(){
+  $('main').innerHTML=`<div class="mc"><div class="row"><b style="font-size:18px">${esc(U.full_name)}</b>${badge(U.role==='admin'?'مدیر':'عضو')}</div><p>${esc(U.phone)}</p><div style="margin-top:10px;color:var(--gold);font-size:15px">اهالی سیمرغ · فرهنگسرای سیمرغ</div><div class="code">${esc(U.member_code||'')}</div></div>
+  <button class="menu" onclick="editProfile()">${ic("account")}<span>مشخصات کاربری</span>‹</button>
+  <button class="menu" onclick="go('mine')">${ic("receipt")}<span>درخواست‌های من</span>‹</button>
+  <button class="menu" onclick="go('notifs')">${ic("bell")}<span>اعلان‌ها</span>‹</button>
+  ${U.role==='admin'?`<button class="menu" onclick="go('admin')">${ic("settings")}<span>پنل مدیریت</span>‹</button>`:''}
+  <button class="btn r" onclick="logout()">خروج از حساب</button>`;
+},
+async mine(){
+  const[p,l,b,e]=await Promise.all([api('/purchase-requests/my'),api('/loan-requests/my'),api('/book-requests/my'),api('/events')]);
+  const reg=(e.ok?e.d:[]).filter(x=>x.mine);
+  $('main').innerHTML=`<div class="sec">درخواست‌های خرید</div>`+((p.ok?p.d:[]).map(r=>`<div class="card"><div class="row"><h3>درخواست ${fa(r.id)}</h3>${badge(PST[r.status])}</div>${r.items.map(i=>`<p>${esc(i.title)} × ${fa(i.qty)}</p>`).join('')}${r.final_price!=null?`<p>مبلغ نهایی: ${money(r.final_price)}</p>`:''}${r.admin_note?`<p>پیام مدیریت: ${esc(r.admin_note)}</p>`:''}<p>${when(r.created_at)}</p></div>`).join('')||'<div class="empty">موردی نیست</div>')+
+  `<div class="sec">امانت کتاب</div>`+((l.ok?l.d:[]).map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3>${gb(r.status)}</div>`).join('')||'<div class="empty">موردی نیست</div>')+
+  `<div class="sec">درخواست کتاب</div>`+((b.ok?b.d:[]).map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3>${gb(r.status)}</div>`).join('')||'<div class="empty">موردی نیست</div>')+
+  `<div class="sec">رویدادهای ثبت‌نام‌شده</div>`+(reg.map(r=>`<div class="card"><h3>${esc(r.title)}</h3><p>${when(r.event_date)}</p></div>`).join('')||'<div class="empty">موردی نیست</div>');
+},
+async notifs(){
+  const{ok,d}=await api('/notifications');
+  $('main').innerHTML=(ok?d:[]).map(n=>`<div class="card" style="${n.is_read?'':'border-color:var(--gold)'}"><h3>${esc(n.title)}</h3><p>${esc(n.body||'')}</p><p>${when(n.created_at)}</p></div>`).join('')||'<div class="empty">اعلانی ندارید</div>';
+  if(ok&&d.some(n=>!n.is_read)){await send('/notifications/read','PUT');refreshBadges()}
+},
+async admin(){
+  const T=[['purchase','خرید'],['loan','امانت'],['breq','درخواست کتاب'],['menu','منوی کافه'],['books','کتاب‌ها'],['art','گالری'],['events','رویدادها']];
+  const head=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===admTab?'on':''}" onclick="admTab='${k}';go('admin')">${t}</button>`).join('')}</div>`;
+  let body='';
+  if(admTab==='purchase'){const{d=[]}=await api('/admin/purchase-requests');
+    body=d.map(r=>`<div class="card"><div class="row"><h3>${esc(r.full_name)}</h3><a class="badge" href="tel:${esc(r.contact_phone)}">📞 ${esc(r.contact_phone)}</a></div>${r.items.map(i=>`<p>${esc(i.title)} × ${fa(i.qty)} — ${money(i.price)}${i.note?' ('+esc(i.note)+')':''}</p>`).join('')}${r.note?`<p>توضیح کاربر: ${esc(r.note)}</p>`:''}
+    <select onchange="send('/admin/purchase-requests/${r.id}','PUT',{status:this.value}).then(x=>toast(x.ok?'وضعیت تغییر کرد':'خطا'))">${Object.entries(PST).map(([k,t])=>`<option value="${k}" ${k===r.status?'selected':''}>${t}</option>`).join('')}</select>
+    <input placeholder="مبلغ نهایی (تومان)" inputmode="numeric" value="${r.final_price??''}" onchange="send('/admin/purchase-requests/${r.id}','PUT',{final_price:latin(this.value)}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px">
+    <input placeholder="پیام برای کاربر" value="${esc(r.admin_note||'')}" onchange="send('/admin/purchase-requests/${r.id}','PUT',{admin_note:this.value}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px"></div>`).join('')||'<div class="empty">درخواستی نیست</div>'}
+  else if(admTab==='loan'){const{d=[]}=await api('/admin/loan-requests');
+    body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt(${r.id},'approved')">تأیید</button> <button class="btn r s" onclick="loanSt(${r.id},'rejected')">رد</button>`:gb(r.status)}</div>`).join('')+
+    `<div class="sec">بازگشت کتاب</div><p class="sub">برای ثبت بازگشت کتاب، تب «کتاب‌ها» را باز کنید.</p>`||'';}
+  else if(admTab==='breq'){const{d=[]}=await api('/admin/book-requests');
+    body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.author||'')} — ${esc(r.full_name)} · ${esc(r.phone)}</p>${r.description?`<p>${esc(r.description)}</p>`:''}
+    <select onchange="send('/admin/book-requests/${r.id}','PUT',{status:this.value}).then(x=>toast(x.ok?'ثبت شد':'خطا'))">${Object.entries(GST).map(([k,t])=>`<option value="${k}" ${k===r.status?'selected':''}>${t}</option>`).join('')}</select>
+    <input placeholder="نتیجهٔ بررسی برای کاربر" value="${esc(r.admin_note||'')}" onchange="send('/admin/book-requests/${r.id}','PUT',{admin_note:this.value}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px"></div>`).join('')||'<div class="empty">درخواستی نیست</div>'}
+  else{const{d=[]}=await api('/admin/'+admTab);cache['adm_'+admTab]=d;const nm=i=>i.name||i.title;
+    body=`<button class="btn" onclick="admForm('${admTab}')">+ افزودن</button>`+d.map(i=>`<div class="card" style="margin-top:10px;${i.active?'':'opacity:.5'}"><div class="row"><h3>${esc(nm(i))}</h3>${i.active?'':badge('غیرفعال','no')}</div>
+    <button class="btn o s" onclick="admForm('${admTab}',${i.id})">ویرایش</button> ${admTab==='books'&&i.type==='loan'&&i.status==='loaned'?`<button class="btn s" onclick="send('/admin/books/${i.id}/return','PUT').then(()=>go('admin'))">ثبت بازگشت</button>`:''}
+    ${admTab==='events'?`<button class="btn o s" onclick="regs(${i.id})">ثبت‌نام‌شده‌ها</button>`:''} ${i.active?`<button class="btn r s" onclick="admOff('${admTab}',${i.id})">غیرفعال</button>`:''}</div>`).join('')}
+  $('main').innerHTML=head+body;
+}};
 
-function fmtPrice(n) {
-    if (n === null || n === undefined || n === '') return '';
-    const num = Number(n);
-    if (isNaN(num)) return '';
-    return Math.round(num).toLocaleString('fa-IR') + ' تومان';
-}function fmtDate(d) {
-    if (!d) return '';
-    try { return new Date(d).toLocaleDateString('fa-IR'); } catch { return ''; }
+/* ---------- عملیات ---------- */
+function addCart(type,id){
+  const src=type==='book'?cache.books:cache.art,it=src.find(x=>x.id===id),ex=cart.find(c=>c.type===type&&c.id===id);
+  if(ex)ex.qty++;else cart.push({type,id,title:it.title||it.name,price:it.price,qty:1,note:''});
+  saveCart();toast('به سبد اضافه شد');
 }
-function fmtDateTime(d) {
-    if (!d) return '';
-    try {
-        return new Date(d).toLocaleString('fa-IR', { dateStyle: 'short', timeStyle: 'short' });
-    } catch { return ''; }
+function qty(n,d){cart[n].qty+=d;if(cart[n].qty<1)cart.splice(n,1);saveCart();R.cart()}
+async function submitCart(){
+  const{ok,d}=await send('/purchase-requests','POST',{items:cart.map(({type,id,qty,note})=>({type,id,qty,note})),contact_phone:latin($('cp').value),note:$('cn').value});
+  if(!ok)return toast(d.error||'ثبت نشد');
+  cart=[];saveCart();toast('درخواست خرید ثبت شد؛ مدیریت با شما تماس می‌گیرد');go('mine');
 }
-// تبدیل ISO UTC به رشته datetime-local با timezone محلی
-function toLocalInputValue(d) {
-    if (!d) return '';
-    const date = new Date(d);
-    const off = date.getTimezoneOffset() * 60000;
-    return new Date(date.getTime() - off).toISOString().slice(0, 16);
+async function reqLoan(id){const{ok,d}=await send('/loan-requests','POST',{book_id:id});toast(ok?'درخواست امانت ثبت شد':d.error);if(ok)go('library')}
+async function sendBookReq(){
+  const book_title=$('rt').value.trim();if(!book_title)return toast('عنوان کتاب را وارد کنید');
+  const{ok,d}=await send('/book-requests','POST',{book_title,author:$('ra').value,description:$('rd').value});
+  toast(ok?'درخواست ثبت شد':d.error);if(ok)go('library','request');
 }
-function statusBadge(status) {
-    const map = {
-        pending: ['badge-pending', 'در انتظار'],
-        approved: ['badge-approved', 'تأیید'],
-        rejected: ['badge-rejected', 'رد'],
-    };
-    const [cls, txt] = map[status] || ['', status];
-    return `<span class="badge ${cls}">${txt}</span>`;
+async function reg(id){const{ok,d}=await send(`/events/${id}/register`,'POST');toast(ok?'ثبت‌نام انجام شد':d.error);go('events')}
+async function unreg(id){const{ok}=await send(`/events/${id}/register`,'DELETE');toast(ok?'ثبت‌نام لغو شد':'خطا');go('events')}
+function editProfile(){openM(`<h3 style="color:var(--gold2)">مشخصات کاربری</h3><label>نام و نام خانوادگی</label><input id="pn" value="${esc(U.full_name)}"><label>شمارهٔ همراه</label><input value="${esc(U.phone)}" disabled style="direction:ltr;text-align:left"><button class="btn" onclick="saveProfile()">ذخیره</button><button class="btn o" onclick="closeM()">بستن</button>`)}
+async function saveProfile(){const{ok,d}=await send('/profile','PUT',{full_name:$('pn').value});if(!ok)return toast(d.error||'خطا');U=d;localStorage.setItem('user',JSON.stringify(U));closeM();go('account')}
+async function loanSt(id,status){const{ok,d}=await send('/admin/loan-requests/'+id,'PUT',{status});toast(ok?'ثبت شد':d.error);go('admin')}
+async function admOff(r,id){if(!confirm('این مورد غیرفعال شود؟'))return;await send(`/admin/${r}/${id}`,'DELETE');go('admin')}
+async function regs(id){const{d=[]}=await api(`/admin/events/${id}/registrations`);openM(`<h3 style="color:var(--gold2)">ثبت‌نام‌شده‌ها (${fa(d.length)})</h3>`+(d.map(r=>`<p class="sub">${esc(r.full_name)} · ${esc(r.phone)}</p>`).join('')||'<div class="empty">کسی ثبت‌نام نکرده</div>')+`<button class="btn o" onclick="closeM()">بستن</button>`)}
+const F={ /* [کلید، برچسب، نوع، الزامی/گزینه‌ها] */
+ menu:[['name','نام','t',1],['category','دسته (مثلاً قهوه، دسر)'],['description','توضیح','a'],['price','قیمت (تومان)','n'],['image_url','آدرس تصویر'],['sort','ترتیب نمایش','n']],
+ books:[['title','عنوان','t',1],['author','نویسنده'],['category','دسته'],['description','توضیح','a'],['type','نوع','s',{loan:'امانی',sale:'فروشی'}],['price','قیمت (تومان، برای فروشی)','n'],['status','وضعیت','s',{available:'موجود',loaned:'امانت داده شده'}],['image_url','آدرس تصویر']],
+ art:[['name','نام','t',1],['category','دسته (رزین، شمع، ویترای…)'],['description','توضیح','a'],['price','قیمت (تومان)','n'],['stock_status','موجودی','s',{in_stock:'موجود',made_to_order:'ساخت بر اساس سفارش',out:'ناموجود'}],['allow_custom','امکان سفارشی‌سازی','b'],['image_url','آدرس تصویر']],
+ events:[['title','عنوان','t',1],['description','توضیح','a'],['event_date','زمان','d'],['location','مکان'],['capacity','ظرفیت (خالی = نامحدود)','n'],['registration_open','ثبت‌نام باز باشد','b'],['image_url','آدرس تصویر']]};
+function admForm(r,id){
+  const it=id?cache['adm_'+r].find(x=>x.id===id):{registration_open:true,type:'loan',status:'available',stock_status:'in_stock'};
+  const dt=v=>v?new Date(new Date(v).getTime()-new Date(v).getTimezoneOffset()*6e4).toISOString().slice(0,16):'';
+  openM(`<h3 style="color:var(--gold2)">${id?'ویرایش':'افزودن'}</h3>`+F[r].map(([k,l,t,o])=>{const v=it[k]??'';
+    return t==='b'?`<label><input type="checkbox" id="f_${k}" ${v?'checked':''}> ${l}</label>`:`<label>${l}</label>`+(t==='a'?`<textarea id="f_${k}" rows="2">${esc(v)}</textarea>`:t==='s'?`<select id="f_${k}">${Object.entries(o).map(([a,b])=>`<option value="${a}" ${a===v?'selected':''}>${b}</option>`).join('')}</select>`:`<input id="f_${k}" type="${t==='d'?'datetime-local':'text'}" ${t==='n'?'inputmode="numeric"':''} value="${esc(t==='d'?dt(v):v)}">`)}).join('')+
+  `<button class="btn" onclick="admSave('${r}',${id||0})">ذخیره</button><button class="btn o" onclick="closeM()">بستن</button>`);
 }
-function levelBadge(level) {
-    const map = {
-        bronze: ['badge-bronze', 'برنزی'],
-        silver: ['badge-silver', 'نقره‌ای'],
-        gold: ['badge-gold', 'طلایی'],
-        platinum: ['badge-platinum', 'پلاتینیوم'],
-    };
-    const [cls, txt] = map[level] || ['badge-bronze', level];
-    return `<span class="badge ${cls}">${txt}</span>`;
+async function admSave(r,id){
+  const b={};
+  for(const [k,,t,o] of F[r]){const e=$('f_'+k);let v=t==='b'?e.checked:e.value.trim();
+    if(t==='n')v=latin(v);if(t==='d'&&v)v=new Date(v).toISOString();
+    if(o===1&&!v)return toast('فیلدهای الزامی را پر کنید');b[k]=v}
+  if(id)b.active=true;
+  const{ok,d}=await send(id?`/admin/${r}/${id}`:`/admin/${r}`,id?'PUT':'POST',b);
+  if(!ok)return toast(d.error||'ذخیره نشد');closeM();toast('ذخیره شد');go('admin');
 }
-
-async function api(path, opts = {}) {
-    if (IS_NATIVE_APP && !String(_cfg.API_BASE || '').trim()) {
-        toast('آدرس سرور در فایل www/config.js تنظیم نشده است');
-        return { ok: false, status: 0, data: { error: 'config' } };
-    }
-    const headers = { 'Content-Type': 'application/json' };
-    const t = localStorage.getItem('token');
-    if (t) headers['Authorization'] = 'Bearer ' + t;
-
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 20000);
-    let res, data = null;
-    try {
-        res = await fetch(API_URL + path, {
-            ...opts,
-            signal: ctrl.signal,
-            headers: { ...headers, ...(opts.headers || {}) },
-        });
-        const text = await res.text();
-        try { data = text ? JSON.parse(text) : null; } catch { data = null; }
-    } catch (e) {
-        toast('خطا در ارتباط با سرور');
-        return { ok: false, status: 0, data: { error: 'network' } };
-    } finally {
-        clearTimeout(timer);
-    }
-
-    // خطای ۴۰۱ روی خود ورود/ثبت‌نام یعنی رمز اشتباه است، نه انقضای نشست
-    const isAuthCall = path === '/login' || path === '/register';
-    if (res.status === 401 && !isAuthCall && localStorage.getItem('token')) {
-        localStorage.clear();
-        currentUser = null;
-        token = null;
-        toast('نشست منقضی شد، دوباره وارد شو');
-        checkAuth();
-    }
-    return { ok: res.ok, status: res.status, data: data || {} };
-}
-
-// ========== احراز هویت ==========
-function showSignup() {
-    document.getElementById('loginForm').classList.add('hidden');
-    document.getElementById('signupForm').classList.remove('hidden');
-}
-function showLogin() {
-    document.getElementById('signupForm').classList.add('hidden');
-    document.getElementById('loginForm').classList.remove('hidden');
-}
-
-async function doLogin() {
-    const username = toLatinDigits(document.getElementById('loginUsername').value).trim();
-    const password = document.getElementById('loginPassword').value;
-    if (!username || !password) return toast('شماره و رمز را وارد کن');
-    const { ok, data } = await api('/login', {
-        method: 'POST',
-        body: JSON.stringify({ username, password }),
-    });
-    if (!ok) return toast(data?.error || 'خطا در ورود');
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    toast('خوش آمدی!');
-    checkAuth();
-}
-
-async function doSignup() {
-    const full_name = document.getElementById('signupName').value.trim();
-    const username = toLatinDigits(document.getElementById('signupUsername').value).trim();
-    const password = document.getElementById('signupPassword').value;
-    if (!full_name || !username || !password) return toast('همه فیلدها را پر کن');
-    const { ok, data } = await api('/register', {
-        method: 'POST',
-        body: JSON.stringify({ username, password, full_name }),
-    });
-    if (!ok) return toast(data?.error || 'خطا در ثبت‌نام');
-    toast('ثبت‌نام موفق! حالا وارد شو.');
-    showLogin();
-}
-
-function doLogout() {
-    localStorage.clear();
-    currentUser = null;
-    token = null;
-    checkAuth();
-}
-
-function applyRole() {
-    const nav = document.getElementById('adminNav');
-    if (currentUser && currentUser.role === 'admin') nav.classList.remove('hidden');
-    else nav.classList.add('hidden');
-}
-
-function checkAuth() {
-    token = localStorage.getItem('token');
-    let user = null;
-    try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch { user = null; }
-
-    if (token && user) {
-        currentUser = user;
-        document.getElementById('authPage').classList.add('hidden');
-        document.getElementById('appPage').classList.remove('hidden');
-        applyRole();
-
-        loadMenu();
-        loadLibrary();
-        loadEvents();
-        loadProfile();
-        switchTab('menu', document.querySelector('.nav-item'));
-    } else {
-        document.getElementById('authPage').classList.remove('hidden');
-        document.getElementById('appPage').classList.add('hidden');
-    }
-}
-
-function switchTab(name, el) {
-    document.querySelectorAll('.tab-content').forEach(t => {
-        t.classList.remove('active');
-        t.classList.add('hidden');
-    });
-    const target = document.getElementById('tab-' + name);
-    target.classList.remove('hidden');
-    target.classList.add('active');
-    
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    if (el) el.classList.add('active');
-
-    if (name === 'admin') {
-        switchAdminTab('requests', document.querySelector('#tab-admin .tab-btn'));
-    }
-    if (name === 'profile') loadProfile();
-}
-// ========== منوی کافه ==========
-async function loadMenu() {
-    const { ok, data } = await api('/menu');
-    const el = document.getElementById('menuList');
-    if (!ok) { el.innerHTML = '<div class="empty">خطا در بارگذاری</div>'; return; }
-    if (!data.length) { el.innerHTML = '<div class="empty">منو خالی است</div>'; return; }
-    el.innerHTML = data.map(i => `
-        <div class="card">
-            <h3>${esc(i.name)}</h3>
-            ${i.category ? `<p>${esc(i.category)}</p>` : ''}
-            ${i.description ? `<p>${esc(i.description)}</p>` : ''}
-            <p class="price">${fmtPrice(i.price)}</p>
-        </div>
-    `).join('');
-}
-
-// ========== کتابخانه ==========
-function switchLibTab(tab, el) {
-    document.querySelectorAll('#tab-library .tab-btn').forEach(b => b.classList.remove('active'));
-    el.classList.add('active');
-    ['loan','sale','request'].forEach(t => document.getElementById('lib-' + t).classList.add('hidden'));
-    document.getElementById('lib-' + tab).classList.remove('hidden');
-    if (tab === 'request') loadMyBookRequests();
-}
-
-async function loadLibrary() {
-    const { ok, data } = await api('/books');
-    if (!ok) return;
-    const loan = data.filter(b => b.type === 'loan');
-    const sale = data.filter(b => b.type === 'sale');
-
-    document.getElementById('lib-loan').innerHTML = loan.length ? loan.map(b => `
-        <div class="card">
-            <h3>${esc(b.title)}</h3>
-            <p>${esc(b.author || '')}</p>
-            ${b.description ? `<p>${esc(b.description)}</p>` : ''}
-            ${b.status === 'available'
-                ? `<button class="btn btn-small btn-green" onclick="requestLoan(${b.id})">درخواست امانت</button>`
-                : '<p style="color:#c62828">امانت داده شده</p>'}
-        </div>
-    `).join('') : '<div class="empty">کتابی نیست</div>';
-
-    document.getElementById('lib-sale').innerHTML = sale.length ? sale.map(b => `
-        <div class="card">
-            <h3>${esc(b.title)}</h3>
-            <p>${esc(b.author || '')}</p>
-            ${b.description ? `<p>${esc(b.description)}</p>` : ''}
-            <p class="price">${fmtPrice(b.price)}</p>
-            <p style="font-size:12px;color:#999;margin-top:6px">برای خرید به کافه مراجعه کنید</p>
-        </div>
-    `).join('') : '<div class="empty">کتابی نیست</div>';
-}
-
-async function requestLoan(bookId) {
-    const { ok, data } = await api('/loan-requests', {
-        method: 'POST',
-        body: JSON.stringify({ book_id: bookId }),
-    });
-    if (ok) { toast('درخواست ثبت شد'); loadLibrary(); }
-    else toast(data?.error || 'خطا');
-}
-
-function showBookRequestForm(type) {
-    const title = type === 'bring_from_patio' ? 'آوردن کتاب از پاتوق' : 'پیشنهاد کتاب برای امانت';
-    openModal(`
-        <h3>${title}</h3>
-        <div class="form-group"><label>عنوان کتاب</label><input id="reqTitle"></div>
-        <div class="form-group"><label>نویسنده</label><input id="reqAuthor"></div>
-        <div class="form-group"><label>توضیحات (اختیاری)</label><textarea id="reqDesc" rows="2"></textarea></div>
-        <button class="btn" onclick="submitBookRequest('${type}')">ثبت</button>
-    `);
-}
-
-async function submitBookRequest(type) {
-    const book_title = document.getElementById('reqTitle').value.trim();
-    const author = document.getElementById('reqAuthor').value.trim();
-    const description = document.getElementById('reqDesc').value.trim();
-    if (!book_title) return toast('عنوان الزامی است');
-    const { ok, data } = await api('/book-requests', {
-        method: 'POST',
-        body: JSON.stringify({ request_type: type, book_title, author, description }),
-    });
-    if (ok) { closeModal(); toast('ثبت شد'); loadMyBookRequests(); }
-    else toast(data?.error || 'خطا');
-}
-
-async function loadMyBookRequests() {
-    const [brR, lrR] = await Promise.all([api('/book-requests/my'), api('/loan-requests/my')]);
-    const el = document.getElementById('myBookRequests');
-    if (!brR.ok) { el.innerHTML = ''; return; }
-    const loans = lrR.ok ? lrR.data : [];
-    let html = '';
-    if (loans.length) {
-        html += loans.map(r => `
-            <div class="card">
-                <h3>${esc(r.book_title)}</h3>
-                <p>درخواست امانت</p>
-                ${statusBadge(r.status)}
-            </div>
-        `).join('');
-    }
-    html += brR.data.map(r => `
-        <div class="card">
-            <h3>${esc(r.book_title)}</h3>
-            <p>${esc(r.author || '')}</p>
-            <p>${r.request_type === 'bring_from_patio' ? 'از پاتوق' : 'پیشنهاد برای امانت'}</p>
-            ${statusBadge(r.status)}
-        </div>
-    `).join('');
-    el.innerHTML = html || '<div class="empty">درخواستی نیست</div>';
-}
-
-// ========== رویدادها ==========
-function switchEventTab(tab, el) {
-    document.querySelectorAll('#tab-events .tab-btn').forEach(b => b.classList.remove('active'));
-    el.classList.add('active');
-    document.getElementById('eventsAll').classList.toggle('hidden', tab !== 'all');
-    document.getElementById('eventsMine').classList.toggle('hidden', tab !== 'mine');
-    if (tab === 'mine') loadMyEvents();
-}
-
-async function loadEvents() {
-    const [allR, myR] = await Promise.all([api('/events'), api('/events/my')]);
-    if (!allR.ok) return;
-    const data = allR.data;
-    const mine = new Set((myR.ok ? myR.data : []).map(e => e.id));
-    document.getElementById('eventsAll').innerHTML = data.length ? data.map(e => `
-        <div class="card">
-            <h3>${esc(e.title)}</h3>
-            ${e.description ? `<p>${esc(e.description)}</p>` : ''}
-            <p>📅 ${fmtDateTime(e.event_date)}</p>
-            <p>📍 ${esc(e.location || '')}</p>
-            ${mine.has(e.id)
-                ? '<button class="btn btn-small btn-outline" disabled>ثبت‌نام شده ✓</button>'
-                : `<button class="btn btn-small btn-green" onclick="registerEvent(${e.id})">ثبت‌نام</button>`}
-        </div>
-    `).join('') : '<div class="empty">رویدادی نیست</div>';
-}
-
-async function loadMyEvents() {
-    const { ok, data } = await api('/events/my');
-    const el = document.getElementById('eventsMine');
-    if (!ok) { el.innerHTML = ''; return; }
-    el.innerHTML = data.length ? data.map(e => `
-        <div class="card">
-            <h3>${esc(e.title)}</h3>
-            <p>📅 ${fmtDateTime(e.event_date)}</p>
-            <p>📍 ${esc(e.location || '')}</p>
-            <button class="btn btn-small btn-red" onclick="unregisterEvent(${e.id})">لغو ثبت‌نام</button>
-        </div>
-    `).join('') : '<div class="empty">در رویدادی ثبت‌نام نکردی</div>';
-}
-
-async function registerEvent(id) {
-    const { ok, data } = await api('/events/register/' + id, { method: 'POST' });
-    if (ok) { toast('ثبت‌نام شد'); loadEvents(); loadProfile(); }
-    else toast(data?.error || 'خطا');
-}
-
-async function unregisterEvent(id) {
-    const yes = await confirmDialog('ثبت‌نام لغو شود؟');
-    if (!yes) return;
-    const { ok, data } = await api('/events/unregister/' + id, { method: 'DELETE' });
-    if (ok) { toast('لغو شد'); loadMyEvents(); loadEvents(); }
-    else toast(data?.error || 'خطا');
-}
-
-// ========== پروفایل ==========
-async function loadProfile() {
-    const { ok, data } = await api('/profile');
-    const el = document.getElementById('profileContent');
-    if (!ok) { el.innerHTML = '<div class="empty">خطا</div>'; return; }
-    const { user, points, card } = data;
-    if (currentUser && user) {
-        currentUser = { ...currentUser, ...user };
-        localStorage.setItem('user', JSON.stringify(currentUser));
-        applyRole();
-    }
-    el.innerHTML = `
-        <div class="card-digital">
-            <div class="card-name">🦅 اهالی سیمرغ</div>
-            <div class="card-name" style="margin-top:8px;font-weight:bold;font-size:16px">${esc(user.full_name)}</div>
-            <div class="card-number">${esc(card.card_number)}</div>
-            <div>تخفیف: <span class="card-discount">${card.discount_percent}٪</span></div>
-            <div style="margin-top:8px">سطح: ${levelBadge(points.level)}</div>
-        </div>
-        <div class="card">
-            <h3>امتیاز من</h3>
-            <p style="font-size:24px;font-weight:bold;color:#6b4c3a">${points.points}</p>
-            <p style="font-size:12px;color:#999;margin-top:6px">
-                امانت تأیید‌شده: +20 &nbsp;|&nbsp; رویداد: +10 &nbsp;|&nbsp; پیشنهاد کتاب: +15
-            </p>
-        </div>
-        <button class="btn btn-red" onclick="doLogout()">خروج از حساب</button>
-    `;
-}
-
-// ========== پنل ادمین ==========
-function switchAdminTab(tab, el) {
-    document.querySelectorAll('#tab-admin .tab-btn').forEach(b => b.classList.remove('active'));
-    el.classList.add('active');
-    ['requests','menu','books','events'].forEach(t =>
-        document.getElementById('admin-' + t).classList.add('hidden'));
-    document.getElementById('admin-' + tab).classList.remove('hidden');
-    if (tab === 'requests') loadAdminRequests();
-    if (tab === 'menu') loadAdminMenu();
-    if (tab === 'books') loadAdminBooks();
-    if (tab === 'events') loadAdminEvents();
-}
-
-// --- درخواست‌ها ---
-async function loadAdminRequests() {
-    const el = document.getElementById('admin-requests');
-    
-    // نمایش وضعیت بارگذاری
-    el.innerHTML = '<div class="empty">در حال بارگذاری...</div>';
-
-    const [loansR, booksR] = await Promise.all([
-        api('/loan-requests'),
-        api('/book-requests'),
-    ]);
-
-    // مدیریت خطا: اگر هر کدام از درخواست‌ها ناموفق بود، پیام خطا نمایش بده
-    if (!loansR.ok || !booksR.ok) {
-        el.innerHTML = '<div class="empty">خطا در بارگذاری درخواست‌ها</div>';
-        // پیام دقیق‌تر برای اشکال‌زدایی
-        if (!loansR.ok) console.warn('خطا در دریافت درخواست‌های امانت:', loansR.status, loansR.data);
-        if (!booksR.ok) console.warn('خطا در دریافت درخواست‌های کتاب:', booksR.status, booksR.data);
-        return;
-    }
-
-    const loans = loansR.data || [];
-    const books = booksR.data || [];
-
-    let html = '<div class="section-title">درخواست‌های امانت</div>';
-    html += loans.length ? loans.map(r => `
-        <div class="card">
-            <h3>${esc(r.book_title)}</h3>
-            <p>👤 ${esc(r.user_name)}</p>
-            <p style="font-size:12px;color:#999">#${r.id} — ${fmtDateTime(r.requested_at)}</p>
-            ${r.status === 'pending'
-                ? `<div style="display:flex;gap:8px;margin-top:8px">
-                     <button class="btn btn-small btn-green" onclick="updateLoan(${r.id},'approved')">تأیید</button>
-                     <button class="btn btn-small btn-red" onclick="updateLoan(${r.id},'rejected')">رد</button>
-                   </div>`
-                : statusBadge(r.status)}
-        </div>
-    `).join('') : '<div class="empty">درخواستی نیست</div>';
-
-    html += '<div class="section-title">درخواست‌های کتاب</div>';
-    html += books.length ? books.map(r => `
-        <div class="card">
-            <h3>${esc(r.book_title)}</h3>
-            <p>👤 ${esc(r.user_name)}</p>
-            <p>${r.request_type === 'bring_from_patio' ? 'از پاتوق' : 'پیشنهاد برای امانت'}</p>
-            ${r.status === 'pending'
-                ? `<div style="display:flex;gap:8px;margin-top:8px">
-                     <button class="btn btn-small btn-green" onclick="updateBookReq(${r.id},'approved')">تأیید</button>
-                     <button class="btn btn-small btn-red" onclick="updateBookReq(${r.id},'rejected')">رد</button>
-                   </div>`
-                : statusBadge(r.status)}
-        </div>
-    `).join('') : '<div class="empty">درخواستی نیست</div>';
-
-    el.innerHTML = html;
-}
-
-async function updateLoan(id, status) {
-    const { ok, data } = await api('/loan-requests/' + id, {
-        method: 'PUT',
-        body: JSON.stringify({ status }),
-    });
-    if (ok) { toast('به‌روزرسانی شد'); loadAdminRequests(); loadLibrary(); }
-    else toast(data?.error || 'خطا');
-}
-async function updateBookReq(id, status) {
-    const { ok, data } = await api('/book-requests/' + id, {
-        method: 'PUT',
-        body: JSON.stringify({ status }),
-    });
-    if (ok) { toast('به‌روزرسانی شد'); loadAdminRequests(); }
-    else toast(data?.error || 'خطا');
-}
-
-// --- منو ---
-async function loadAdminMenu() {
-    const { ok, data } = await api('/menu');
-    if (!ok) return;
-    const items = data.map(i => ({ id: i.id, name: i.name, price: i.price, category: i.category || '', description: i.description || '' }));
-    document.getElementById('admin-menu').innerHTML = `
-        <div class="card">
-            <h3>افزودن آیتم</h3>
-            <div class="form-group"><label>نام</label><input id="aMenuName"></div>
-            <div class="form-group"><label>قیمت (تومان)</label><input type="number" id="aMenuPrice"></div>
-            <div class="form-group"><label>دسته‌بندی</label><input id="aMenuCategory" placeholder="نوشیدنی / خوراکی"></div>
-            <div class="form-group"><label>توضیحات</label><input id="aMenuDesc"></div>
-            <button class="btn" onclick="addMenuItem()">افزودن</button>
-        </div>
-        ${items.map(i => `
-            <div class="card">
-                <h3>${esc(i.name)}</h3>
-                ${i.category ? `<p>${esc(i.category)}</p>` : ''}
-                ${i.description ? `<p>${esc(i.description)}</p>` : ''}
-                <p class="price">${fmtPrice(i.price)}</p>
-                <div style="display:flex;gap:8px;margin-top:8px">
-                    <button class="btn btn-small btn-red" onclick="delMenu(${i.id})">حذف</button>
-                    <button class="btn btn-small btn-outline" onclick="editMenu('${attr(i)}')">ویرایش</button>
-                </div>
-            </div>
-        `).join('')}
-    `;
-}
-async function addMenuItem() {
-    const name = document.getElementById('aMenuName').value.trim();
-    const price = Number(document.getElementById('aMenuPrice').value);
-    const category = document.getElementById('aMenuCategory').value.trim();
-    const description = document.getElementById('aMenuDesc').value.trim();
-    if (!name || !price) return toast('نام و قیمت الزامی است');
-    const { ok, data } = await api('/menu', {
-        method: 'POST',
-        body: JSON.stringify({ name, price, category, description }),
-    });
-    if (ok) { loadAdminMenu(); loadMenu(); toast('اضافه شد'); }
-    else toast(data?.error || 'خطا');
-}
-async function delMenu(id) {
-    const yes = await confirmDialog('این آیتم حذف شود؟');
-    if (!yes) return;
-    const { ok, data } = await api('/menu/' + id, { method: 'DELETE' });
-    if (ok) { loadAdminMenu(); loadMenu(); toast('حذف شد'); }
-    else toast(data?.error || 'خطا');
-}
-function editMenu(enc) {
-    const i = parseAttr(enc);
-    openModal(`
-        <h3>ویرایش آیتم</h3>
-        <div class="form-group"><label>نام</label><input id="editMenuName" value="${esc(i.name)}"></div>
-        <div class="form-group"><label>قیمت</label><input id="editMenuPrice" type="number" value="${i.price}"></div>
-        <div class="form-group"><label>دسته‌بندی</label><input id="editMenuCategory" value="${esc(i.category)}"></div>
-        <div class="form-group"><label>توضیحات</label><input id="editMenuDesc" value="${esc(i.description)}"></div>
-        <button class="btn" onclick="saveEditMenu(${i.id})">ذخیره</button>
-    `);
-}
-async function saveEditMenu(id) {
-    const name = document.getElementById('editMenuName').value.trim();
-    const price = Number(document.getElementById('editMenuPrice').value);
-    const category = document.getElementById('editMenuCategory').value.trim();
-    const description = document.getElementById('editMenuDesc').value.trim();
-    if (!name || !price) return toast('نام و قیمت الزامی است');
-    const { ok, data } = await api('/menu/' + id, {
-        method: 'PUT',
-        body: JSON.stringify({ name, price, category, description }),
-    });
-    if (ok) { closeModal(); loadAdminMenu(); loadMenu(); toast('ویرایش شد'); }
-    else toast(data?.error || 'خطا');
-}
-
-// --- کتاب‌ها ---
-async function loadAdminBooks() {
-    const { ok, data } = await api('/books');
-    if (!ok) return;
-    const items = data.map(b => ({ id: b.id, title: b.title, author: b.author || '', type: b.type, price: b.price, description: b.description || '', status: b.status || '' }));
-    document.getElementById('admin-books').innerHTML = `
-        <div class="card">
-            <h3>افزودن کتاب</h3>
-            <div class="form-group"><label>عنوان</label><input id="aBookTitle"></div>
-            <div class="form-group"><label>نویسنده</label><input id="aBookAuthor"></div>
-            <div class="form-group">
-                <label>نوع</label>
-                <select id="aBookType" onchange="toggleBookPrice('aBookType','aBookPriceWrap')">
-                    <option value="loan">امانی</option>
-                    <option value="sale">فروش</option>
-                </select>
-            </div>
-            <div class="form-group hidden" id="aBookPriceWrap"><label>قیمت</label><input type="number" id="aBookPrice"></div>
-            <div class="form-group"><label>توضیحات</label><textarea id="aBookDesc" rows="2"></textarea></div>
-            <button class="btn" onclick="addBook()">افزودن</button>
-        </div>
-        ${items.map(b => `
-            <div class="card">
-                <h3>${esc(b.title)}</h3>
-                <p>${esc(b.author)}</p>
-                <p>${b.type === 'loan' ? 'امانی' : 'فروش — ' + fmtPrice(b.price)}</p>
-                ${b.type === 'loan' && b.status === 'loaned' ? '<p style="color:#c62828">امانت داده شده</p>' : ''}
-                <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-                    ${b.type === 'loan' && b.status === 'loaned' ? `<button class="btn btn-small btn-green" onclick="returnBook(${b.id})">برگشت کتاب</button>` : ''}
-                    <button class="btn btn-small btn-red" onclick="delBook(${b.id})">حذف</button>
-                    <button class="btn btn-small btn-outline" onclick="editBook('${attr(b)}')">ویرایش</button>
-                </div>
-            </div>
-        `).join('')}
-    `;
-}
-function toggleBookPrice(selId, wrapId) {
-    const v = document.getElementById(selId).value;
-    document.getElementById(wrapId).classList.toggle('hidden', v !== 'sale');
-}
-async function addBook() {
-    const title = document.getElementById('aBookTitle').value.trim();
-    const author = document.getElementById('aBookAuthor').value.trim();
-    const type = document.getElementById('aBookType').value;
-    const price = document.getElementById('aBookPrice').value;
-    const description = document.getElementById('aBookDesc').value.trim();
-    if (!title) return toast('عنوان الزامی است');
-    const { ok, data } = await api('/books', {
-        method: 'POST',
-        body: JSON.stringify({ title, author, type, price: type === 'sale' ? Number(price) : null, description }),
-    });
-    if (ok) { loadAdminBooks(); loadLibrary(); toast('اضافه شد'); }
-    else toast(data?.error || 'خطا');
-}
-async function returnBook(id) {
-    const yes = await confirmDialog('کتاب برگردانده شده است؟');
-    if (!yes) return;
-    const { ok, data } = await api('/books/' + id + '/return', { method: 'PUT' });
-    if (ok) { loadAdminBooks(); loadLibrary(); toast('کتاب دوباره در دسترس است'); }
-    else toast(data?.error || 'خطا');
-}
-async function delBook(id) {
-    const yes = await confirmDialog('این کتاب حذف شود؟');
-    if (!yes) return;
-    const { ok, data } = await api('/books/' + id, { method: 'DELETE' });
-    if (ok) { loadAdminBooks(); loadLibrary(); toast('حذف شد'); }
-    else toast(data?.error || 'خطا');
-}
-function editBook(enc) {
-    const b = parseAttr(enc);
-    openModal(`
-        <h3>ویرایش کتاب</h3>
-        <div class="form-group"><label>عنوان</label><input id="editBookTitle" value="${esc(b.title)}"></div>
-        <div class="form-group"><label>نویسنده</label><input id="editBookAuthor" value="${esc(b.author)}"></div>
-        <div class="form-group">
-            <label>نوع</label>
-            <select id="editBookType" onchange="toggleBookPrice('editBookType','editBookPriceWrap')">
-                <option value="loan" ${b.type === 'loan' ? 'selected' : ''}>امانی</option>
-                <option value="sale" ${b.type === 'sale' ? 'selected' : ''}>فروش</option>
-            </select>
-        </div>
-        <div class="form-group ${b.type === 'sale' ? '' : 'hidden'}" id="editBookPriceWrap">
-            <label>قیمت</label><input type="number" id="editBookPrice" value="${b.price || ''}">
-        </div>
-        <div class="form-group"><label>توضیحات</label><textarea id="editBookDesc" rows="2">${esc(b.description)}</textarea></div>
-        <button class="btn" onclick="saveEditBook(${b.id})">ذخیره</button>
-    `);
-}
-async function saveEditBook(id) {
-    const title = document.getElementById('editBookTitle').value.trim();
-    const author = document.getElementById('editBookAuthor').value.trim();
-    const type = document.getElementById('editBookType').value;
-    const price = document.getElementById('editBookPrice').value;
-    const description = document.getElementById('editBookDesc').value.trim();
-    if (!title) return toast('عنوان الزامی است');
-    const { ok, data } = await api('/books/' + id, {
-        method: 'PUT',
-        body: JSON.stringify({ title, author, type, price: type === 'sale' ? Number(price) : null, description }),
-    });
-    if (ok) { closeModal(); loadAdminBooks(); loadLibrary(); toast('ویرایش شد'); }
-    else toast(data?.error || 'خطا');
-}
-
-// --- رویدادها ---
-async function loadAdminEvents() {
-    const { ok, data } = await api('/events');
-    if (!ok) return;
-    const items = data.map(e => ({ id: e.id, title: e.title, event_date: e.event_date, location: e.location || '', description: e.description || '' }));
-    document.getElementById('admin-events').innerHTML = `
-        <div class="card">
-            <h3>افزودن رویداد</h3>
-            <div class="form-group"><label>عنوان</label><input id="aEventTitle"></div>
-            <div class="form-group"><label>تاریخ و ساعت</label><input type="datetime-local" id="aEventDate"></div>
-            <div class="form-group"><label>مکان</label><input id="aEventLocation"></div>
-            <div class="form-group"><label>توضیحات</label><textarea id="aEventDesc" rows="2"></textarea></div>
-            <button class="btn" onclick="addEvent()">افزودن</button>
-        </div>
-        ${items.map(e => `
-            <div class="card">
-                <h3>${esc(e.title)}</h3>
-                <p>📅 ${fmtDateTime(e.event_date)}</p>
-                <p>📍 ${esc(e.location)}</p>
-                <div style="display:flex;gap:8px;margin-top:8px">
-                    <button class="btn btn-small btn-red" onclick="delEvent(${e.id})">حذف</button>
-                    <button class="btn btn-small btn-outline" onclick="editEvent('${attr(e)}')">ویرایش</button>
-                </div>
-            </div>
-        `).join('')}
-    `;
-}
-async function addEvent() {
-    const title = document.getElementById('aEventTitle').value.trim();
-    const event_date = document.getElementById('aEventDate').value;
-    const location = document.getElementById('aEventLocation').value.trim();
-    const description = document.getElementById('aEventDesc').value.trim();
-    if (!title || !event_date) return toast('عنوان و تاریخ الزامی است');
-    const { ok, data } = await api('/events', {
-        method: 'POST',
-        body: JSON.stringify({ title, event_date: new Date(event_date).toISOString(), location, description }),
-    });
-    if (ok) { loadAdminEvents(); loadEvents(); toast('اضافه شد'); }
-    else toast(data?.error || 'خطا');
-}
-async function delEvent(id) {
-    const yes = await confirmDialog('این رویداد حذف شود؟');
-    if (!yes) return;
-    const { ok, data } = await api('/events/' + id, { method: 'DELETE' });
-    if (ok) { loadAdminEvents(); loadEvents(); toast('حذف شد'); }
-    else toast(data?.error || 'خطا');
-}
-function editEvent(enc) {
-    const e = parseAttr(enc);
-    openModal(`
-        <h3>ویرایش رویداد</h3>
-        <div class="form-group"><label>عنوان</label><input id="editEventTitle" value="${esc(e.title)}"></div>
-        <div class="form-group"><label>تاریخ</label><input type="datetime-local" id="editEventDate" value="${toLocalInputValue(e.event_date)}"></div>
-        <div class="form-group"><label>مکان</label><input id="editEventLocation" value="${esc(e.location)}"></div>
-        <div class="form-group"><label>توضیحات</label><textarea id="editEventDesc" rows="2">${esc(e.description)}</textarea></div>
-        <button class="btn" onclick="saveEditEvent(${e.id})">ذخیره</button>
-    `);
-}
-async function saveEditEvent(id) {
-    const title = document.getElementById('editEventTitle').value.trim();
-    const event_date = document.getElementById('editEventDate').value;
-    const location = document.getElementById('editEventLocation').value.trim();
-    const description = document.getElementById('editEventDesc').value.trim();
-    if (!title || !event_date) return toast('عنوان و تاریخ الزامی است');
-    const { ok, data } = await api('/events/' + id, {
-        method: 'PUT',
-        body: JSON.stringify({ title, event_date: new Date(event_date).toISOString(), location, description }),
-    });
-    if (ok) { closeModal(); loadAdminEvents(); loadEvents(); toast('ویرایش شد'); }
-    else toast(data?.error || 'خطا');
-}
-
-checkAuth();
+boot();
 </script>
 </body>
 </html>
