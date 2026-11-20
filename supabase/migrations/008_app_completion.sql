@@ -168,7 +168,7 @@ begin
   if e.starts_at is not null and e.starts_at::date-current_date=1 then
     delta:=-5;
     insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
-    values(v_user,-5,'event_cancellation','کسر امتیاز بابت لغو ثبت‌نام یک روز پیش از رویداد','event_registration',r.id,'event-cancel:'||r.id::text)
+    values(v_user,-5,'event_cancellation','کسر امتیاز بابت لغو ثبت‌نام یک روز پیش از رویداد','event_registration',r.id::text,'event-cancel:'||r.id::text)
     on conflict(idempotency_key) do nothing;
   end if;
   update public.event_registrations set status='cancelled',cancelled_at=now() where id=r.id returning * into r;
@@ -288,7 +288,7 @@ begin
     values(v_registration.user_id,'عدم حضور در رویداد','۱۰ امتیاز بابت عدم حضور از امتیاز شما کسر شد.','event_attendance','event_registration',v_registration.id::text);
   elsif p_attendance_status='present' and v_registration.attendance_points_snapshot>0 then
     insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
-    values(v_registration.user_id,v_registration.attendance_points_snapshot,'event_attendance','امتیاز بابت حضور تأییدشده در رویداد','event_registration',v_registration.id,'event-present:'||p_registration_person_id::text)
+    values(v_registration.user_id,v_registration.attendance_points_snapshot,'event_attendance','امتیاز بابت حضور تأییدشده در رویداد','event_registration',v_registration.id::text,'event-present:'||p_registration_person_id::text)
     on conflict(idempotency_key) do nothing;
   end if;
   return a;
@@ -388,7 +388,7 @@ begin
 end;
 $$;
 
--- Replace the earlier trigger body so reference_id remains UUID and
+-- Replace the earlier trigger body so reference_id is stored as text and
 -- positive points are awarded only when the event explicitly selects registration.
 create or replace function public.award_event_registration_points()
 returns trigger
@@ -434,7 +434,7 @@ grant execute on function public.mark_event_attendance(uuid,text,text) to authen
 grant execute on function public.return_book(bigint) to authenticated;
 grant execute on function public.settle_user_book_fines(uuid) to authenticated;
 
--- Fix UUID reference_id handling in the notification triggers from migration 005.
+-- Align notification reference identifiers with the text column in the base schema.
 create or replace function public.notify_request_status_change()
 returns trigger
 language plpgsql
@@ -452,7 +452,7 @@ begin
       when 'cancelled' then 'درخواست شما لغو شد.'
       else 'وضعیت درخواست شما تغییر کرد.' end;
     insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
-    values(new.user_id,v_title,v_body,'book_request','book_request',new.id);
+    values(new.user_id,v_title,v_body,'book_request','book_request',new.id::text);
   elsif tg_table_name='purchase_requests' and new.status is distinct from old.status then
     v_title := 'تغییر وضعیت درخواست خرید';
     v_body := case new.status
