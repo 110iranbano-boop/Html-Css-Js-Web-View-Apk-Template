@@ -7,6 +7,9 @@ alter table public.profiles
 
 alter table public.events add column if not exists location text;
 alter table public.purchase_requests add column if not exists final_price_toman bigint check (final_price_toman is null or final_price_toman >= 0);
+alter table public.purchase_requests drop constraint if exists purchase_requests_status_check;
+alter table public.purchase_requests add constraint purchase_requests_status_check
+  check (status in ('pending','registered','reviewing','confirmed','awaiting_contact','ready','shipped','approved','rejected','completed','cancelled'));
 alter table public.store_products add column if not exists stock_status text not null default 'in_stock'
   check (stock_status in ('in_stock','made_to_order','out'));
 alter table public.store_products add column if not exists allow_custom boolean not null default false;
