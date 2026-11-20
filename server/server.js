@@ -68,7 +68,8 @@ async function auth(req, res, next) {
   req.roles = p.roles;
   next();
 }
-const signedIn = [auth];
+const safeAuth = (req, res, next) => auth(req, res, next).catch(next);
+const signedIn = [safeAuth];
 const isAdmin = async (userId, permission, action = 'view') => {
   const { data: roles, error: roleError } = await db.from('user_roles').select('role').eq('user_id', userId);
   if (roleError) throw roleError;
@@ -77,7 +78,7 @@ const isAdmin = async (userId, permission, action = 'view') => {
   if (error) throw error;
   return !!(data && data['can_' + action]);
 };
-const admin = permission => [auth, wrap(async (req, res, next) => {
+const admin = permission => [safeAuth, wrap(async (req, res, next) => {
   if (!await isAdmin(req.user.id, permission, 'view') && !req.roles.includes('super_admin')) return fail(res, 'دسترسی مشاهده این بخش را ندارید', 403);
   req.permission = permission;
   next();
@@ -129,6 +130,13 @@ app.post('/api/login', wrap(async (req, res) => {
   if (error || !data.user) return fail(res, 'شماره یا رمز عبور اشتباه است', 401);
   const p = await profileOf(data.user.id);
   res.json({ token: data.session.access_token, refresh_token: data.session.refresh_token, user: publicUser(data.user, p.profile, p.roles) });
+}));
+app.post('/api/refresh', wrap(async (req,res)=>{
+  const refresh_token=String(req.body.refresh_token||'');
+  if(!refresh_token) return fail(res,'نشست منقضی شده است',401);
+  const {data,error}=await authClient.auth.refreshSession({refresh_token});
+  if(error||!data.session) return fail(res,'نشست منقضی شده است؛ دوباره وارد شوید',401);
+  res.json({token:data.session.access_token,refresh_token:data.session.refresh_token});
 }));
 app.get('/api/profile', ...signedIn, wrap(async (req, res) => res.json(publicUser(req.user, req.profile, req.roles))));
 app.put('/api/profile', ...signedIn, wrap(async (req, res) => {
@@ -226,8 +234,8 @@ app.post('/api/purchase-requests', ...signedIn, wrap(async(req,res)=>{
     } else {
       ({data:row,error}=await db.from('store_products').select('id,name,price_toman,is_available').eq('id',it.id).single());
       if(error||!row||!row.is_available) return fail(res,'محصول انتخاب‌شده موجود نیست');
-      const r=await db.from('purchase_requests').insert({user_id:req.user.id,store_product_id:row.id,item_name_snapshot:row.name,unit_price_toman_snapshot:row.price_toman,quantity:qty});
-      if(r.error) throw r.error; created.push(r.data?.id);
+      const r=await db.from('purchase_requests').insert({user_id:req.user.id,store_product_id:row.id,item_name_snapshot:row.name,unit_price_toman_snapshot:row.price_toman,quantity:qty}).select('id').single();
+      if(r.error) throw r.error; created.push(r.data.id);
     }
   }
   res.status(201).json({id:created[0],ids:created});
@@ -353,6 +361,18 @@ app.put('/api/admin/loan-requests/:id', ...signedIn, wrap(async(req,res)=>{
     if(book) await db.from('books').update({available_copies:Math.max(0,book.available_copies-1)}).eq('id',request.book_id);
   }
   res.json({ok:true,status});
+}));
+app.put('/api/admin/books/:id/return', ...signedIn, wrap(async(req,res)=>{
+  if(!await can(req,'library.manage','update')) return fail(res,'دسترسی ندارید',403);
+  const {data:loan,error}=await db.from('book_loans').select('*').eq('book_id',req.params.id).in('status',['active','overdue']).maybeSingle();
+  if(error) throw error; if(!loan) return fail(res,'امانت فعال برای این کتاب پیدا نشد',404);
+  const {error:updateError}=await db.from('book_loans').update({status:'returned',returned_at:new Date().toISOString()}).eq('id',loan.id);
+  if(updateError) throw updateError;
+  const {data:book,error:bookError}=await db.from('books').select('available_copies,total_copies').eq('id',req.params.id).single();
+  if(bookError) throw bookError;
+  const {error:stockError}=await db.from('books').update({available_copies:Math.min(book.total_copies,book.available_copies+1)}).eq('id',req.params.id);
+  if(stockError) throw stockError;
+  res.json({ok:true});
 }));
 app.get('/api/admin/book-requests', ...signedIn, wrap(async(req,res)=>{
   if(!await can(req,'library.manage','view')) return fail(res,'دسترسی ندارید',403);
