@@ -220,11 +220,15 @@ async events(){
     ${e.mine?`${badge('ثبت‌نام شده‌اید','ok')}<button class="btn r s" style="margin-inline-start:8px" onclick="unreg(${e.id})">لغو ثبت‌نام</button>`:!e.registration_open?badge('ثبت‌نام بسته است','no'):full?badge('ظرفیت تکمیل است','no'):`<button class="btn" onclick="reg(${e.id})">ثبت‌نام در رویداد</button>`}</div>`}).join('')||'<div class="empty">رویداد فعالی نیست</div>';
 },
 async art(){
-  const{ok,d}=await api('/art');if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
-  cache.art=d;const cats=['همه',...new Set(d.map(i=>i.category).filter(Boolean))],cur=cache.artCat||'همه';
+  const [a,c]=await Promise.all([api('/art'),api('/store-categories')]);
+  if(!a.ok||!c.ok)return $('main').innerHTML='<div class="empty">فروشگاه بارگذاری نشد</div>';
+  cache.art=a.d;const cats=c.d||[],selected=cats.find(x=>x.id===cache.artCat)?.name||'همه';
+  const tabs='<div class="tabs"><button class="'+(selected==='همه'?'on':'')+'" onclick="cache.artCat=0;go(&quot;art&quot;)">همه</button>'+cats.map(x=>'<button class="'+(selected===x.name?'on':'')+'" onclick="cache.artCat='+x.id+';go(&quot;art&quot;)">'+esc(x.name)+'</button>').join('')+'</div>';
+  const categoryCards=selected==='همه'?'<div class="grid">'+cats.map(x=>'<button class="card" onclick="cache.artCat='+x.id+';go(&quot;art&quot;)">'+(x.image_url?img(x.image_url,'🎨'):'<div class="ph">🎨</div>')+'<h3>'+esc(x.name)+'</h3><p>'+esc(x.description||'')+'</p></button>').join('')+'</div>':'';
   const SL={in_stock:'موجود',made_to_order:'ساخت بر اساس سفارش',out:'ناموجود'};
-  $('main').innerHTML=`<div class="tabs">${cats.map(c=>`<button class="${c===cur?'on':''}" onclick="cache.artCat='${esc(c).replace(/'/g,'')}';go('art')">${esc(c)}</button>`).join('')}</div><div class="grid">`+
-   d.filter(i=>cur==='همه'||i.category===cur).map(i=>`<div class="card">${img(i.image_url,'🎨')}<h3>${esc(i.name)}</h3><div class="price">${money(i.price)}</div><p>${SL[i.stock_status]}${i.allow_custom?' · سفارشی‌سازی':''}</p><button class="btn s" ${i.stock_status==='out'?'disabled':''} onclick="addCart('art',${i.id})">افزودن به سبد</button></div>`).join('')+'</div>';
+  const products=a.d.filter(i=>selected==='همه'||i.category===selected);
+  const cards=products.map(i=>'<div class="card">'+img(i.image_url,'🎨')+'<h3>'+esc(i.name)+'</h3><div class="price">'+money(i.price)+'</div><p>'+SL[i.stock_status]+(i.allow_custom?' · سفارشی‌سازی':'')+'</p><button class="btn s" '+(i.stock_status==='out'?'disabled':'')+' onclick="addCart(\'art\','+i.id+')">افزودن به سبد</button></div>').join('')||'<div class="empty">محصولی در این موضوع ثبت نشده است</div>';
+  $('main').innerHTML=tabs+categoryCards+'<div class="grid">'+cards+'</div>';
 },
 cart(){
   if(!cart.length)return $('main').innerHTML='<div class="empty">سبد خرید خالی است.<br>کتاب فروشی یا محصول گالری را به سبد اضافه کنید.</div>';
