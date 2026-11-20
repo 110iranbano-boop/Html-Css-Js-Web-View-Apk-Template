@@ -288,7 +288,7 @@ async forum(){
   const cids=(comments.data||[]).map(x=>x.user_id);
   const {data:ca=[]}=cids.length?await sb.from("forum_public_profiles").select("*").in("id",[...new Set(cids)]):{data:[]};
   const cmap=Object.fromEntries(ca.map(x=>[x.id,x]));
-  const canCreate=U.role==="admin"||U.can_create_topic;
+  const canCreate=U.is_super_admin||U.can_create_topic;
   const draw=(topicId,parent,depth)=>((grouped[topicId]||[]).filter(c=>(c.parent_id||null)===parent).map(c=>{
     const a=cmap[c.user_id]||{};
     return '<div class="card" style="margin:8px 0 8px '+Math.min(depth*12,48)+'px;padding:10px"><b>'+esc(a.display_name||"عضو سیمرغ")+'</b><p>'+esc(c.body)+'</p><button class="btn o s" onclick="replyForum(&quot;'+topicId+'&quot;,&quot;'+c.id+'&quot;)">پاسخ</button>'+draw(topicId,c.id,depth+1)+'</div>';
