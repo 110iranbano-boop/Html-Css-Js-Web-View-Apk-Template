@@ -533,35 +533,30 @@ with check (
 create unique index if not exists uq_pending_loan_extension
 on public.loan_extensions(loan_id) where status='pending';
 
--- Prevent clients from changing role-adjacent and suspension fields through profile updates.
-create or replace function public.protect_profile_sensitive_fields()
+-- Extend the existing profile protection trigger to protect the phone identifier too.
+create or replace function public.protect_profile_fields()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
 as $$
 begin
-  if auth.uid() is not null and auth.uid()=old.id
+  if auth.uid()=old.id
      and not public.is_super_admin()
      and not public.has_permission('users.manage','update') then
     if new.phone is distinct from old.phone
-       or new.membership_level_id is distinct from old.membership_level_id
        or new.is_suspended is distinct from old.is_suspended
        or new.suspension_reason is distinct from old.suspension_reason
        or new.suspended_at is distinct from old.suspended_at
        or new.suspension_ends_at is distinct from old.suspension_ends_at
+       or new.membership_level_id is distinct from old.membership_level_id
        or new.can_create_topic is distinct from old.can_create_topic then
-      raise exception 'تغییر این فیلدهای حساب از طریق پروفایل مجاز نیست';
+      raise exception 'تغییر فیلدهای مدیریتی پروفایل مجاز نیست';
     end if;
   end if;
   return new;
 end;
 $$;
-
-drop trigger if exists protect_profile_sensitive_fields_trigger on public.profiles;
-create trigger protect_profile_sensitive_fields_trigger
-before update on public.profiles
-for each row execute function public.protect_profile_sensitive_fields();
 
 -- A member may create only a pending request for an actually available catalog item.
 create or replace function public.validate_member_purchase_request()
