@@ -100,11 +100,15 @@ app.get('/api/menu',auth,run(async(req,res)=>{
 }));
 app.get('/api/books',auth,run(async(req,res)=>{
   const rows=await result(adminClient.from('books').select('*,book_categories(name)').eq('is_active',true).order('id',{ascending:false}));
-  res.json(rows.map(x=>({...x,category:x.book_categories?.name||'',type:x.book_type==='both'?'loan':x.book_type,price:x.sale_price_toman,status:x.available_copies>0?'available':'loaned',active:x.is_active,image_url:x.cover_path})));
+  const mapped=rows.flatMap(x=>{
+    const base={...x,category:x.book_categories?.name||'',price:x.sale_price_toman,status:x.available_copies>0?'available':'loaned',active:x.is_active,image_url:x.cover_path};
+    return x.book_type==='both'?[{...base,type:'sale'},{...base,type:'loan'}]:[{...base,type:x.book_type}];
+  });
+  res.json(mapped);
 }));
 app.get('/api/art',auth,run(async(req,res)=>{
   const rows=await result(adminClient.from('store_products').select('*,store_categories(name)').eq('is_available',true).order('id',{ascending:false}));
-  res.json(rows.map(x=>({...x,category:x.store_categories?.name||'',price:x.price_toman,active:x.is_available,image_url:x.image_path,stock_status:x.is_available?'in_stock':'out'})));
+  res.json(rows.map(x=>({...x,category:x.store_categories?.name||'',price:x.price_toman,active:x.is_available,image_url:x.image_path})));
 }));
 app.get('/api/events',auth,run(async(req,res)=>{
   const rows=await result(adminClient.from('events').select('*').in('status',['published','completed']).order('starts_at'));
@@ -118,12 +122,17 @@ app.post('/api/events/:id/register',auth,run(async(req,res)=>{
   const e=await result(adminClient.from('events').select('*').eq('id',req.params.id).single());
   if(e.status!=='published'||e.event_type!=='timed'||!e.is_registration_open)return fail(res,'ثبت‌نام این رویداد باز نیست');
   const p=await profile(req.user.id); if(p.is_suspended)return fail(res,'حساب شما موقتاً تعلیق شده است',403);
-  const existing=await result(adminClient.from('event_registrations').select('id').eq('event_id',e.id).eq('user_id',req.user.id).neq('status','cancelled').maybeSingle());
-  if(existing)return fail(res,'قبلاً در این رویداد ثبت‌نام کرده‌اید',409);
-  const count=await result(adminClient.from('event_registrations').select('people_count').eq('event_id',e.id).neq('status','cancelled'));
-  const total=count.reduce((n,x)=>n+x.people_count,0);
-  if(e.capacity_people!==null&&total>=e.capacity_people)return fail(res,'ظرفیت رویداد تکمیل است');
-  await result(adminClient.from('event_registrations').insert({event_id:e.id,user_id:req.user.id,registrant_name:p.display_name||'',registrant_phone:p.phone||'',people_count:1}));
+  const {error:registrationError}=await adminClient.rpc('register_event_atomic',{
+    p_event_id:e.id,p_user_id:req.user.id,p_name:p.display_name||'',p_phone:p.phone||''
+  });
+  if(registrationError){
+    const msg=registrationError.message||'';
+    if(msg.includes('EVENT_FULL'))return fail(res,'ظرفیت رویداد تکمیل است');
+    if(msg.includes('ALREADY_REGISTERED'))return fail(res,'قبلاً در این رویداد ثبت‌نام کرده‌اید',409);
+    if(msg.includes('ACCOUNT_SUSPENDED'))return fail(res,'حساب شما موقتاً تعلیق شده است',403);
+    if(msg.includes('REGISTRATION_CLOSED'))return fail(res,'ثبت‌نام این رویداد بسته است');
+    throw registrationError;
+  }
   await notify(req.user.id,'ثبت‌نام رویداد',`ثبت‌نام شما در «${e.title}» انجام شد.`);
   res.json({ok:true});
 }));
@@ -194,7 +203,7 @@ const RES={
   menu:{table:'cafe_products',permission:'cafe.manage',fields:{name:'name',description:'description',price:'price_toman',image_url:'image_path',sort:'sort_order',active:'is_available'}},
   books:{table:'books',permission:'library.manage',fields:{title:'title',author:'author',description:'description',category_id:'category_id',type:'book_type',price:'sale_price_toman',image_url:'cover_path',active:'is_active'}},
   art:{table:'store_products',permission:'store.manage',fields:{name:'name',description:'description',price:'price_toman',image_url:'image_path',active:'is_available'}},
-  events:{table:'events',permission:'events.manage',fields:{title:'title',description:'description',event_date:'starts_at',location:'rules_text',capacity:'capacity_people',registration_open:'is_registration_open',image_url:'poster_path',active:'status'}}
+  events:{table:'events',permission:'events.manage',fields:{title:'title',description:'description',event_date:'starts_at',location:'location',capacity:'capacity_people',registration_open:'is_registration_open',image_url:'poster_path'}}
 };
 app.get('/api/admin/:res(menu|books|art|events)',auth,run(async(req,res)=>{
   const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission))return;
@@ -203,13 +212,31 @@ app.get('/api/admin/:res(menu|books|art|events)',auth,run(async(req,res)=>{
 app.post('/api/admin/:res(menu|books|art|events)',auth,run(async(req,res)=>{
   const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission,'create'))return;
   const data={};for(const [old,key] of Object.entries(c.fields))if(old in req.body)data[key]=req.body[old]===''?null:req.body[old];
-  if(req.params.res==='events'){data.event_type='timed';data.status=data.status==='inactive'?'inactive':'published';}
+  if(req.body.category && ['menu','books','art'].includes(req.params.res)){
+    const table=req.params.res==='menu'?'cafe_categories':req.params.res==='books'?'book_categories':'store_categories';
+    const cat=await result(adminClient.from(table).upsert({name:String(req.body.category).trim()},{onConflict:'name'}).select('id').single());
+    data.category_id=cat.id;
+  }
+  if(req.params.res==='books'){
+    data.total_copies=1;data.available_copies=req.body.status==='loaned'?0:1;
+    if(data.book_type==='both')data.sale_price_toman=Number(req.body.price)||null;
+  }
+  if(req.params.res==='art' && req.body.stock_status)data.stock_status=req.body.stock_status;
+  if(req.params.res==='art' && 'allow_custom' in req.body)data.allow_custom=!!req.body.allow_custom;
+  if(req.params.res==='events'){data.event_type='timed';data.status='published';}
   const row=await result(adminClient.from(c.table).insert(data).select().single());res.status(201).json(row);
 }));
 app.put('/api/admin/:res(menu|books|art|events)/:id',auth,run(async(req,res)=>{
   const c=RES[req.params.res];if(!await requireAdmin(req,res,c.permission,'update'))return;
   const data={};for(const [old,key] of Object.entries(c.fields))if(old in req.body)data[key]=req.body[old]===''?null:req.body[old];
-  if(req.params.res==='events'&&'active'in req.body)data.status=req.body.active?'published':'inactive';
+  if(req.body.category && ['menu','books','art'].includes(req.params.res)){
+    const table=req.params.res==='menu'?'cafe_categories':req.params.res==='books'?'book_categories':'store_categories';
+    const cat=await result(adminClient.from(table).upsert({name:String(req.body.category).trim()},{onConflict:'name'}).select('id').single());
+    data.category_id=cat.id;
+  }
+  if(req.params.res==='books' && 'status' in req.body){const b=await result(adminClient.from('books').select('total_copies').eq('id',req.params.id).single());data.available_copies=req.body.status==='loaned'?0:b.total_copies;}
+  if(req.params.res==='art' && req.body.stock_status)data.stock_status=req.body.stock_status;
+  if(req.params.res==='art' && 'allow_custom' in req.body)data.allow_custom=!!req.body.allow_custom;
   res.json(await result(adminClient.from(c.table).update(data).eq('id',req.params.id).select().single()));
 }));
 app.delete('/api/admin/:res(menu|books|art|events)/:id',auth,run(async(req,res)=>{
