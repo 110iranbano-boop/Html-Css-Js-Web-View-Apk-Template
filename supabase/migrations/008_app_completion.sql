@@ -428,6 +428,75 @@ grant execute on function public.mark_event_attendance(uuid,text,text) to authen
 grant execute on function public.return_book(bigint) to authenticated;
 grant execute on function public.settle_user_book_fines(uuid) to authenticated;
 
+-- Fix UUID reference_id handling in the notification triggers from migration 005.
+create or replace function public.notify_request_status_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, auth
+as $
+declare v_title text; v_body text; v_kind text; v_user uuid;
+begin
+  if tg_table_name='book_requests' and new.request_type<>'borrow' and new.status is distinct from old.status then
+    v_title := 'وضعیت درخواست کتاب';
+    v_body := case new.status
+      when 'approved' then 'درخواست شما تأیید شد.'
+      when 'rejected' then coalesce(new.admin_note,'درخواست شما رد شد.')
+      when 'completed' then 'درخواست شما تکمیل شد.'
+      when 'cancelled' then 'درخواست شما لغو شد.'
+      else 'وضعیت درخواست شما تغییر کرد.' end;
+    insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
+    values(new.user_id,v_title,v_body,'book_request','book_request',new.id);
+  elsif tg_table_name='purchase_requests' and new.status is distinct from old.status then
+    v_title := 'تغییر وضعیت درخواست خرید';
+    v_body := case new.status
+      when 'reviewing' then 'درخواست خرید شما در حال بررسی است.'
+      when 'approved' then 'درخواست خرید شما تأیید شد.'
+      when 'rejected' then coalesce(new.admin_note,'درخواست خرید شما رد شد.')
+      when 'completed' then 'درخواست خرید شما تکمیل شد.'
+      when 'cancelled' then 'درخواست خرید شما لغو شد.'
+      when 'ready' then 'درخواست خرید شما آماده تحویل است.'
+      when 'shipped' then 'درخواست خرید شما ارسال شد.'
+      else 'وضعیت درخواست خرید شما تغییر کرد.' end;
+    insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
+    values(new.user_id,v_title,v_body,'purchase_request','purchase_request',new.id);
+  elsif tg_table_name='loan_extensions' and new.status is distinct from old.status then
+    select user_id into v_user from public.book_loans where id=new.loan_id;
+    v_body := case when new.status='approved' then 'درخواست تمدید امانت شما تأیید شد و یک هفته به مهلت تحویل اضافه شد.'
+                   else coalesce(new.admin_note,'درخواست تمدید امانت شما رد شد.') end;
+    insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
+    values(v_user,'نتیجه درخواست تمدید',v_body,'loan_extension','loan_extension',new.id);
+  end if;
+  return new;
+end;
+$;
+
+create or replace function public.send_book_due_reminders()
+returns integer
+language plpgsql
+security definer
+set search_path = public, auth
+as $
+declare l public.book_loans%rowtype; n integer := 0;
+begin
+  for l in
+    select * from public.book_loans
+    where returned_at is null and current_due_at::date <= current_date - 7
+  loop
+    if not exists(
+      select 1 from public.notifications
+      where user_id=l.user_id and notification_type='book_due_reminder'
+        and reference_type='book_loan' and reference_id=l.id
+    ) then
+      insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
+      values(l.user_id,'یادآوری تحویل کتاب','مهلت یک‌هفته‌ای امانت شما به پایان رسیده است. لطفاً برای تحویل یا درخواست تمدید اقدام کنید.','book_due_reminder','book_loan',l.id);
+      n:=n+1;
+    end if;
+  end loop;
+  return n;
+end;
+$;
+
 -- Tighten direct-table access: sensitive state transitions must use the RPCs above.
 drop policy if exists "event_registrations_owner_insert" on public.event_registrations;
 drop policy if exists "event_registrations_owner_cancel_or_admin" on public.event_registrations;
