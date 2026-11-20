@@ -141,4 +141,45 @@ $;
 revoke all on function public.register_event_atomic(bigint,uuid,text,text) from public, anon, authenticated;
 grant execute on function public.register_event_atomic(bigint,uuid,text,text) to service_role;
 
+-- تأیید امانت، کسر نسخه و ایجاد سابقه در یک تراکنش واحد
+create or replace function public.approve_book_borrow_request(
+  p_request_id uuid,
+  p_admin_id uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  r public.book_requests%rowtype;
+  b public.books%rowtype;
+  loan_id uuid;
+  handover timestamptz := now();
+begin
+  select * into r from public.book_requests where id=p_request_id for update;
+  if not found or r.request_type <> 'borrow' or r.status <> 'pending' then
+    raise exception 'REQUEST_NOT_PENDING';
+  end if;
+  select * into b from public.books where id=r.book_id for update;
+  if not found or b.available_copies < 1 then
+    raise exception 'NO_AVAILABLE_COPY';
+  end if;
+  if exists (select 1 from public.book_loans where user_id=r.user_id and status in ('active','overdue')) then
+    raise exception 'USER_HAS_ACTIVE_LOAN';
+  end if;
+  update public.book_requests
+    set status='approved', reviewed_by=p_admin_id, reviewed_at=now()
+    where id=r.id;
+  update public.books set available_copies=available_copies-1 where id=b.id;
+  insert into public.book_loans(book_id,user_id,request_id,handed_over_at,current_due_at,status)
+    values(b.id,r.user_id,r.id,handover,handover+interval '7 days','active')
+    returning id into loan_id;
+  return loan_id;
+end;
+$;
+
+revoke all on function public.approve_book_borrow_request(uuid,uuid) from public, anon, authenticated;
+grant execute on function public.approve_book_borrow_request(uuid,uuid) to service_role;
+
 commit;
