@@ -179,6 +179,15 @@ app.put('/api/profile', ...signedIn, wrap(async (req, res) => {
 }));
 
 // کافه، کتابخانه و فروشگاه: خروجی سازگار با رابط فعلی و داده‌های جداول جدید
+app.get('/api/cafe-categories', ...signedIn, wrap(async(req,res)=>{
+  const {data,error}=await db.from('cafe_categories').select('*').eq('is_active',true).order('sort_order'); if(error) throw error; res.json(data||[]);
+}));
+app.get('/api/book-categories', ...signedIn, wrap(async(req,res)=>{
+  const {data,error}=await db.from('book_categories').select('*').eq('is_active',true).order('sort_order'); if(error) throw error; res.json(data||[]);
+}));
+app.get('/api/store-categories', ...signedIn, wrap(async(req,res)=>{
+  const {data,error}=await db.from('store_categories').select('*').eq('is_active',true).order('sort_order'); if(error) throw error; res.json(data||[]);
+}));
 app.get('/api/menu', ...signedIn, wrap(async (req, res) => {
   const { data, error } = await db.from('cafe_products').select('*, cafe_categories(name)').eq('is_available', true).order('sort_order');
   if (error) throw error;
@@ -187,7 +196,11 @@ app.get('/api/menu', ...signedIn, wrap(async (req, res) => {
 app.get('/api/books', ...signedIn, wrap(async (req, res) => {
   const { data, error } = await db.from('books').select('*, book_categories(name)').eq('is_active', true).order('id', { ascending:false });
   if (error) throw error;
-  res.json((data || []).map(x => ({ id:x.id, title:x.title, author:x.author, description:x.description, category:x.book_categories?.name || '', type:x.book_type === 'both' ? (x.available_copies > 0 ? 'loan' : 'sale') : x.book_type, price:x.sale_price_toman, status:x.available_copies > 0 ? 'available' : 'loaned', available_copies:x.available_copies, image_url:x.cover_path, active:x.is_active })));
+  const rows=(data||[]).flatMap(x=>{
+    const base={id:x.id,title:x.title,author:x.author,description:x.description,category:x.book_categories?.name||'',price:x.sale_price_toman,status:x.available_copies>0?'available':'loaned',available_copies:x.available_copies,image_url:x.cover_path,active:x.is_active};
+    return x.book_type==='both'?[{...base,type:'loan'},{...base,type:'sale'}]:[{...base,type:x.book_type}];
+  });
+  res.json(rows);
 }));
 app.get('/api/art', ...signedIn, wrap(async (req, res) => {
   const { data, error } = await db.from('store_products').select('*, store_categories(name)').eq('is_available', true).order('id', { ascending:false });
