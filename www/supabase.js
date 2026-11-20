@@ -101,6 +101,9 @@
     if(p==="/register"&&method==="POST") return ok(await register(body||{}));
     const ctx=await userContext(),uid=ctx.authUser.id;
     if(ctx.profile.is_suspended && !p.startsWith("/profile") && !p.startsWith("/notifications") && !p.startsWith("/books") && !p.startsWith("/menu") && !p.startsWith("/events") && !p.startsWith("/art")) throw new Error("حساب شما تعلیق شده است؛ فقط امکان مشاهده محتوا را دارید");
+    if(p==="/cafe-categories"&&method==="GET") return ok((await rows("cafe_categories")).filter(x=>x.is_active).map(x=>({id:x.id,name:x.name,image_url:x.image_path,description:x.description})));
+    if(p==="/book-categories"&&method==="GET") return ok((await rows("book_categories")).filter(x=>x.is_active).map(x=>({id:x.id,name:x.name,image_url:x.image_path,description:x.description})));
+    if(p==="/store-categories"&&method==="GET") return ok((await rows("store_categories")).filter(x=>x.is_active).map(x=>({id:x.id,name:x.name,image_url:x.image_path,description:x.description})));
     if(p==="/menu"&&method==="GET"){
       const data=await rows("cafe_products","*,category:cafe_categories(name)");
       return ok(data.filter(x=>x.is_available).map(x=>({id:x.id,name:x.name,description:x.description,price:x.price_toman,image_url:x.image_path,category:x.category?.name||"سایر"})));
