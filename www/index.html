@@ -171,6 +171,14 @@ async function doSignup(){
   }
 }
 /* ---------- راه‌اندازی و ناوبری ---------- */
+function logout(silent=false){
+  localStorage.removeItem('token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+  U=null;
+  showAuth(false);
+  if(!silent)toast('از حساب خارج شدید');
+}
 function boot(){
   try{U=JSON.parse(localStorage.getItem('user')||'null')}catch{U=null}
   if(!U||!localStorage.getItem('token'))return showAuth(false);
@@ -180,7 +188,7 @@ function boot(){
   $('nav').innerHTML=N.map(([k,i,t])=>`<button data-k="${k}" onclick="go('${k}')">${ic(i)}${t}</button>`).join('');
   go('home');refreshBadges();
 }
-const TITLES={home:'سیمرغ',cafe:'کافه‌کتاب',library:'کتابخانه',events:'رویدادها',art:'گالری هنری سیمرغ',cart:'سبد خرید',account:'حساب کاربری',notifs:'اعلان‌ها',mine:'درخواست‌های من',admin:'پنل مدیریت',forum:'تالار سیمرغ'};
+const TITLES={home:'سیمرغ',cafe:'کافه‌کتاب',library:'کتابخانه',events:'رویدادها',art:'فروشگاه سیمرغ',cart:'سبد خرید',account:'حساب کاربری',notifs:'اعلان‌ها',mine:'درخواست‌های من',admin:'پنل مدیریت',forum:'تالار سیمرغ'};
 async function go(p,arg){
   page=p;document.body.dataset.pg=p;if(p==='library'&&arg)libTab=arg;
   $('title').textContent=TITLES[p];$('back').classList.toggle('hidden',p==='home');
