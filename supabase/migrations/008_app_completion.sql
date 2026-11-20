@@ -301,31 +301,6 @@ begin
 end;
 $$;
 
-create or replace function public.return_book(p_book_id bigint)
-returns uuid
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  l public.book_loans%rowtype;
-begin
-  if not (public.is_super_admin() or public.has_permission('library.manage','update')) then raise exception 'دسترسی ندارید'; end if;
-  select * into l from public.book_loans where book_id=p_book_id and status in ('active','overdue') for update;
-  if not found then raise exception 'امانت فعال برای این کتاب پیدا نشد'; end if;
-  update public.book_loans set status='returned',returned_at=now(),updated_at=now() where id=l.id;
-  update public.books set available_copies=least(total_copies,available_copies+1) where id=p_book_id;
-  if not exists(select 1 from public.book_loans where user_id=l.user_id and status in ('active','overdue'))
-     and not exists(select 1 from public.book_fines where user_id=l.user_id and status='open') then
-    update public.profiles set is_suspended=false,suspension_reason=null,suspended_at=null,suspension_ends_at=null
-    where id=l.user_id and suspension_reason='late_loan';
-  end if;
-  insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
-  values(l.user_id,'بازگشت کتاب ثبت شد','بازگشت کتاب شما ثبت شد. در صورت وجود جریمه باز، برای تسویه با مدیریت هماهنگ کنید.','book_return','book_loan',l.id::text);
-  return l.id;
-end;
-$$;
-
 create or replace function public.settle_user_book_fines(p_user_id uuid)
 returns integer
 language plpgsql
