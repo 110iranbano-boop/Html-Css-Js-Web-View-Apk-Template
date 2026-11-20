@@ -1,15 +1,19 @@
-name: Simorgh v2 frontend checks
+name: Simorgh application checks
 on:
   push:
-    branches: [rebuild/simorgh-v2-from-scratch]
+    branches:
+      - feature/simorgh-production-ready
+      - rebuild/simorgh-v2-from-scratch
     paths:
       - 'www/v2/**'
       - 'scripts/check-v2.js'
       - '.github/workflows/v2-check.yml'
   pull_request:
-    branches: [rebuild/simorgh-v2-from-scratch]
+    branches:
+      - feature/simorgh-production-ready
+      - rebuild/simorgh-v2-from-scratch
 jobs:
-  syntax:
+  frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
