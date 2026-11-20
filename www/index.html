@@ -246,14 +246,15 @@ cart(){
   <button class="btn" onclick="submitCart()">ثبت درخواست خرید</button><p style="margin-top:6px">پرداخت اینترنتی در برنامه انجام نمی‌شود؛ این فقط ثبت درخواست است.</p></div>`;
 },
 async account(){
-  const [loans,fines,points,level,extensions]=await Promise.all([
+  const [loans,fines,points,level,extensions,balanceData]=await Promise.all([
     sb.from("book_loans").select("*,book:books(title)").eq("user_id",U.id).is("returned_at",null).order("handed_over_at",{ascending:false}),
     sb.from("book_fines").select("*").eq("user_id",U.id).eq("status","open"),
     sb.from("points_transactions").select("*").eq("user_id",U.id).order("created_at",{ascending:false}).limit(12),
     U.membership_level_id?sb.from("membership_levels").select("name").eq("id",U.membership_level_id).maybeSingle():Promise.resolve({data:null}),
-    sb.from("loan_extensions").select("loan_id,status").eq("status","pending")
+    sb.from("loan_extensions").select("loan_id,status").eq("status","pending"),
+    sb.from("user_points_balance").select("points_balance").eq("user_id",U.id).maybeSingle()
   ]);
-  const balance=(points.data||[]).reduce((n,x)=>n+x.points_delta,0);
+  const balance=Number(balanceData.data?.points_balance||0);
   const suspended=U.is_suspended?'<span class="badge no">حساب تعلیق‌شده</span>':'<span class="badge ok">حساب فعال</span>';
   $("main").innerHTML='<div class="mc"><div class="row"><div><b style="font-size:18px">'+esc(U.full_name)+'</b><p>'+esc(U.phone)+'</p></div>'+(U.avatar_url?'<img src="'+esc(U.avatar_url)+'" style="width:66px;height:66px;border-radius:50%;object-fit:cover">':'<div class="ph" style="width:66px;height:66px;border-radius:50%">👤</div>')+'</div><p style="margin-top:8px">'+suspended+' '+badge(U.role==="admin"?(U.is_super_admin?"مدیر ارشد":"مدیر بخش"):"عضو")+'</p><div style="margin-top:10px;color:var(--gold);font-size:15px">کارت عضویت سیمرغ</div><div class="code">'+esc(U.member_code||"")+'</div><div class="row" style="margin-top:12px"><span>سطح عضویت: '+esc(level.data?.name||"سطح یک")+'</span><b>امتیاز: '+fa(balance)+'</b></div></div>'+
   '<button class="menu" onclick="editProfile()">'+ic("account")+'<span>مشخصات کاربری</span>‹</button><button class="menu" onclick="go(\'mine\')">'+ic("receipt")+'<span>درخواست‌های من</span>‹</button><button class="menu" onclick="go(\'notifs\')">'+ic("bell")+'<span>اعلان‌ها</span>‹</button>'+
