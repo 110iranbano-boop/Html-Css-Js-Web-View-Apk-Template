@@ -10,6 +10,8 @@ alter table public.purchase_requests add column if not exists note text;
 alter table public.purchase_requests add column if not exists final_price_toman bigint;
 alter table public.notifications add column if not exists read_at timestamptz;
 alter table public.events add column if not exists location text;
+alter table public.book_loans add column if not exists updated_at timestamptz not null default now();
+alter table public.event_registrations add column if not exists attendance_points_snapshot integer not null default 0;
 alter table public.purchase_requests drop constraint if exists purchase_requests_status_check;
 alter table public.purchase_requests add constraint purchase_requests_status_check
   check (status in ('pending','registered','reviewing','approved','confirmed','awaiting_contact','ready','shipped','rejected','completed','cancelled'));
@@ -131,9 +133,11 @@ begin
   end if;
   insert into public.event_registrations(
     event_id,user_id,registrant_name,registrant_phone,people_count,
-    points_snapshot,rules_version_snapshot,rules_text_snapshot
+    points_snapshot,attendance_points_snapshot,rules_version_snapshot,rules_text_snapshot
   ) values(p_event_id,v_user,trim(p_registrant_name),p_registrant_phone,v_people,
-           e.points_on_registration,e.rules_version,e.rules_text)
+           case when e.award_points_mode='registration' then e.points_on_registration else 0 end,
+           case when e.award_points_mode='attendance' then e.points_on_attendance else 0 end,
+           e.rules_version,e.rules_text)
   returning id into v_registration;
   insert into public.event_registration_people(registration_id,person_role,full_name,phone,sort_order)
   values(v_registration,'registrant',trim(p_registrant_name),p_registrant_phone,0);
@@ -150,11 +154,11 @@ end;
 $$;
 
 create or replace function public.cancel_event_registration(p_registration_id uuid)
-returns integer
+returns public.event_registrations
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $
 declare
   v_user uuid := auth.uid();
   r public.event_registrations%rowtype;
@@ -171,8 +175,8 @@ begin
     values(v_user,-5,'event_cancellation','کسر امتیاز بابت لغو ثبت‌نام یک روز پیش از رویداد','event_registration',r.id,'event-cancel:'||r.id::text)
     on conflict(idempotency_key) do nothing;
   end if;
-  update public.event_registrations set status='cancelled',cancelled_at=now() where id=r.id;
-  return delta;
+  update public.event_registrations set status='cancelled',cancelled_at=now() where id=r.id returning * into r;
+  return r;
 end;
 $$;
 
@@ -394,5 +398,15 @@ grant execute on function public.mark_event_attendance(uuid,text,text) to authen
 grant execute on function public.return_book(bigint) to authenticated;
 grant execute on function public.settle_user_book_fines(uuid) to authenticated;
 grant execute on function public.apply_loan_late_fines() to service_role;
+
+-- Keep the existing scheduler entry point documented in the original migrations.
+create or replace function public.process_overdue_book_fines()
+returns integer
+language sql
+security definer
+set search_path = public
+as $ select public.apply_loan_late_fines(); $;
+revoke all on function public.process_overdue_book_fines() from public, anon, authenticated;
+grant execute on function public.process_overdue_book_fines() to service_role;
 
 commit;
