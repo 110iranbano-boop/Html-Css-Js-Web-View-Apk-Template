@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - supabase-full-integration
   workflow_dispatch:
 
 jobs:
