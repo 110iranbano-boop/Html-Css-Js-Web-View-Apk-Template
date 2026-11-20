@@ -294,7 +294,7 @@ async forum(){
   $("main").innerHTML=html;
 },
 async admin(){
-  const T=[['purchase','خرید'],['loan','امانت'],['extensions','تمدید امانت'],['fines','جریمه‌ها'],['breq','درخواست کتاب'],['menu','منوی کافه'],['books','کتاب‌ها'],['art','فروشگاه'],['events','رویدادها']];if(U.is_super_admin)T.push(['access','دسترسی‌ها']);
+  const T=[['purchase','خرید'],['loan','امانت'],['extensions','تمدید امانت'],['fines','جریمه‌ها'],['breq','درخواست کتاب'],['cafeCats','دسته‌های کافه'],['menu','منوی کافه'],['bookCats','موضوعات کتاب'],['books','کتاب‌ها'],['storeCats','موضوعات فروشگاه'],['art','فروشگاه'],['events','رویدادها']];if(U.is_super_admin)T.push(['access','دسترسی‌ها']);
   const head=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===admTab?'on':''}" onclick="admTab='${k}';go('admin')">${t}</button>`).join('')}</div>`;
   let body='';
   if(admTab==='purchase'){const{d=[]}=await api('/admin/purchase-requests');
@@ -393,6 +393,9 @@ async function admOff(r,id){if(!confirm('این مورد غیرفعال شود؟
 async function regs(id){const{d=[]}=await api(`/admin/events/${id}/registrations`);let h='<h3 style="color:var(--gold2)">ثبت‌نام‌شده‌ها ('+fa(d.length)+')</h3>';h+=d.map(r=>'<div class="card"><b>'+esc(r.full_name)+'</b><p>'+esc(r.phone)+'</p>'+((r.people||[]).map(p=>'<div class="row" style="margin-top:6px"><span>'+esc(p.full_name)+' · '+esc(p.phone)+'</span><span><button class="btn s" onclick="markAttendance(\''+p.id+'\',\'present\')">حاضر</button><button class="btn r s" onclick="markAttendance(\''+p.id+'\',\'absent\')">غایب</button></span></div>').join(''))+'</div>').join('')||'<div class="empty">کسی ثبت‌نام نکرده</div>';h+='<button class="btn o" onclick="closeM()">بستن</button>';openM(h)}
 async function markAttendance(id,status){const{ok,d}=await send('/admin/event-attendance/'+id,'PUT',{status});if(!ok)return toast(d.error||'ثبت حضور ناموفق بود');toast('وضعیت حضور ثبت شد');closeM()}
 const F={ /* [کلید، برچسب، نوع، الزامی/گزینه‌ها] */
+ cafeCats:[['name','نام دسته','t',1],['description','توضیح','a'],['image_url','آدرس تصویر'],['sort','ترتیب نمایش','n']],
+ bookCats:[['name','نام موضوع','t',1],['description','توضیح','a'],['image_url','آدرس تصویر'],['sort','ترتیب نمایش','n']],
+ storeCats:[['name','نام موضوع','t',1],['description','توضیح','a'],['image_url','آدرس تصویر'],['sort','ترتیب نمایش','n']],
  menu:[['name','نام','t',1],['category','دسته (مثلاً قهوه، دسر)'],['description','توضیح','a'],['price','قیمت (تومان)','n'],['image_url','آدرس تصویر'],['sort','ترتیب نمایش','n']],
  books:[['title','عنوان','t',1],['author','نویسنده'],['category','دسته'],['description','توضیح','a'],['type','نوع','s',{loan:'امانی',sale:'فروشی'}],['price','قیمت (تومان، برای فروشی)','n'],['status','وضعیت','s',{available:'موجود',loaned:'امانت داده شده'}],['image_url','آدرس تصویر']],
  art:[['name','نام','t',1],['category','دسته (رزین، شمع، ویترای…)'],['description','توضیح','a'],['price','قیمت (تومان)','n'],['stock_status','موجودی','s',{in_stock:'موجود',made_to_order:'ساخت بر اساس سفارش',out:'ناموجود'}],['allow_custom','امکان سفارشی‌سازی','b'],['image_url','آدرس تصویر']],
