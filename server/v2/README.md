@@ -24,7 +24,7 @@ This PostgreSQL schema is designed for a new/empty public schema. It is idempote
 
 The SQL creates tables/indexes and seeds user/admin roles and permission definitions. It does not create an administrator account or assign an admin phone. Use the protected server-side admin seed utility after configuring environment variables.
 
-## Tables (37)
+## Tables (36)
 Accounts/security: users, profiles, roles, permissions, user_roles, role_permissions, user_permissions.
 Points: points_ledger.
 Store: store_categories, store_products, store_purchase_requests.
@@ -53,7 +53,7 @@ WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
 ORDER BY table_name;
 ~~~
 
-Expected table count: 37.
+Expected table count: 36.
 
 ## Scope
 This SQL creates database structure only. Express authentication/authorization, admin CRUD APIs, file storage integration, attendance/penalty jobs, loan scheduling and frontend integration still need implementation and testing. Do not switch production traffic or build the final APK until those are complete.
