@@ -242,23 +242,32 @@
       const patch={};if(body.status)patch.status=body.status;if("admin_note" in body)patch.admin_note=body.admin_note;
       const {error}=await sb.from("book_requests").update({...patch,reviewed_by:uid,reviewed_at:new Date().toISOString()}).eq("id",m[1]);if(error)throw error;return ok({ok:true});
     }
+    if(p==="/admin/cafeCats"&&method==="GET") return ok((await rows("cafe_categories")).map(x=>({...x,image_url:x.image_path,active:x.is_active,sort:x.sort_order})));
+    if(p==="/admin/bookCats"&&method==="GET") return ok((await rows("book_categories")).map(x=>({...x,image_url:x.image_path,active:x.is_active,sort:x.sort_order})));
+    if(p==="/admin/storeCats"&&method==="GET") return ok((await rows("store_categories")).map(x=>({...x,image_url:x.image_path,active:x.is_active,sort:x.sort_order})));
     if(p==="/admin/events"&&method==="GET") return ok((await rows("events")).map(x=>({...x,event_date:x.starts_at,capacity:x.capacity_people,registration_open:x.is_registration_open,image_url:x.poster_path,active:x.status==="published"})));
     if(p==="/admin/books"&&method==="GET") return ok((await rows("books")).map(x=>({...x,type:x.book_type==="both"?"sale":x.book_type,status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path,active:x.is_active})));
     if(p==="/admin/menu"&&method==="GET") return ok((await rows("cafe_products","*,category:cafe_categories(name)")).map(x=>({...x,category:x.category?.name||"",price:x.price_toman,image_url:x.image_path,active:x.is_available})));
     if(p==="/admin/art"&&method==="GET") return ok((await rows("store_products","*,category:store_categories(name)")).map(x=>({...x,category:x.category?.name||"",price:x.price_toman,image_url:x.image_path,active:x.is_available,stock_status:"in_stock"})));
-    m=p.match(/^\/admin\/(menu|books|art|events)(?:\/(\d+))?$/);
+    m=p.match(/^\/admin\/(menu|books|art|events|cafeCats|bookCats|storeCats)(?:\/(\d+))?$/);
     if(m&&["POST","PUT","DELETE"].includes(method)){
       const res=m[1],id=m[2];
       if(method==="DELETE"){
         if(res==="menu")await softDelete("cafe_products",id,"is_available");
         else if(res==="books")await softDelete("books",id);
         else if(res==="art")await softDelete("store_products",id,"is_available");
+        else if(res==="cafeCats")await softDelete("cafe_categories",id);
+        else if(res==="bookCats")await softDelete("book_categories",id);
+        else if(res==="storeCats")await softDelete("store_categories",id);
         else {const {error}=await sb.from("events").update({status:"inactive",is_registration_open:false}).eq("id",id);if(error)throw error;}
         return ok({ok:true});
       }
       let table,payload={};
       if(res==="menu"){table="cafe_products";payload={name:body.name,description:body.description||null,price_toman:Number(body.price)||0,image_path:body.image_url||null,is_available:true,sort_order:Number(body.sort)||0,category_id:await categoryId("cafe_categories",body.category)};}
-      if(res==="books"){table="books";payload={title:body.title,author:body.author||null,description:body.description||null,sale_price_toman:body.type==="sale"||body.type==="both"?Number(body.price)||0:null,book_type:body.type==="sale"?"sale":body.type==="both"?"both":"loan",available_copies:1,total_copies:1,cover_path:body.image_url||null,is_active:true};}
+      if(res==="cafeCats"){table="cafe_categories";payload={name:body.name,description:body.description||null,image_path:body.image_url||null,sort_order:Number(body.sort)||0,is_active:true};}
+      if(res==="bookCats"){table="book_categories";payload={name:body.name,description:body.description||null,image_path:body.image_url||null,sort_order:Number(body.sort)||0,is_active:true};}
+      if(res==="storeCats"){table="store_categories";payload={name:body.name,description:body.description||null,image_path:body.image_url||null,sort_order:Number(body.sort)||0,is_active:true};}
+      if(res==="books"){table="books";payload={title:body.title,author:body.author||null,description:body.description||null,category_id:await categoryId("book_categories",body.category),sale_price_toman:body.type==="sale"||body.type==="both"?Number(body.price)||0:null,book_type:body.type==="sale"?"sale":body.type==="both"?"both":"loan",available_copies:1,total_copies:1,cover_path:body.image_url||null,is_active:true};}
       if(res==="art"){table="store_products";payload={name:body.name,description:body.description||null,price_toman:Number(body.price)||0,image_path:body.image_url||null,is_available:true,category_id:await categoryId("store_categories",body.category)};}
       if(res==="events"){table="events";payload={title:body.title,description:body.description||null,starts_at:body.event_date||null,location:body.location||null,event_type:body.event_type||"timed",capacity_people:body.capacity?Number(body.capacity):null,required_teammates:Number(body.required_teammates)||0,points_on_registration:Number(body.points_on_registration)||0,points_on_attendance:Number(body.points_on_attendance)||0,award_points_when:body.award_points_when||"disabled",rules_text:body.rules_text||null,is_registration_open:body.event_type==="weekly"?false:!!body.registration_open,poster_path:body.image_url||null,status:"published"};}
       if(id){const {data,error}=await sb.from(table).update(payload).eq("id",id).select().single();if(error)throw error;return ok(data);}
