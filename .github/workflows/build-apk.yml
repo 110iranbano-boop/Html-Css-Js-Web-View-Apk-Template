@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - supabase-final-merge
   workflow_dispatch:
 
 jobs:
