@@ -391,6 +391,25 @@ app.post('/api/forum/topics/:id/comments', ...signedIn, wrap(async(req,res)=>{
 }));
 
 // پنل مدیریت؛ مجوزها برای هر حوزه جداگانه کنترل می‌شوند.
+const categoryTables = { menu:'cafe_categories', books:'book_categories', art:'store_categories' };
+const resolveCategory = async (resource, name) => {
+  const table=categoryTables[resource], value=String(name||'').trim();
+  if(!table || !value) return null;
+  const {data:found,error}=await db.from(table).select('id').eq('name',value).limit(1).maybeSingle();
+  if(error) throw error;
+  if(found) return found.id;
+  const {data,error:insertError}=await db.from(table).insert({name:value}).select('id').single();
+  if(insertError) throw insertError;
+  return data.id;
+};
+const attachCategories = async (resource, rows) => {
+  const table=categoryTables[resource];
+  if(!table || !rows.length) return rows;
+  const {data:cats,error}=await db.from(table).select('id,name');
+  if(error) throw error;
+  const names=Object.fromEntries((cats||[]).map(x=>[x.id,x.name]));
+  return rows.map(x=>({...x,category:names[x.category_id]||''}));
+};
 const resources={
  menu:{table:'cafe_products',permission:'cafe.manage',mapIn:b=>({name:b.name,description:b.description,price_toman:b.price,image_path:b.image_url,sort_order:b.sort,is_available:b.active!==false,category_id:b.category_id||null}),mapOut:r=>({...r,title:r.name,price:r.price_toman,image_url:r.image_path,active:r.is_available})},
  books:{table:'books',permission:'library.manage',mapIn:b=>({title:b.title,author:b.author,description:b.description,book_type:b.type||'loan',sale_price_toman:b.price||null,cover_path:b.image_url,is_active:b.active!==false,total_copies:Number(b.total_copies??1),available_copies:Number(b.available_copies??1)}),mapOut:r=>({...r,type:r.book_type,price:r.sale_price_toman,image_url:r.cover_path,active:r.is_active,status:r.available_copies>0?'available':'loaned'})},
@@ -400,17 +419,22 @@ const resources={
 app.get('/api/admin/:res(menu|books|art|events)', ...signedIn, wrap(async(req,res)=>{
   const r=resources[req.params.res]; if(!await can(req,r.permission,'view')) return fail(res,'دسترسی ندارید',403);
   const {data,error}=await db.from(r.table).select('*').order('id',{ascending:false}); if(error) throw error;
-  res.json((data||[]).map(r.mapOut));
+  const rows=await attachCategories(req.params.res,data||[]);
+  res.json(rows.map(r.mapOut));
 }));
 app.post('/api/admin/:res(menu|books|art|events)', ...signedIn, wrap(async(req,res)=>{
   const r=resources[req.params.res]; if(!await can(req,r.permission,'create')) return fail(res,'دسترسی ایجاد ندارید',403);
-  const {data,error}=await db.from(r.table).insert(r.mapIn(req.body)).select().single(); if(error) throw error;
-  res.status(201).json(r.mapOut(data));
+  const payload=r.mapIn(req.body);
+  if(categoryTables[req.params.res] && req.body.category!==undefined) payload.category_id=await resolveCategory(req.params.res,req.body.category);
+  const {data,error}=await db.from(r.table).insert(payload).select().single(); if(error) throw error;
+  res.status(201).json(r.mapOut({...data,category:req.body.category||''}));
 }));
 app.put('/api/admin/:res(menu|books|art|events)/:id', ...signedIn, wrap(async(req,res)=>{
   const r=resources[req.params.res]; if(!await can(req,r.permission,'update')) return fail(res,'دسترسی ویرایش ندارید',403);
-  const {data,error}=await db.from(r.table).update(r.mapIn(req.body)).eq('id',req.params.id).select().single(); if(error) throw error;
-  res.json(r.mapOut(data));
+  const payload=r.mapIn(req.body);
+  if(categoryTables[req.params.res] && req.body.category!==undefined) payload.category_id=await resolveCategory(req.params.res,req.body.category);
+  const {data,error}=await db.from(r.table).update(payload).eq('id',req.params.id).select().single(); if(error) throw error;
+  res.json(r.mapOut({...data,category:req.body.category||''}));
 }));
 app.delete('/api/admin/:res(menu|books|art|events)/:id', ...signedIn, wrap(async(req,res)=>{
   const r=resources[req.params.res]; if(!await can(req,r.permission,'delete')) return fail(res,'دسترسی حذف ندارید',403);
