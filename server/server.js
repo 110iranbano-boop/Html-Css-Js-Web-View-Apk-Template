@@ -43,6 +43,13 @@ const profileOf = async id => {
 };
 const phoneOf = user => digits(user.user_metadata && user.user_metadata.phone);
 const displayOf = (user, profile) => profile.display_name || user.user_metadata?.display_name || '';
+const grantBootstrapAdmin = async (userId, phone) => {
+  const configured = digits(process.env.SUPER_ADMIN_PHONE);
+  if (configured && configured === phone) {
+    const { error } = await db.from('user_roles').upsert({user_id:userId,role:'super_admin'},{onConflict:'user_id,role',ignoreDuplicates:true});
+    if (error) throw error;
+  }
+};
 const publicUser = (user, profile, roles) => ({
   id: user.id,
   full_name: displayOf(user, profile),
@@ -120,14 +127,16 @@ app.post('/api/register', wrap(async (req, res) => {
   }
   const { data: sign, error: signError } = await authClient.auth.signInWithPassword({ email: emailForPhone(phone), password });
   if (signError) throw signError;
+  await grantBootstrapAdmin(data.user.id, phone);
   const p = await profileOf(data.user.id);
-  res.status(201).json({ ok: true, token: sign.session.access_token, user: publicUser(sign.user, p.profile, p.roles) });
+  res.status(201).json({ ok: true, token: sign.session.access_token, refresh_token: sign.session.refresh_token, user: publicUser(sign.user, p.profile, p.roles) });
 }));
 app.post('/api/login', wrap(async (req, res) => {
   const phone = digits(req.body.phone), password = String(req.body.password || '');
   if (!validPhone(phone) || !password) return fail(res, 'شماره همراه یا رمز عبور اشتباه است', 401);
   const { data, error } = await authClient.auth.signInWithPassword({ email: emailForPhone(phone), password });
   if (error || !data.user) return fail(res, 'شماره یا رمز عبور اشتباه است', 401);
+  await grantBootstrapAdmin(data.user.id, phone);
   const p = await profileOf(data.user.id);
   res.json({ token: data.session.access_token, refresh_token: data.session.refresh_token, user: publicUser(data.user, p.profile, p.roles) });
 }));
@@ -268,11 +277,9 @@ app.post('/api/events/:id/register', ...signedIn, wrap(async(req,res)=>{
   if(!validPhone(phone)||teammates.length!==event.required_teammates) return fail(res,'اطلاعات ثبت‌نام‌کننده یا تعداد همراهان معتبر نیست');
   const people=[{person_role:'registrant',full_name:name,phone,sort_order:0},...teammates.map((p,i)=>({person_role:'teammate',full_name:String(p.full_name||'').trim(),phone:digits(p.phone),sort_order:i+1}))];
   if(people.some(p=>!p.full_name||!validPhone(p.phone))) return fail(res,'نام و شماره تماس همه افراد الزامی است');
-  const {data:reg,error:regError}=await db.from('event_registrations').insert({event_id:event.id,user_id:req.user.id,registrant_name:name,registrant_phone:phone,people_count:people.length,points_snapshot:event.points_on_registration,rules_version_snapshot:event.rules_version,rules_text_snapshot:event.rules_text}).select().single();
-  if(regError) throw regError;
-  const {error:peopleError}=await db.from('event_registration_people').insert(people.map(p=>({...p,registration_id:reg.id})));
-  if(peopleError) throw peopleError;
-  res.status(201).json({ok:true,id:reg.id});
+  const {data:registrationId,error:regError}=await db.rpc('register_event_atomic',{p_event_id:event.id,p_user_id:req.user.id,p_registrant_name:name,p_registrant_phone:phone,p_teammates:teammates});
+  if(regError) return fail(res,regError.message||'ثبت‌نام انجام نشد',409);
+  res.status(201).json({ok:true,id:registrationId});
 }));
 app.delete('/api/events/:id/register', ...signedIn, wrap(async(req,res)=>{
   const {data,error}=await db.from('event_registrations').update({status:'cancelled',cancelled_at:new Date().toISOString()}).eq('event_id',req.params.id).eq('user_id',req.user.id).eq('status','registered').select().maybeSingle();
@@ -351,28 +358,20 @@ app.get('/api/admin/loan-requests', ...signedIn, wrap(async(req,res)=>{
 app.put('/api/admin/loan-requests/:id', ...signedIn, wrap(async(req,res)=>{
   if(!await can(req,'library.manage','update')) return fail(res,'دسترسی ندارید',403);
   const status=req.body.status; if(!['approved','rejected'].includes(status)) return fail(res,'وضعیت نامعتبر است');
-  const {data:request,error}=await db.from('book_requests').update({status,reviewed_by:req.user.id,reviewed_at:new Date().toISOString()}).eq('id',req.params.id).eq('status','pending').select().single();
-  if(error) throw error;
   if(status==='approved'){
-    const now=new Date(), due=new Date(now.getTime()+7*86400000);
-    const {error:loanError}=await db.from('book_loans').insert({book_id:request.book_id,user_id:request.user_id,request_id:request.id,handed_over_at:now.toISOString(),current_due_at:due.toISOString(),status:'active'});
-    if(loanError) throw loanError;
-    const {data:book}=await db.from('books').select('available_copies').eq('id',request.book_id).single();
-    if(book) await db.from('books').update({available_copies:Math.max(0,book.available_copies-1)}).eq('id',request.book_id);
+    const {data:loanId,error}=await db.rpc('approve_book_borrow_request',{p_request_id:req.params.id,p_admin_id:req.user.id});
+    if(error) return fail(res,error.message||'تأیید امانت انجام نشد',409);
+    return res.json({ok:true,status,loan_id:loanId});
   }
+  const {error}=await db.from('book_requests').update({status:'rejected',reviewed_by:req.user.id,reviewed_at:new Date().toISOString()}).eq('id',req.params.id).eq('status','pending');
+  if(error) throw error;
   res.json({ok:true,status});
 }));
 app.put('/api/admin/books/:id/return', ...signedIn, wrap(async(req,res)=>{
   if(!await can(req,'library.manage','update')) return fail(res,'دسترسی ندارید',403);
-  const {data:loan,error}=await db.from('book_loans').select('*').eq('book_id',req.params.id).in('status',['active','overdue']).maybeSingle();
-  if(error) throw error; if(!loan) return fail(res,'امانت فعال برای این کتاب پیدا نشد',404);
-  const {error:updateError}=await db.from('book_loans').update({status:'returned',returned_at:new Date().toISOString()}).eq('id',loan.id);
-  if(updateError) throw updateError;
-  const {data:book,error:bookError}=await db.from('books').select('available_copies,total_copies').eq('id',req.params.id).single();
-  if(bookError) throw bookError;
-  const {error:stockError}=await db.from('books').update({available_copies:Math.min(book.total_copies,book.available_copies+1)}).eq('id',req.params.id);
-  if(stockError) throw stockError;
-  res.json({ok:true});
+  const {data:loanId,error}=await db.rpc('return_book_atomic',{p_book_id:Number(req.params.id)});
+  if(error) return fail(res,error.message||'ثبت بازگشت انجام نشد',409);
+  res.json({ok:true,loan_id:loanId});
 }));
 app.get('/api/admin/book-requests', ...signedIn, wrap(async(req,res)=>{
   if(!await can(req,'library.manage','view')) return fail(res,'دسترسی ندارید',403);
