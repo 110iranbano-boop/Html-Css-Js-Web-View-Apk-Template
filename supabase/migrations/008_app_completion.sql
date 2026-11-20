@@ -412,7 +412,6 @@ grant execute on function public.cancel_event_registration(uuid) to authenticate
 grant execute on function public.review_book_loan_request(uuid,boolean,text) to authenticated;
 grant execute on function public.review_loan_extension(uuid,boolean,text) to authenticated;
 grant execute on function public.mark_event_attendance(uuid,text,text) to authenticated;
-grant execute on function public.return_book(bigint) to authenticated;
 grant execute on function public.settle_user_book_fines(uuid) to authenticated;
 
 -- Align notification reference identifiers with the text column in the base schema.
