@@ -157,7 +157,7 @@
     if(p==="/purchase-requests/my"&&method==="GET"){
       const {data,error}=await sb.from("purchase_requests").select("*,book:books(title),product:store_products(name)").eq("user_id",uid).order("created_at",{ascending:false});
       if(error) throw error;
-      return ok((data||[]).map(x=>({id:x.id,status:x.status,created_at:x.created_at,final_price:null,admin_note:x.admin_note,items:[{title:x.item_name_snapshot,qty:x.quantity,price:x.unit_price_toman_snapshot}]})));
+      return ok((data||[]).map(x=>({id:x.id,status:x.status,created_at:x.created_at,final_price:x.final_price_toman,admin_note:x.admin_note,items:[{title:x.item_name_snapshot,qty:x.quantity,price:x.unit_price_toman_snapshot}]})));
     }
     if(p==="/purchase-requests"&&method==="POST"){
       const phone=phoneE164(body.contact_phone||ctx.user.phone);
@@ -191,19 +191,21 @@
       if(error) throw error; return ok({...ctx.user,full_name:data.display_name,username:data.username,bio:data.bio,avatar_url:data.avatar_url,profile_visibility:data.profile_visibility});
     }
     if(p==="/admin/purchase-requests"&&method==="GET"){
-      const {data,error}=await sb.from("purchase_requests").select("*,profile:profiles!purchase_requests_user_id_fkey(display_name),book:books(title),product:store_products(name)").order("created_at",{ascending:false}).limit(200);
-      if(error) throw error;
-      return ok((data||[]).map(x=>({id:x.id,status:x.status,full_name:x.profile?.display_name||"عضو",contact_phone:"",items:[{title:x.item_name_snapshot,qty:x.quantity,price:x.unit_price_toman_snapshot}],admin_note:x.admin_note,final_price:null,note:""})));
+      const {data,error}=await sb.from("purchase_requests").select("*").order("created_at",{ascending:false}).limit(200);if(error)throw error;
+      const ids=[...new Set((data||[]).map(x=>x.user_id))];
+      const {data:profiles,error:pe}=ids.length?await sb.from("profiles").select("id,display_name,phone").in("id",ids):{data:[],error:null};if(pe)throw pe;
+      const pm=Object.fromEntries((profiles||[]).map(x=>[x.id,x]));
+      return ok((data||[]).map(x=>({id:x.id,status:x.status,full_name:pm[x.user_id]?.display_name||"عضو",contact_phone:x.contact_phone||pm[x.user_id]?.phone||"",items:[{title:x.item_name_snapshot,qty:x.quantity,price:x.unit_price_toman_snapshot}],admin_note:x.admin_note,final_price:x.final_price_toman,note:x.note||""})));
     }
     let m=p.match(/^\/admin\/purchase-requests\/([^/]+)$/);
     if(m&&method==="PUT"){
-      const patch={}; if(body.status)patch.status=body.status;if("admin_note" in body)patch.admin_note=body.admin_note;
+      const patch={}; if(body.status)patch.status=body.status;if("admin_note" in body)patch.admin_note=body.admin_note;if("final_price" in body)patch.final_price_toman=body.final_price===""?null:Number(body.final_price);
       const {error}=await sb.from("purchase_requests").update(patch).eq("id",m[1]);if(error)throw error;return ok({ok:true});
     }
     if(p==="/admin/loan-requests"&&method==="GET"){
-      const {data,error}=await sb.from("book_requests").select("*,book:books(title),profile:profiles(display_name)").eq("request_type","borrow").order("created_at",{ascending:false});
-      if(error)throw error;
-      return ok((data||[]).map(x=>({id:x.id,book_id:x.book_id,book_title:x.book?.title||"",full_name:x.profile?.display_name||"",phone:"",status:x.status,proposed_amount_toman:x.proposed_amount_toman})));
+      const {data,error}=await sb.from("book_requests").select("id,user_id,book_id,status,proposed_amount_toman,created_at,book:books(title)").eq("request_type","borrow").order("created_at",{ascending:false});if(error)throw error;
+      const ids=[...new Set((data||[]).map(x=>x.user_id))];const {data:profiles,error:pe}=ids.length?await sb.from("profiles").select("id,display_name,phone").in("id",ids):{data:[],error:null};if(pe)throw pe;const pm=Object.fromEntries((profiles||[]).map(x=>[x.id,x]));
+      return ok((data||[]).map(x=>({id:x.id,book_id:x.book_id,book_title:x.book?.title||"",full_name:pm[x.user_id]?.display_name||"",phone:pm[x.user_id]?.phone||"",status:x.status,proposed_amount_toman:x.proposed_amount_toman})));
     }
     m=p.match(/^\/admin\/loan-requests\/([^/]+)$/);
     if(m&&method==="PUT"){
@@ -211,8 +213,9 @@
       if(error)throw error;return ok({id:data});
     }
     if(p==="/admin/book-requests"&&method==="GET"){
-      const {data,error}=await sb.from("book_requests").select("*,profile:profiles(display_name)").in("request_type",["suggestion","acquisition"]).order("created_at",{ascending:false});
-      if(error)throw error;return ok((data||[]).map(x=>({id:x.id,book_title:x.requested_title,author:x.requested_author,description:x.message,full_name:x.profile?.display_name||"",phone:"",status:x.status,admin_note:x.admin_note})));
+      const {data,error}=await sb.from("book_requests").select("*").in("request_type",["suggestion","acquisition"]).order("created_at",{ascending:false});if(error)throw error;
+      const ids=[...new Set((data||[]).map(x=>x.user_id))];const {data:profiles,error:pe}=ids.length?await sb.from("profiles").select("id,display_name,phone").in("id",ids):{data:[],error:null};if(pe)throw pe;const pm=Object.fromEntries((profiles||[]).map(x=>[x.id,x]));
+      return ok((data||[]).map(x=>({id:x.id,book_title:x.requested_title,author:x.requested_author,description:x.message,full_name:pm[x.user_id]?.display_name||"",phone:pm[x.user_id]?.phone||"",status:x.status,admin_note:x.admin_note})));
     }
     m=p.match(/^\/admin\/book-requests\/([^/]+)$/);
     if(m&&method==="PUT"){
