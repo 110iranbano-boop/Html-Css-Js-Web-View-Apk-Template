@@ -233,13 +233,21 @@ cart(){
   <label>توضیحات (اختیاری)</label><textarea id="cn" rows="2"></textarea>
   <button class="btn" onclick="submitCart()">ثبت درخواست خرید</button><p style="margin-top:6px">پرداخت اینترنتی در برنامه انجام نمی‌شود؛ این فقط ثبت درخواست است.</p></div>`;
 },
-account(){
-  $('main').innerHTML=`<div class="mc"><div class="row"><b style="font-size:18px">${esc(U.full_name)}</b>${badge(U.role==='admin'?'مدیر':'عضو')}</div><p>${esc(U.phone)}</p><div style="margin-top:10px;color:var(--gold);font-size:15px">اهالی سیمرغ · فرهنگسرای سیمرغ</div><div class="code">${esc(U.member_code||'')}</div></div>
-  <button class="menu" onclick="editProfile()">${ic("account")}<span>مشخصات کاربری</span>‹</button>
-  <button class="menu" onclick="go('mine')">${ic("receipt")}<span>درخواست‌های من</span>‹</button>
-  <button class="menu" onclick="go('notifs')">${ic("bell")}<span>اعلان‌ها</span>‹</button>
-  ${U.role==='admin'?`<button class="menu" onclick="go('admin')">${ic("settings")}<span>پنل مدیریت</span>‹</button>`:''}
-  <button class="btn r" onclick="logout()">خروج از حساب</button>`;
+async account(){
+  const [loans,fines,points,level]=await Promise.all([
+    sb.from("book_loans").select("*,book:books(title)").eq("user_id",U.id).is("returned_at",null).order("handed_over_at",{ascending:false}),
+    sb.from("book_fines").select("*").eq("user_id",U.id).eq("status","open"),
+    sb.from("points_transactions").select("*").eq("user_id",U.id).order("created_at",{ascending:false}).limit(12),
+    U.membership_level_id?sb.from("membership_levels").select("name").eq("id",U.membership_level_id).maybeSingle():Promise.resolve({data:null})
+  ]);
+  const balance=(points.data||[]).reduce((n,x)=>n+x.points_delta,0);
+  const suspended=U.is_suspended?'<span class="badge no">حساب تعلیق‌شده</span>':'<span class="badge ok">حساب فعال</span>';
+  $("main").innerHTML='<div class="mc"><div class="row"><div><b style="font-size:18px">'+esc(U.full_name)+'</b><p>'+esc(U.phone)+'</p></div>'+(U.avatar_url?'<img src="'+esc(U.avatar_url)+'" style="width:66px;height:66px;border-radius:50%;object-fit:cover">':'<div class="ph" style="width:66px;height:66px;border-radius:50%">👤</div>')+'</div><p style="margin-top:8px">'+suspended+' '+badge(U.role==="admin"?(U.is_super_admin?"مدیر ارشد":"مدیر بخش"):"عضو")+'</p><div style="margin-top:10px;color:var(--gold);font-size:15px">کارت عضویت سیمرغ</div><div class="code">'+esc(U.member_code||"")+'</div><div class="row" style="margin-top:12px"><span>سطح عضویت: '+esc(level.data?.name||"سطح یک")+'</span><b>امتیاز: '+fa(balance)+'</b></div></div>'+
+  '<button class="menu" onclick="editProfile()">'+ic("account")+'<span>مشخصات کاربری</span>‹</button><button class="menu" onclick="go(\'mine\')">'+ic("receipt")+'<span>درخواست‌های من</span>‹</button><button class="menu" onclick="go(\'notifs\')">'+ic("bell")+'<span>اعلان‌ها</span>‹</button>'+
+  '<div class="sec">کتاب‌های امانت‌گرفته‌شده</div>'+((loans.data||[]).map(x=>'<div class="card"><h3>'+esc(x.book?.title||"کتاب")+'</h3><p>مهلت تحویل: '+when(x.current_due_at)+'</p></div>').join("")||'<div class="empty">کتاب امانی فعالی ندارید</div>')+
+  '<div class="sec">جریمه‌های باز</div>'+((fines.data||[]).map(x=>'<div class="card"><p>'+esc(x.reason)+'</p><b>'+fa(x.points_amount)+' امتیاز</b> · '+esc(x.fine_date)+'</div>').join("")||'<div class="empty">جریمه بازی ندارید</div>')+
+  '<div class="sec">سوابق امتیاز</div>'+((points.data||[]).map(x=>'<div class="row card"><span>'+esc(x.description||x.reason_code)+'</span><b style="color:'+(x.points_delta<0?'var(--bad)':'var(--ok)')+'">'+(x.points_delta>0?'+':'')+fa(x.points_delta)+'</b></div>').join("")||'<div class="empty">هنوز تراکنش امتیازی ندارید</div>')+
+  (U.role==="admin"?'<button class="menu" onclick="go(\'admin\')">'+ic("settings")+'<span>پنل مدیریت</span>‹</button>':"")+'<button class="btn r" onclick="logout()">خروج از حساب</button>';
 },
 async mine(){
   const[p,l,b,e]=await Promise.all([api('/purchase-requests/my'),api('/loan-requests/my'),api('/book-requests/my'),api('/events')]);
@@ -350,8 +358,8 @@ async function sendBookReq(){
 function reg(id){const e=(cache.events||[]).find(x=>x.id===id)||{};const count=Number(e.required_teammates||0);let h='<h3 style="color:var(--gold2)">ثبت‌نام در رویداد</h3><label>نام و نام خانوادگی</label><input id="regName" value="'+esc(U.full_name)+'"><label>شماره تماس</label><input id="regPhone" value="'+esc(U.phone)+'" style="direction:ltr;text-align:left">';for(let i=0;i<count;i++)h+='<div class="sec">همراه '+(i+1)+'</div><label>نام و نام خانوادگی</label><input id="teamName'+i+'"><label>شماره تماس</label><input id="teamPhone'+i+'" style="direction:ltr;text-align:left">';h+='<button class="btn" onclick="submitEventReg('+id+','+count+')">تأیید ثبت‌نام</button><button class="btn o" onclick="closeM()">انصراف</button>';openM(h)}
 async function submitEventReg(id,count){const teammates=[];for(let i=0;i<count;i++){const full_name=$('teamName'+i).value.trim(),phone=latin($('teamPhone'+i).value);if(!full_name||!phone)return toast('اطلاعات همه همراهان را کامل کنید');teammates.push({full_name,phone,sort_order:i+1})}const{ok,d}=await send('/events/'+id+'/register','POST',{registrant_name:$('regName').value.trim(),registrant_phone:latin($('regPhone').value),teammates});if(!ok)return toast(d.error||'ثبت‌نام انجام نشد');closeM();toast('ثبت‌نام انجام شد');go('events')}
 async function unreg(id){const{ok}=await send(`/events/${id}/register`,'DELETE');toast(ok?'ثبت‌نام لغو شد':'خطا');go('events')}
-function editProfile(){openM(`<h3 style="color:var(--gold2)">مشخصات کاربری</h3><label>نام و نام خانوادگی</label><input id="pn" value="${esc(U.full_name)}"><label>شمارهٔ همراه</label><input value="${esc(U.phone)}" disabled style="direction:ltr;text-align:left"><button class="btn" onclick="saveProfile()">ذخیره</button><button class="btn o" onclick="closeM()">بستن</button>`)}
-async function saveProfile(){const{ok,d}=await send('/profile','PUT',{full_name:$('pn').value});if(!ok)return toast(d.error||'خطا');U=d;localStorage.setItem('user',JSON.stringify(U));closeM();go('account')}
+function editProfile(){openM('<h3 style="color:var(--gold2)">مشخصات کاربری</h3><label>نام نمایشی</label><input id="pn" value="'+esc(U.full_name)+'"><label>نام کاربری</label><input id="pu" value="'+esc(U.username||"")+'"><label>توضیح کوتاه</label><textarea id="pb" rows="2">'+esc(U.bio||"")+'</textarea><label>نشانی تصویر پروفایل (اختیاری)</label><input id="pa" value="'+esc(U.avatar_url||"")+'"><label>نمایش پروفایل</label><select id="pv"><option value="private" '+(U.profile_visibility!=="members"?"selected":"")+'>خصوصی</option><option value="members" '+(U.profile_visibility==="members"?"selected":"")+'>قابل مشاهده برای اعضا</option></select><label>شماره همراه</label><input value="'+esc(U.phone)+'" disabled style="direction:ltr;text-align:left"><button class="btn" onclick="saveProfile()">ذخیره</button><button class="btn o" onclick="closeM()">بستن</button>')}
+async function saveProfile(){const{ok,d}=await send('/profile','PUT',{full_name:$('pn').value,username:$('pu').value,bio:$('pb').value,avatar_url:$('pa').value,profile_visibility:$('pv').value});if(!ok)return toast(d.error||'خطا');U={...U,...d};localStorage.setItem('user',JSON.stringify(U));closeM();go('account')}
 async function loanSt(id,status){const{ok,d}=await send('/admin/loan-requests/'+id,'PUT',{status});toast(ok?'ثبت شد':d.error);go('admin')}
 async function admOff(r,id){if(!confirm('این مورد غیرفعال شود؟'))return;await send(`/admin/${r}/${id}`,'DELETE');go('admin')}
 async function regs(id){const{d=[]}=await api(`/admin/events/${id}/registrations`);openM(`<h3 style="color:var(--gold2)">ثبت‌نام‌شده‌ها (${fa(d.length)})</h3>`+(d.map(r=>`<p class="sub">${esc(r.full_name)} · ${esc(r.phone)}</p>`).join('')||'<div class="empty">کسی ثبت‌نام نکرده</div>')+`<button class="btn o" onclick="closeM()">بستن</button>`)}
