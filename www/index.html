@@ -199,7 +199,7 @@ async cafe(){
 async library(){
   const[b,l]=await Promise.all([api('/books'),api('/loan-requests/my')]);
   if(!b.ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
-  cache.books=b.d;const pend=new Set((l.ok?l.d:[]).filter(x=>x.status==='pending').map(x=>x.book_id));
+  cache.books=b.d;const pend=new Set((l.ok?l.d:[]).filter(x=>['pending','approved'].includes(x.status)).map(x=>x.book_id));
   const T=[['sale','فروش کتاب'],['loan','امانی'],['request','درخواست کتاب']];
   let body='';
   if(libTab==='sale')body=b.d.filter(x=>x.type==='sale').map(x=>`<div class="card"><div class="row"><h3>${esc(x.title)}</h3><span class="price">${money(x.price)}</span></div><p>${esc(x.author||'')}${x.category?' · '+esc(x.category):''}</p>${x.description?`<p>${esc(x.description)}</p>`:''}<button class="btn s" onclick="addCart('book',${x.id})">افزودن به سبد</button></div>`).join('')||'<div class="empty">کتابی برای فروش ثبت نشده است</div>';
@@ -246,7 +246,7 @@ account(){
 async mine(){
   const[p,l,b,e]=await Promise.all([api('/purchase-requests/my'),api('/loan-requests/my'),api('/book-requests/my'),api('/events')]);
   const reg=(e.ok?e.d:[]).filter(x=>x.mine);
-  $('main').innerHTML=`<div class="sec">درخواست‌های خرید</div>`+((p.ok?p.d:[]).map(r=>`<div class="card"><div class="row"><h3>درخواست ${fa(r.id)}</h3>${badge(PST[r.status])}</div>${r.items.map(i=>`<p>${esc(i.title)} × ${fa(i.qty)}</p>`).join('')}${r.final_price!=null?`<p>مبلغ نهایی: ${money(r.final_price)}</p>`:''}${r.admin_note?`<p>پیام مدیریت: ${esc(r.admin_note)}</p>`:''}<p>${when(r.created_at)}</p></div>`).join('')||'<div class="empty">موردی نیست</div>')+
+  $('main').innerHTML=`<div class="sec">درخواست‌های خرید</div>`+((p.ok?p.d:[]).map(r=>`<div class="card"><div class="row"><h3>درخواست ${esc(r.id)}</h3>${badge(PST[r.status]||r.status)}</div>${r.items.map(i=>`<p>${esc(i.title)} × ${fa(i.qty)}</p>`).join('')}<p>${when(r.created_at)}</p></div>`).join('')||'<div class="empty">موردی نیست</div>')+
   `<div class="sec">امانت کتاب</div>`+((l.ok?l.d:[]).map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3>${gb(r.status)}</div>`).join('')||'<div class="empty">موردی نیست</div>')+
   `<div class="sec">درخواست کتاب</div>`+((b.ok?b.d:[]).map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3>${gb(r.status)}</div>`).join('')||'<div class="empty">موردی نیست</div>')+
   `<div class="sec">رویدادهای ثبت‌نام‌شده</div>`+(reg.map(r=>`<div class="card"><h3>${esc(r.title)}</h3><p>${when(r.event_date)}</p></div>`).join('')||'<div class="empty">موردی نیست</div>');
@@ -261,17 +261,16 @@ async admin(){
   const head=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===admTab?'on':''}" onclick="admTab='${k}';go('admin')">${t}</button>`).join('')}</div>`;
   let body='';
   if(admTab==='purchase'){const{d=[]}=await api('/admin/purchase-requests');
-    body=d.map(r=>`<div class="card"><div class="row"><h3>${esc(r.full_name)}</h3><a class="badge" href="tel:${esc(r.contact_phone)}">📞 ${esc(r.contact_phone)}</a></div>${r.items.map(i=>`<p>${esc(i.title)} × ${fa(i.qty)} — ${money(i.price)}${i.note?' ('+esc(i.note)+')':''}</p>`).join('')}${r.note?`<p>توضیح کاربر: ${esc(r.note)}</p>`:''}
+    body=d.map(r=>`<div class="card"><div class="row"><h3>${esc(r.full_name)}</h3><a class="badge" href="tel:${esc(r.contact_phone)}">📞 ${esc(r.contact_phone)}</a></div>${r.items.map(i=>`<p>${esc(i.title)} × ${fa(i.qty)} — ${money(i.price)}${i.note?' ('+esc(i.note)+')':''}</p>`).join('')}
     <select onchange="send('/admin/purchase-requests/${r.id}','PUT',{status:this.value}).then(x=>toast(x.ok?'وضعیت تغییر کرد':'خطا'))">${Object.entries(PST).map(([k,t])=>`<option value="${k}" ${k===r.status?'selected':''}>${t}</option>`).join('')}</select>
-    <input placeholder="مبلغ نهایی (تومان)" inputmode="numeric" value="${r.final_price??''}" onchange="send('/admin/purchase-requests/${r.id}','PUT',{final_price:latin(this.value)}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px">
-    <input placeholder="پیام برای کاربر" value="${esc(r.admin_note||'')}" onchange="send('/admin/purchase-requests/${r.id}','PUT',{admin_note:this.value}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px"></div>`).join('')||'<div class="empty">درخواستی نیست</div>'}
+    </div>`).join('')||'<div class="empty">درخواستی نیست</div>'}
   else if(admTab==='loan'){const{d=[]}=await api('/admin/loan-requests');
-    body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt(${r.id},'approved')">تأیید</button> <button class="btn r s" onclick="loanSt(${r.id},'rejected')">رد</button>`:gb(r.status)}</div>`).join('')+
+    body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt(${r.id},'approved')">تأیید</button> <button class="btn r s" onclick="loanSt(${r.id},'rejected')">رد</button>`:r.status==='approved'?`<button class="btn s" onclick="pickupLoan(${r.id})">ثبت تحویل کتاب</button>`:gb(r.status)}</div>`).join('')+
     `<div class="sec">بازگشت کتاب</div><p class="sub">برای ثبت بازگشت کتاب، تب «کتاب‌ها» را باز کنید.</p>`||'';}
   else if(admTab==='breq'){const{d=[]}=await api('/admin/book-requests');
     body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.author||'')} — ${esc(r.full_name)} · ${esc(r.phone)}</p>${r.description?`<p>${esc(r.description)}</p>`:''}
     <select onchange="send('/admin/book-requests/${r.id}','PUT',{status:this.value}).then(x=>toast(x.ok?'ثبت شد':'خطا'))">${Object.entries(GST).map(([k,t])=>`<option value="${k}" ${k===r.status?'selected':''}>${t}</option>`).join('')}</select>
-    <input placeholder="نتیجهٔ بررسی برای کاربر" value="${esc(r.admin_note||'')}" onchange="send('/admin/book-requests/${r.id}','PUT',{admin_note:this.value}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px"></div>`).join('')||'<div class="empty">درخواستی نیست</div>'}
+    </div>`).join('')||'<div class="empty">درخواستی نیست</div>'}
   else{const{d=[]}=await api('/admin/'+admTab);cache['adm_'+admTab]=d;const nm=i=>i.name||i.title;
     body=`<button class="btn" onclick="admForm('${admTab}')">+ افزودن</button>`+d.map(i=>`<div class="card" style="margin-top:10px;${i.active?'':'opacity:.5'}"><div class="row"><h3>${esc(nm(i))}</h3>${i.active?'':badge('غیرفعال','no')}</div>
     <button class="btn o s" onclick="admForm('${admTab}',${i.id})">ویرایش</button> ${admTab==='books'&&i.type==='loan'&&i.status==='loaned'?`<button class="btn s" onclick="send('/admin/books/${i.id}/return','PUT').then(()=>go('admin'))">ثبت بازگشت</button>`:''}
@@ -302,13 +301,14 @@ async function unreg(id){const{ok}=await send(`/events/${id}/register`,'DELETE')
 function editProfile(){openM(`<h3 style="color:var(--gold2)">مشخصات کاربری</h3><label>نام و نام خانوادگی</label><input id="pn" value="${esc(U.full_name)}"><label>شمارهٔ همراه</label><input value="${esc(U.phone)}" disabled style="direction:ltr;text-align:left"><button class="btn" onclick="saveProfile()">ذخیره</button><button class="btn o" onclick="closeM()">بستن</button>`)}
 async function saveProfile(){const{ok,d}=await send('/profile','PUT',{full_name:$('pn').value});if(!ok)return toast(d.error||'خطا');U=d;localStorage.setItem('user',JSON.stringify(U));closeM();go('account')}
 async function loanSt(id,status){const{ok,d}=await send('/admin/loan-requests/'+id,'PUT',{status});toast(ok?'ثبت شد':d.error);go('admin')}
+async function pickupLoan(id){const{ok,d}=await send('/admin/loan-requests/'+id+'/pickup','POST',{});toast(ok?'تحویل کتاب ثبت شد':d.error||'خطا');go('admin')}
 async function admOff(r,id){if(!confirm('این مورد غیرفعال شود؟'))return;await send(`/admin/${r}/${id}`,'DELETE');go('admin')}
 async function regs(id){const{d=[]}=await api(`/admin/events/${id}/registrations`);openM(`<h3 style="color:var(--gold2)">ثبت‌نام‌شده‌ها (${fa(d.length)})</h3>`+(d.map(r=>`<p class="sub">${esc(r.full_name)} · ${esc(r.phone)}</p>`).join('')||'<div class="empty">کسی ثبت‌نام نکرده</div>')+`<button class="btn o" onclick="closeM()">بستن</button>`)}
 const F={ /* [کلید، برچسب، نوع، الزامی/گزینه‌ها] */
  menu:[['name','نام','t',1],['category','دسته (مثلاً قهوه، دسر)'],['description','توضیح','a'],['price','قیمت (تومان)','n'],['image_url','آدرس تصویر'],['sort','ترتیب نمایش','n']],
  books:[['title','عنوان','t',1],['author','نویسنده'],['category','دسته'],['description','توضیح','a'],['type','نوع','s',{loan:'امانی',sale:'فروشی'}],['price','قیمت (تومان، برای فروشی)','n'],['status','وضعیت','s',{available:'موجود',loaned:'امانت داده شده'}],['image_url','آدرس تصویر']],
- art:[['name','نام','t',1],['category','دسته (رزین، شمع، ویترای…)'],['description','توضیح','a'],['price','قیمت (تومان)','n'],['stock_status','موجودی','s',{in_stock:'موجود',made_to_order:'ساخت بر اساس سفارش',out:'ناموجود'}],['allow_custom','امکان سفارشی‌سازی','b'],['image_url','آدرس تصویر']],
- events:[['title','عنوان','t',1],['description','توضیح','a'],['event_date','زمان','d'],['location','مکان'],['capacity','ظرفیت (خالی = نامحدود)','n'],['registration_open','ثبت‌نام باز باشد','b'],['image_url','آدرس تصویر']]};
+ art:[['name','نام','t',1],['category','دسته (رزین، شمع، ویترای…)'],['description','توضیح','a'],['price','قیمت (تومان)','n'],['image_url','آدرس تصویر']],
+ events:[['title','عنوان','t',1],['description','توضیح','a'],['event_date','زمان','d'],['capacity','ظرفیت (خالی = نامحدود)','n'],['image_url','آدرس تصویر']]};
 function admForm(r,id){
   const it=id?cache['adm_'+r].find(x=>x.id===id):{registration_open:true,type:'loan',status:'available',stock_status:'in_stock'};
   const dt=v=>v?new Date(new Date(v).getTime()-new Date(v).getTimezoneOffset()*6e4).toISOString().slice(0,16):'';
