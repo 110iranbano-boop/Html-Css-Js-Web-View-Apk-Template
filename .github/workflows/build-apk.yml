@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - fix/admin-loading-and-middleware
   workflow_dispatch:
 
 jobs:
