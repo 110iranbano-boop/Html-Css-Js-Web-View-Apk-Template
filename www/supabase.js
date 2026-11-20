@@ -110,7 +110,10 @@
     }
     if(p==="/books"&&method==="GET"){
       const data=await rows("books","*,category:book_categories(name)");
-      return ok(data.filter(x=>x.is_active).map(x=>({id:x.id,title:x.title,author:x.author,description:x.description,category:x.category?.name||"",type:x.book_type==="both"?"sale":x.book_type,status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path})));
+      return ok(data.filter(x=>x.is_active).flatMap(x=>{
+        const base={id:x.id,title:x.title,author:x.author,description:x.description,category:x.category?.name||"",status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path};
+        return x.book_type==="both"?[{...base,type:"loan"},{...base,type:"sale"}]:[{...base,type:x.book_type}];
+      }));
     }
     if(p==="/loan-requests/my"&&method==="GET"){
       const [reqs,loans]=await Promise.all([
@@ -141,13 +144,14 @@
       return ok({ok:true});
     }
     if(p==="/events"&&method==="GET"){
-      const [ev,reg]=await Promise.all([
+      const [ev,reg,usage]=await Promise.all([
         sb.from("events").select("*").eq("status","published").order("starts_at",{ascending:true}),
-        sb.from("event_registrations").select("event_id,people_count,status").eq("user_id",uid)
+        sb.from("event_registrations").select("event_id,status").eq("user_id",uid),
+        sb.from("event_capacity_usage").select("event_id,registered_people")
       ]);
-      if(ev.error) throw ev.error;if(reg.error) throw reg.error;
-      const regs=reg.data||[];
-      const mapped=(ev.data||[]).map(e=>({id:e.id,title:e.title,description:e.description,event_date:e.starts_at,image_url:e.poster_path,location:e.location||"",capacity:e.capacity_people,required_teammates:e.required_teammates,event_type:e.event_type,registration_open:e.event_type==="timed"&&e.is_registration_open,mine:regs.some(r=>r.event_id===e.id&&r.status==="registered"),registered:regs.filter(r=>r.event_id===e.id&&r.status==="registered").reduce((n,r)=>n+r.people_count,0),points:e.points_on_registration,rules_text:e.rules_text}));
+      if(ev.error) throw ev.error;if(reg.error) throw reg.error;if(usage.error) throw usage.error;
+      const regs=reg.data||[],capacityMap=Object.fromEntries((usage.data||[]).map(x=>[x.event_id,x.registered_people]));
+      const mapped=(ev.data||[]).map(e=>({id:e.id,title:e.title,description:e.description,event_date:e.starts_at,image_url:e.poster_path,location:e.location||"",capacity:e.capacity_people,required_teammates:e.required_teammates,event_type:e.event_type,registration_open:e.event_type==="timed"&&e.is_registration_open,mine:regs.some(r=>r.event_id===e.id&&r.status==="registered"),registered:capacityMap[e.id]||0,points:e.points_on_registration,rules_text:e.rules_text}));
       return ok(mapped);
     }
     const regMatch=p.match(/^\/events\/(\d+)\/register$/);
@@ -249,7 +253,7 @@
     if(p==="/admin/bookCats"&&method==="GET") return ok((await rows("book_categories")).map(x=>({...x,image_url:x.image_path,active:x.is_active,sort:x.sort_order})));
     if(p==="/admin/storeCats"&&method==="GET") return ok((await rows("store_categories")).map(x=>({...x,image_url:x.image_path,active:x.is_active,sort:x.sort_order})));
     if(p==="/admin/events"&&method==="GET") return ok((await rows("events")).map(x=>({...x,event_date:x.starts_at,capacity:x.capacity_people,registration_open:x.is_registration_open,image_url:x.poster_path,active:x.status==="published"})));
-    if(p==="/admin/books"&&method==="GET") return ok((await rows("books")).map(x=>({...x,type:x.book_type==="both"?"sale":x.book_type,status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path,active:x.is_active})));
+    if(p==="/admin/books"&&method==="GET") return ok((await rows("books","*,category:book_categories(name)")).flatMap(x=>{const base={...x,category:x.category?.name||"",status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path,active:x.is_active};return x.book_type==="both"?[{...base,type:"loan"},{...base,type:"sale"}]:[{...base,type:x.book_type}]}));
     if(p==="/admin/menu"&&method==="GET") return ok((await rows("cafe_products","*,category:cafe_categories(name)")).map(x=>({...x,category:x.category?.name||"",price:x.price_toman,image_url:x.image_path,active:x.is_available})));
     if(p==="/admin/art"&&method==="GET") return ok((await rows("store_products","*,category:store_categories(name)")).map(x=>({...x,category:x.category?.name||"",price:x.price_toman,image_url:x.image_path,active:x.is_available,stock_status:"in_stock"})));
     m=p.match(/^\/admin\/(menu|books|art|events|cafeCats|bookCats|storeCats)(?:\/(\d+))?$/);
@@ -272,15 +276,23 @@
       if(res==="storeCats"){table="store_categories";payload={name:body.name,description:body.description||null,image_path:body.image_url||null,sort_order:Number(body.sort)||0,is_active:true};}
       if(res==="books"){table="books";payload={title:body.title,author:body.author||null,description:body.description||null,category_id:await categoryId("book_categories",body.category),sale_price_toman:body.type==="sale"||body.type==="both"?Number(body.price)||0:null,book_type:body.type==="sale"?"sale":body.type==="both"?"both":"loan",available_copies:1,total_copies:1,cover_path:body.image_url||null,is_active:true};}
       if(res==="art"){table="store_products";payload={name:body.name,description:body.description||null,price_toman:Number(body.price)||0,image_path:body.image_url||null,is_available:true,category_id:await categoryId("store_categories",body.category)};}
-      if(res==="events"){table="events";payload={title:body.title,description:body.description||null,starts_at:body.event_date||null,location:body.location||null,event_type:body.event_type||"timed",capacity_people:body.capacity?Number(body.capacity):null,required_teammates:Number(body.required_teammates)||0,points_on_registration:Number(body.points_on_registration)||0,points_on_attendance:Number(body.points_on_attendance)||0,award_points_when:body.award_points_when||"disabled",rules_text:body.rules_text||null,is_registration_open:body.event_type==="weekly"?false:!!body.registration_open,poster_path:body.image_url||null,status:"published"};}
-      if(id){const {data,error}=await sb.from(table).update(payload).eq("id",id).select().single();if(error)throw error;return ok(data);}
+      if(res==="events"){table="events";payload={title:body.title,description:body.description||null,starts_at:body.event_date||null,location:body.location||null,event_type:body.event_type||"timed",capacity_people:body.capacity?Number(body.capacity):null,required_teammates:Number(body.required_teammates)||0,points_on_registration:Number(body.points_on_registration)||0,points_on_attendance:Number(body.points_on_attendance)||0,award_points_mode:body.award_points_when||"disabled",rules_text:body.rules_text||null,is_registration_open:body.event_type==="weekly"?false:!!body.registration_open,poster_path:body.image_url||null,status:"published"};}
+      if(id){
+        if(res==="books"){
+          const {data:current,error:currentError}=await sb.from("books").select("total_copies,available_copies").eq("id",id).single();
+          if(currentError)throw currentError;
+          payload.total_copies=current.total_copies;
+          payload.available_copies=current.available_copies;
+        }
+        const {data,error}=await sb.from(table).update(payload).eq("id",id).select().single();if(error)throw error;return ok(data);
+      }
       return ok(await single(table,payload));
     }
     if(p==="/admin/events/registrations"&&method==="GET") return ok([]);
     m=p.match(/^\/admin\/event-attendance\/([^/]+)$/);
     if(m&&method==="PUT"){const {data,error}=await sb.rpc("mark_event_attendance",{p_registration_person_id:m[1],p_attendance_status:body.status,p_notes:body.notes||null});if(error)throw error;return ok(data);}
     m=p.match(/^\/admin\/books\/(.+)\/return$/);
-    if(m&&method==="PUT"){const {data,error}=await sb.rpc("return_book",{p_loan_id:m[1]});if(error)throw error;return ok(data);}
+    if(m&&method==="PUT"){const {data,error}=await sb.rpc("return_book",{p_book_id:Number(m[1])});if(error)throw error;return ok(data);}
 
     m=p.match(/^\/admin\/events\/(\d+)\/registrations$/);
     if(m&&method==="GET"){
