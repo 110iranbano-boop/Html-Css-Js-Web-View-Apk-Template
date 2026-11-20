@@ -242,7 +242,7 @@ begin
           updated_at=now()
       where id=l.id returning * into l;
     update public.loan_extensions set status='approved',decided_by=auth.uid(),decided_at=now(),
-      previous_due_at=v_previous_due,new_due_at=l.current_due_at,admin_note=p_admin_note where id=x.id;
+      previous_due_at=v_previous_due,new_due_at=l.current_due_at,applied_at=now(),admin_note=p_admin_note where id=x.id;
   else
     update public.loan_extensions set status='rejected',decided_by=auth.uid(),decided_at=now(),admin_note=p_admin_note where id=x.id;
   end if;
