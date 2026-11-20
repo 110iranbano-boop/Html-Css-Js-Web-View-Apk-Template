@@ -436,6 +436,130 @@ grant execute on function public.review_loan_extension(uuid,boolean,text) to aut
 grant execute on function public.mark_event_attendance(uuid,text,text) to authenticated;
 grant execute on function public.return_book(bigint) to authenticated;
 grant execute on function public.settle_user_book_fines(uuid) to authenticated;
+
+-- Tighten direct-table access: sensitive state transitions must use the RPCs above.
+drop policy if exists "event_registrations_owner_insert" on public.event_registrations;
+drop policy if exists "event_registrations_owner_cancel_or_admin" on public.event_registrations;
+drop policy if exists "event_people_owner_insert" on public.event_registration_people;
+drop policy if exists "book_loans_admin_all" on public.book_loans;
+drop policy if exists "loan_extensions_admin_update" on public.loan_extensions;
+drop policy if exists "book_fines_admin_all" on public.book_fines;
+drop policy if exists "points_admin_insert" on public.points_transactions;
+drop policy if exists "event_attendance_admin_read_write" on public.event_attendance;
+
+create policy "event_attendance_admin_read"
+on public.event_attendance for select to authenticated
+using (public.has_permission('events.manage','view') or public.has_role('super_admin'));
+
+drop policy if exists "book_requests_owner_insert" on public.book_requests;
+create policy "book_requests_owner_insert"
+on public.book_requests for insert to authenticated
+with check (
+  user_id=auth.uid()
+  and request_type<>'borrow'
+  and status='pending'
+  and not exists(select 1 from public.profiles p where p.id=auth.uid() and p.is_suspended)
+);
+
+drop policy if exists "book_requests_admin_update" on public.book_requests;
+create policy "book_requests_admin_update"
+on public.book_requests for update to authenticated
+using (
+  request_type<>'borrow'
+  and (public.has_permission('library.manage','update') or public.has_role('super_admin'))
+)
+with check (
+  request_type<>'borrow'
+  and (public.has_permission('library.manage','update') or public.has_role('super_admin'))
+);
+
+create unique index if not exists uq_pending_loan_extension
+on public.loan_extensions(loan_id) where status='pending';
+
+-- Prevent clients from changing role-adjacent and suspension fields through profile updates.
+create or replace function public.protect_profile_sensitive_fields()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  if auth.uid() is not null and auth.uid()=old.id
+     and not public.has_role('super_admin')
+     and not public.has_permission('users.manage','update') then
+    if new.phone is distinct from old.phone
+       or new.membership_level_id is distinct from old.membership_level_id
+       or new.is_suspended is distinct from old.is_suspended
+       or new.suspension_reason is distinct from old.suspension_reason
+       or new.suspended_at is distinct from old.suspended_at
+       or new.suspension_ends_at is distinct from old.suspension_ends_at
+       or new.points_balance is distinct from old.points_balance then
+      raise exception 'تغییر این فیلدهای حساب از طریق پروفایل مجاز نیست';
+    end if;
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists protect_profile_sensitive_fields_trigger on public.profiles;
+create trigger protect_profile_sensitive_fields_trigger
+before update on public.profiles
+for each row execute function public.protect_profile_sensitive_fields();
+
+-- A member may create only a pending request for an actually available catalog item.
+create or replace function public.validate_member_purchase_request()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  v_name text;
+  v_price bigint;
+  v_active boolean;
+  v_type text;
+begin
+  if auth.uid() is not null and auth.uid()=new.user_id
+     and not public.has_role('super_admin')
+     and not public.has_permission('store.manage','create')
+     and not public.has_permission('library.manage','create') then
+    if new.status<>'pending' or new.final_price_toman is not null
+       or new.reviewed_by is not null or new.reviewed_at is not null then
+      raise exception 'درخواست خرید جدید باید در وضعیت انتظار بررسی ثبت شود';
+    end if;
+    if new.book_id is not null then
+      select title,sale_price_toman,is_active,book_type
+      into v_name,v_price,v_active,v_type
+      from public.books where id=new.book_id;
+      if not found or not v_active or v_type not in ('sale','both') then raise exception 'کتاب برای فروش موجود نیست'; end if;
+    else
+      select name,price_toman,is_available
+      into v_name,v_price,v_active
+      from public.store_products where id=new.store_product_id;
+      if not found or not v_active then raise exception 'محصول فروشگاه موجود نیست'; end if;
+    end if;
+    new.item_name_snapshot:=v_name;
+    new.unit_price_toman_snapshot:=coalesce(v_price,0);
+    new.contact_phone:=coalesce(new.contact_phone,(select phone from public.profiles where id=new.user_id));
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists validate_member_purchase_request_trigger on public.purchase_requests;
+create trigger validate_member_purchase_request_trigger
+before insert on public.purchase_requests
+for each row execute function public.validate_member_purchase_request();
+
+drop policy if exists "purchase_requests_owner_insert" on public.purchase_requests;
+create policy "purchase_requests_owner_insert"
+on public.purchase_requests for insert to authenticated
+with check (
+  user_id=auth.uid() and status='pending' and final_price_toman is null
+  and reviewed_by is null and reviewed_at is null
+  and not exists(select 1 from public.profiles p where p.id=auth.uid() and p.is_suspended)
+);
+
 grant execute on function public.apply_loan_late_fines() to service_role;
 
 -- Keep the existing scheduler entry point documented in the original migrations.
