@@ -49,6 +49,10 @@ using (
   id = auth.uid()
   or public.is_super_admin()
   or public.has_permission('users.manage','view')
+  or public.has_permission('library.manage','view')
+  or public.has_permission('store.manage','view')
+  or public.has_permission('events.manage','view')
+  or public.has_permission('forum.moderate','view')
   or (profile_visibility = 'members' and not is_suspended)
 );
 
