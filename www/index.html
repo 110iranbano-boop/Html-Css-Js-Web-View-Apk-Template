@@ -157,11 +157,11 @@ function boot(){
   if(!U||!localStorage.getItem('token'))return showAuth(false);
   try{cart=JSON.parse(localStorage.getItem('cart_'+U.id)||'[]')}catch{cart=[]}
   $('auth').classList.add('hidden');$('app').classList.remove('hidden');
-  const N=[['home','home','خانه'],['library','library','کتابخانه'],['events','events','رویدادها'],['art','art','گالری هنری'],['cafe','cafe','کافه'],['account','account','حساب']];
+  const N=[['home','home','خانه'],['library','library','کتابخانه'],['events','events','رویدادها'],['forum','forum','تاالر'],['art','art','گالری هنری'],['cafe','cafe','کافه'],['account','account','حساب']];
   $('nav').innerHTML=N.map(([k,i,t])=>`<button data-k="${k}" onclick="go('${k}')">${ic(i)}${t}</button>`).join('');
   go('home');refreshBadges();
 }
-const TITLES={home:'سیمرغ',cafe:'کافه‌کتاب',library:'کتابخانه',events:'رویدادها',art:'گالری هنری سیمرغ',cart:'سبد خرید',account:'حساب کاربری',notifs:'اعلان‌ها',mine:'درخواست‌های من',admin:'پنل مدیریت'};
+const TITLES={home:'سیمرغ',cafe:'کافه‌کتاب',library:'کتابخانه',events:'رویدادها',forum:'تاالر سیمرغ',art:'گالری هنری سیمرغ',cart:'سبد خرید',account:'حساب کاربری',notifs:'اعلان‌ها',mine:'درخواست‌های من',admin:'پنل مدیریت'};
 async function go(p,arg){
   page=p;document.body.dataset.pg=p;if(p==='library'&&arg)libTab=arg;
   $('title').textContent=TITLES[p];$('back').classList.toggle('hidden',p==='home');
@@ -181,7 +181,7 @@ const list=(a,empty)=>a.length?a:`<div class="empty">${empty}</div>`;
 /* ---------- صفحه‌ها ---------- */
 const R={
 home(){
-  const S=[['cafe','cafe','کافه‌کتاب'],['library','library','کتابخانه'],['events','events','رویدادها'],['art','art','گالری هنری'],['cart','cart','سبد خرید'],['request','request','درخواست کتاب'],['account','account','حساب کاربری']];
+  const S=[['cafe','cafe','کافه‌کتاب'],['library','library','کتابخانه'],['events','events','رویدادها'],['forum','forum','تاالر سیمرغ'],['art','art','گالری هنری'],['cart','cart','سبد خرید'],['request','request','درخواست کتاب'],['account','account','حساب کاربری']];
   const seg=S.map(([k,i,t],n)=>{const a=n*2*Math.PI/7-Math.PI/2;
     return `<button class="seg" style="left:${50-37*Math.cos(a)}%;top:${50+37*Math.sin(a)}%" onclick="${k==='request'?"go('library','request')":`go('${k}')`}">${ic(i)}${t}</button>`}).join('');
   $('main').innerHTML=`<div class="brand"><img class="lg" src="img/logo-512.png" alt=""><div class="name">سیمرغ</div><p>فرهنگ، هنر، کتاب و تجربه</p></div>
@@ -254,6 +254,36 @@ async notifs(){
   $('main').innerHTML=(ok?d:[]).map(n=>`<div class="card" style="${n.is_read?'':'border-color:var(--gold)'}"><h3>${esc(n.title)}</h3><p>${esc(n.body||'')}</p><p>${when(n.created_at)}</p></div>`).join('')||'<div class="empty">اعلانی ندارید</div>';
   if(ok&&d.some(n=>!n.is_read)){await send('/notifications/read','PUT');refreshBadges()}
 },
+
+async forum(){
+  const {data:topics,error}=await sb.from("forum_topics").select("*").eq("status","published").order("created_at",{ascending:false});
+  if(error){$("main").innerHTML='<div class="empty">تالار بارگذاری نشد. اجرای مهاجرت Supabase را بررسی کنید.</div>';return}
+  const ids=(topics||[]).map(x=>x.user_id);
+  const topicIds=(topics||[]).map(x=>x.id);
+  const [authors,images,comments]=await Promise.all([
+    ids.length?sb.from("forum_public_profiles").select("*").in("id",ids):Promise.resolve({data:[]}),
+    topicIds.length?sb.from("forum_topic_images").select("*").in("topic_id",topicIds).order("sort_order"):Promise.resolve({data:[]}),
+    topicIds.length?sb.from("forum_comments").select("*").in("topic_id",topicIds).eq("status","published").order("created_at"):Promise.resolve({data:[]})
+  ]);
+  if(authors.error||images.error||comments.error){$("main").innerHTML='<div class="empty">دریافت محتوای تالار با خطا روبه‌رو شد.</div>';return}
+  const amap=Object.fromEntries((authors.data||[]).map(x=>[x.id,x]));
+  const grouped={};for(const c of comments.data||[])(grouped[c.topic_id]??=[]).push(c);
+  const cids=(comments.data||[]).map(x=>x.user_id);
+  const {data:ca=[]}=cids.length?await sb.from("forum_public_profiles").select("*").in("id",[...new Set(cids)]):{data:[]};
+  const cmap=Object.fromEntries(ca.map(x=>[x.id,x]));
+  const canCreate=U.role==="admin"||U.can_create_topic;
+  const draw=(topicId,parent,depth)=>((grouped[topicId]||[]).filter(c=>(c.parent_id||null)===parent).map(c=>{
+    const a=cmap[c.user_id]||{};
+    return '<div class="card" style="margin:8px 0 8px '+Math.min(depth*12,48)+'px;padding:10px"><b>'+esc(a.display_name||"عضو سیمرغ")+'</b><p>'+esc(c.body)+'</p><button class="btn o s" onclick="replyForum(''+topicId+'',''+c.id+'')">پاسخ</button>'+draw(topicId,c.id,depth+1)+'</div>';
+  }).join(""));
+  let html=canCreate?'<button class="btn" onclick="newForumTopic()">+ ایجاد تاپیک جدید</button>':'<p class="sub">برای ایجاد تاپیک باید مدیر تالار به حساب شما مجوز بدهد. امکان مشاهده و ثبت نظر فعال است.</p>';
+  html+=(topics||[]).map(t=>{
+    const a=amap[t.user_id]||{};
+    const pics=(images.data||[]).filter(i=>i.topic_id===t.id).map(i=>'<img src="'+esc(sb.storage.from("forum-images").getPublicUrl(i.storage_path).data.publicUrl)+'" alt="" loading="lazy">').join("");
+    return '<article class="card"><div class="row"><b>'+esc(a.display_name||"عضو سیمرغ")+'</b><small>'+when(t.created_at)+'</small></div><h3 style="margin-top:8px">'+esc(t.title)+'</h3><p>'+esc(t.body)+'</p>'+pics+'<div class="sec">گفت‌وگو</div>'+draw(t.id,null,0)+'<button class="btn o" onclick="replyForum(''+t.id+'',null)">ثبت نظر</button>'+(U.role==="admin"?'<button class="btn r s" onclick="hideForumTopic(''+t.id+'')">پنهان‌کردن تاپیک</button>':"")+'</article>';
+  }).join("")||'<div class="empty">هنوز تاپیکی ثبت نشده است.</div>';
+  $("main").innerHTML=html;
+},
 async admin(){
   const T=[['purchase','خرید'],['loan','امانت'],['breq','درخواست کتاب'],['menu','منوی کافه'],['books','کتاب‌ها'],['art','گالری'],['events','رویدادها']];
   const head=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===admTab?'on':''}" onclick="admTab='${k}';go('admin')">${t}</button>`).join('')}</div>`;
@@ -278,6 +308,27 @@ async admin(){
 }};
 
 /* ---------- عملیات ---------- */
+
+function newForumTopic(){openM('<h3 style="color:var(--gold2)">تاپیک جدید</h3><label>عنوان</label><input id="forumTitle" maxlength="200"><label>متن</label><textarea id="forumBody" rows="5"></textarea><label>تصاویر (اختیاری)</label><input id="forumFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple><button class="btn" onclick="submitForumTopic()">انتشار</button><button class="btn o" onclick="closeM()">انصراف</button>')}
+async function submitForumTopic(){
+  const title=$("forumTitle").value.trim(),body=$("forumBody").value.trim(),files=[...($("forumFiles").files||[])];
+  if(title.length<3||!body)return toast("عنوان و متن تاپیک را کامل کنید");
+  if(files.length>5)return toast("حداکثر ۵ تصویر مجاز است");
+  const {data:topic,error}=await sb.from("forum_topics").insert({user_id:U.id,title,body}).select().single();
+  if(error)return toast(error.message);
+  for(const file of files){
+    if(!["image/jpeg","image/png","image/webp"].includes(file.type)||file.size>5*1024*1024){toast("فقط JPG، PNG یا WEBP تا ۵ مگابایت مجاز است");continue}
+    const path=U.id+"/"+Date.now()+"-"+file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
+    const up=await sb.storage.from("forum-images").upload(path,file,{upsert:false});
+    if(!up.error){const ins=await sb.from("forum_topic_images").insert({topic_id:topic.id,storage_path:path,alt_text:file.name});if(ins.error)console.error(ins.error)}
+  }
+  closeM();toast("تاپیک منتشر شد");go("forum");
+}
+function replyForum(topicId,parentId){openM('<h3 style="color:var(--gold2)">ثبت نظر</h3><textarea id="forumComment" rows="4" placeholder="متن دیدگاه"></textarea><button class="btn" onclick="submitForumComment(\''+topicId+'\', '+(parentId?"\'"+parentId+"\'":"null")+')">ارسال</button><button class="btn o" onclick="closeM()">انصراف</button>')}
+async function submitForumComment(topicId,parentId){const body=$("forumComment").value.trim();if(!body)return toast("متن دیدگاه را وارد کنید");const {error}=await sb.from("forum_comments").insert({topic_id:topicId,user_id:U.id,parent_id:parentId,body});if(error)return toast(error.message);closeM();toast("دیدگاه ثبت شد");go("forum")}
+async function hideForumTopic(id){if(!confirm("این تاپیک پنهان شود؟"))return;const {error}=await sb.from("forum_topics").update({status:"hidden"}).eq("id",id);if(error)return toast(error.message);go("forum")}
+async function logout(){try{await sb.auth.signOut()}catch(e){console.warn(e)}localStorage.removeItem("token");localStorage.removeItem("user");U=null;cart=[];showAuth(false)}
+
 function addCart(type,id){
   const src=type==='book'?cache.books:cache.art,it=src.find(x=>x.id===id),ex=cart.find(c=>c.type===type&&c.id===id);
   if(ex)ex.qty++;else cart.push({type,id,title:it.title||it.name,price:it.price,qty:1,note:''});
