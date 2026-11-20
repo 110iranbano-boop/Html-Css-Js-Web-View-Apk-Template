@@ -188,11 +188,15 @@ home(){
   <div class="wheel"><div class="core"><img src="img/logo-512.png" alt=""></div>${seg}</div><div class="tag">جایی برای رویاها، کتاب‌ها و هنر…</div>`;
 },
 async cafe(){
-  const{ok,d}=await api('/menu');if(!ok)return $('main').innerHTML='<div class="empty">منو بارگذاری نشد</div>';
-  const cats=[...new Set(d.map(i=>i.category||'سایر'))];
-  $('main').innerHTML=cats.map(c=>`<div class="sec">${esc(c)}</div>`+d.filter(i=>(i.category||'سایر')===c).map(i=>`
-    <div class="card">${i.image_url?img(i.image_url,'☕'):''}<div class="row"><h3>${esc(i.name)}</h3><span class="price">${money(i.price)}</span></div>${i.description?`<p>${esc(i.description)}</p>`:''}</div>`).join('')).join('')||'<div class="empty">منو هنوز ثبت نشده است</div>';
-  /* کافه فقط نمایش منو است؛ دکمهٔ سفارش یا سبد وجود ندارد */
+  const [m,c]=await Promise.all([api('/menu'),api('/cafe-categories')]);
+  if(!m.ok||!c.ok)return $('main').innerHTML='<div class="empty">منو بارگذاری نشد</div>';
+  const cats=c.d||[],selected=cats.find(x=>x.id===cache.cafeCat)?.name||'همه';
+  const tabs='<div class="tabs"><button class="'+(selected==='همه'?'on':'')+'" onclick="cache.cafeCat=0;go(&quot;cafe&quot;)">همه</button>'+cats.map(x=>'<button class="'+(selected===x.name?'on':'')+'" onclick="cache.cafeCat='+x.id+';go(&quot;cafe&quot;)">'+esc(x.name)+'</button>').join('')+'</div>';
+  const categoryCards=selected==='همه'?'<div class="grid">'+cats.map(x=>'<button class="card" onclick="cache.cafeCat='+x.id+';go(&quot;cafe&quot;)">'+(x.image_url?img(x.image_url,'☕'):'<div class="ph">☕</div>')+'<h3>'+esc(x.name)+'</h3><p>'+esc(x.description||'')+'</p></button>').join('')+'</div>':'';
+  const products=m.d.filter(x=>selected==='همه'||x.category===selected);
+  const items=products.map(i=>'<div class="card">'+(i.image_url?img(i.image_url,'☕'):'')+'<div class="row"><h3>'+esc(i.name)+'</h3><span class="price">'+money(i.price)+'</span></div>'+(i.description?'<p>'+esc(i.description)+'</p>':'')+'</div>').join('')||'<div class="empty">محصولی در این دسته ثبت نشده است</div>';
+  $('main').innerHTML=tabs+categoryCards+items;
+  /* کافه فقط نمایش منو است؛ سفارش‌گیری تعریف نشده است */
 },
 async library(){
   const[b,l]=await Promise.all([api('/books'),api('/loan-requests/my')]);
