@@ -6,6 +6,7 @@ alter table public.profiles
   add column if not exists phone text;
 
 alter table public.events add column if not exists location text;
+alter table public.purchase_requests add column if not exists final_price_toman bigint check (final_price_toman is null or final_price_toman >= 0);
 alter table public.store_products add column if not exists stock_status text not null default 'in_stock'
   check (stock_status in ('in_stock','made_to_order','out'));
 alter table public.store_products add column if not exists allow_custom boolean not null default false;
