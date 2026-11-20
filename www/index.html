@@ -302,7 +302,7 @@ async forum(){
   $("main").innerHTML=html;
 },
 async admin(){
-  const T=[['purchase','خرید'],['loan','امانت'],['extensions','تمدید امانت'],['fines','جریمه‌ها'],['breq','درخواست کتاب'],['cafeCats','دسته‌های کافه'],['menu','منوی کافه'],['bookCats','موضوعات کتاب'],['books','کتاب‌ها'],['storeCats','موضوعات فروشگاه'],['art','فروشگاه'],['events','رویدادها']];if(U.is_super_admin)T.push(['access','دسترسی‌ها']);
+  const T=[['purchase','خرید'],['loan','درخواست امانت'],['activeLoans','امانت‌های فعال'],['extensions','تمدید امانت'],['fines','جریمه‌ها'],['breq','درخواست کتاب'],['cafeCats','دسته‌های کافه'],['menu','منوی کافه'],['bookCats','موضوعات کتاب'],['books','کتاب‌ها'],['storeCats','موضوعات فروشگاه'],['art','فروشگاه'],['events','رویدادها']];if(U.is_super_admin)T.push(['access','دسترسی‌ها']);
   const head=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===admTab?'on':''}" onclick="admTab='${k}';go('admin')">${t}</button>`).join('')}</div>`;
   let body='';
   if(admTab==='purchase'){const{d=[]}=await api('/admin/purchase-requests');
@@ -317,6 +317,7 @@ async admin(){
     body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.author||'')} — ${esc(r.full_name)} · ${esc(r.phone)}</p>${r.description?`<p>${esc(r.description)}</p>`:''}
     <select onchange="send('/admin/book-requests/${r.id}','PUT',{status:this.value}).then(x=>toast(x.ok?'ثبت شد':'خطا'))">${Object.entries(GST).map(([k,t])=>`<option value="${k}" ${k===r.status?'selected':''}>${t}</option>`).join('')}</select>
     <input placeholder="نتیجهٔ بررسی برای کاربر" value="${esc(r.admin_note||'')}" onchange="send('/admin/book-requests/${r.id}','PUT',{admin_note:this.value}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px"></div>`).join('')||'<div class="empty">درخواستی نیست</div>'}
+  else if(admTab==='activeLoans'){const{d=[]}=await api('/admin/active-loans');body=d.map(x=>'<div class="card"><h3>'+esc(x.book_title)+'</h3><p>'+esc(x.full_name)+' · '+esc(x.phone)+'</p><p>تحویل: '+when(x.handed_over_at)+' · سررسید: '+when(x.current_due_at)+'</p><button class="btn" onclick="returnActiveLoan(\''+x.id+'\')">ثبت بازگشت واقعی کتاب</button></div>').join('')||'<div class="empty">امانت فعالی وجود ندارد.</div>'}
   else if(admTab==='extensions'){const{d=[]}=await api('/admin/loan-extensions');body=d.map(x=>'<div class="card"><h3>'+esc(x.book_title)+'</h3><p>'+esc(x.full_name)+' · '+esc(x.phone)+'</p><p>درخواست: '+when(x.requested_at)+'</p>'+badge(x.status==='pending'?'در انتظار بررسی':x.status==='approved'?'تأییدشده':'ردشده')+(x.status==='pending'?'<button class="btn s" onclick="reviewExtension(\''+x.id+'\',true)">تأیید تمدید ۷ روزه</button><button class="btn r s" onclick="reviewExtension(\''+x.id+'\',false)">رد درخواست</button>':"")+'</div>').join('')||'<div class="empty">درخواست تمدیدی وجود ندارد.</div>'}
   else if(admTab==='fines'){const{d=[]}=await api('/admin/fines');const by={};for(const x of d)(by[x.user_id]??=[]).push(x);body=Object.entries(by).map(([uid,items])=>'<div class="card"><h3>'+esc(items[0].full_name)+' · '+esc(items[0].phone)+'</h3>'+items.map(x=>'<p>'+esc(x.book_title)+' · '+esc(x.fine_date)+' · '+fa(x.points_amount)+' امتیاز</p>').join('')+'<button class="btn" onclick="settleFines(\''+uid+'\')">ثبت تسویه جریمه‌ها</button></div>').join('')||'<div class="empty">جریمه بازی ثبت نشده است.</div>'}
   else if(admTab==='access'){
@@ -337,7 +338,7 @@ async admin(){
   }
   else{const{d=[]}=await api('/admin/'+admTab);cache['adm_'+admTab]=d;const nm=i=>i.name||i.title;
     body=`<button class="btn" onclick="admForm('${admTab}')">+ افزودن</button>`+d.map(i=>`<div class="card" style="margin-top:10px;${i.active?'':'opacity:.5'}"><div class="row"><h3>${esc(nm(i))}</h3>${i.active?'':badge('غیرفعال','no')}</div>
-    <button class="btn o s" onclick="admForm('${admTab}',${i.id})">ویرایش</button> ${admTab==='books'&&i.type==='loan'&&i.status==='loaned'?`<button class="btn s" onclick="send('/admin/books/${i.id}/return','PUT').then(()=>go('admin'))">ثبت بازگشت</button>`:''}
+    <button class="btn o s" onclick="admForm('${admTab}',${i.id})">ویرایش</button> 
     ${admTab==='events'?`<button class="btn o s" onclick="regs(${i.id})">ثبت‌نام‌شده‌ها</button>`:''} ${i.active?`<button class="btn r s" onclick="admOff('${admTab}',${i.id})">غیرفعال</button>`:''}</div>`).join('')}
   $('main').innerHTML=head+body;
 }};
@@ -345,6 +346,7 @@ async admin(){
 /* ---------- عملیات ---------- */
 
 
+async function returnActiveLoan(id){if(!confirm('تحویل واقعی این کتاب ثبت شود؟'))return;const{ok,d}=await send('/admin/active-loans/'+id+'/return','PUT');if(!ok)return toast(d.error||'ثبت بازگشت ناموفق بود');toast('بازگشت کتاب ثبت شد');go('admin')}
 async function requestLoanExtension(id){const{ok,d}=await send('/loan-extensions','POST',{loan_id:id});if(!ok)return toast(d.error||'ثبت درخواست تمدید ناموفق بود');toast('درخواست تمدید ثبت شد');go('account')}
 async function reviewExtension(id,approve){const{ok,d}=await send('/admin/loan-extensions/'+id,'PUT',{status:approve?'approved':'rejected'});if(!ok)return toast(d.error||'ثبت نتیجه ناموفق بود');toast('نتیجه ثبت شد');go('admin')}
 async function settleFines(id){if(!confirm('پس از دریافت تسویه حضوری، جریمه‌های باز این کاربر تسویه شوند؟'))return;const{ok,d}=await send('/admin/fines/'+id+'/settle','PUT');if(!ok)return toast(d.error||'تسویه انجام نشد');toast('جریمه‌ها تسویه شدند');go('admin')}
