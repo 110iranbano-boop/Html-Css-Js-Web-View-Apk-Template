@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - simorgh-supabase-completion
   workflow_dispatch:
 
 jobs:
