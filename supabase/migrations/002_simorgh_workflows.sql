@@ -19,15 +19,17 @@ security definer
 set search_path = public, auth
 as $$
 begin
-  insert into public.profiles (id, display_name, phone)
+  insert into public.profiles (id, display_name, phone, membership_level_id)
   values (
     new.id,
     coalesce(nullif(new.raw_user_meta_data ->> 'display_name',''),
              nullif(new.raw_user_meta_data ->> 'full_name','')),
-    new.phone
+    new.phone,
+    (select id from public.membership_levels order by min_points, sort_order limit 1)
   )
   on conflict (id) do update
     set phone = coalesce(public.profiles.phone, excluded.phone),
+        membership_level_id = coalesce(public.profiles.membership_level_id, excluded.membership_level_id),
         display_name = coalesce(public.profiles.display_name, excluded.display_name);
 
   insert into public.user_roles (user_id, role)
