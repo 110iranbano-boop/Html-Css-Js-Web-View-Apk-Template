@@ -350,7 +350,7 @@ begin
     if l.current_due_at < now() - interval '7 days' then
       for d in select generate_series((l.current_due_at::date+8)::timestamp,current_date::timestamp,interval '1 day')::date loop
         insert into public.book_fines(loan_id,user_id,fine_date,points_amount,reason,status)
-        values(l.id,l.user_id,d,10,'loan_late','open')
+        values(l.id,l.user_id,d,10,'late_return','open')
         on conflict(loan_id,fine_date) do nothing returning id into fine_id;
         if fine_id is not null then
           insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
