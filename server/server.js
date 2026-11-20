@@ -488,6 +488,31 @@ app.put('/api/admin/book-requests/:id', ...signedIn, wrap(async(req,res)=>{
   const {data,error}=await db.from('book_requests').update({status:req.body.status,admin_note:req.body.admin_note,reviewed_by:req.user.id,reviewed_at:new Date().toISOString()}).eq('id',req.params.id).select().single();
   if(error) throw error; res.json(data);
 }));
+const categoryResources={
+  cafe:{table:'cafe_categories',permission:'cafe.manage'},
+  books:{table:'book_categories',permission:'library.manage'},
+  store:{table:'store_categories',permission:'store.manage'}
+};
+app.get('/api/admin/categories/:kind(cafe|books|store)', ...signedIn, wrap(async(req,res)=>{
+  const r=categoryResources[req.params.kind]; if(!await can(req,r.permission,'view')) return fail(res,'دسترسی ندارید',403);
+  const {data,error}=await db.from(r.table).select('*').order('sort_order').order('id'); if(error) throw error; res.json(data||[]);
+}));
+app.post('/api/admin/categories/:kind(cafe|books|store)', ...signedIn, wrap(async(req,res)=>{
+  const r=categoryResources[req.params.kind]; if(!await can(req,r.permission,'create')) return fail(res,'دسترسی ایجاد ندارید',403);
+  const name=String(req.body.name||'').trim(); if(!name) return fail(res,'نام دسته الزامی است');
+  const {data,error}=await db.from(r.table).insert({name,image_path:req.body.image_path||null,description:req.body.description||null,sort_order:Number(req.body.sort_order||0),is_active:req.body.is_active!==false}).select().single();
+  if(error) throw error; res.status(201).json(data);
+}));
+app.put('/api/admin/categories/:kind(cafe|books|store)/:id', ...signedIn, wrap(async(req,res)=>{
+  const r=categoryResources[req.params.kind]; if(!await can(req,r.permission,'update')) return fail(res,'دسترسی ویرایش ندارید',403);
+  const patch={}; for(const k of ['name','image_path','description','sort_order','is_active']) if(req.body[k]!==undefined) patch[k]=req.body[k];
+  const {data,error}=await db.from(r.table).update(patch).eq('id',req.params.id).select().single();
+  if(error) throw error; res.json(data);
+}));
+app.delete('/api/admin/categories/:kind(cafe|books|store)/:id', ...signedIn, wrap(async(req,res)=>{
+  const r=categoryResources[req.params.kind]; if(!await can(req,r.permission,'delete')) return fail(res,'دسترسی حذف ندارید',403);
+  const {error}=await db.from(r.table).update({is_active:false}).eq('id',req.params.id); if(error) throw error; res.json({ok:true});
+}));
 app.get('/api/admin/users', ...signedIn, wrap(async(req,res)=>{
   if(!await can(req,'users.manage','view')) return fail(res,'دسترسی ندارید',403);
   const {data:authData,error:authError}=await db.auth.admin.listUsers({page:1,perPage:1000});
