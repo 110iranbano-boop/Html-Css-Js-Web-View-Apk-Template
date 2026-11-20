@@ -234,17 +234,18 @@ cart(){
   <button class="btn" onclick="submitCart()">ثبت درخواست خرید</button><p style="margin-top:6px">پرداخت اینترنتی در برنامه انجام نمی‌شود؛ این فقط ثبت درخواست است.</p></div>`;
 },
 async account(){
-  const [loans,fines,points,level]=await Promise.all([
+  const [loans,fines,points,level,extensions]=await Promise.all([
     sb.from("book_loans").select("*,book:books(title)").eq("user_id",U.id).is("returned_at",null).order("handed_over_at",{ascending:false}),
     sb.from("book_fines").select("*").eq("user_id",U.id).eq("status","open"),
     sb.from("points_transactions").select("*").eq("user_id",U.id).order("created_at",{ascending:false}).limit(12),
-    U.membership_level_id?sb.from("membership_levels").select("name").eq("id",U.membership_level_id).maybeSingle():Promise.resolve({data:null})
+    U.membership_level_id?sb.from("membership_levels").select("name").eq("id",U.membership_level_id).maybeSingle():Promise.resolve({data:null}),
+    sb.from("loan_extensions").select("loan_id,status").eq("status","pending")
   ]);
   const balance=(points.data||[]).reduce((n,x)=>n+x.points_delta,0);
   const suspended=U.is_suspended?'<span class="badge no">حساب تعلیق‌شده</span>':'<span class="badge ok">حساب فعال</span>';
   $("main").innerHTML='<div class="mc"><div class="row"><div><b style="font-size:18px">'+esc(U.full_name)+'</b><p>'+esc(U.phone)+'</p></div>'+(U.avatar_url?'<img src="'+esc(U.avatar_url)+'" style="width:66px;height:66px;border-radius:50%;object-fit:cover">':'<div class="ph" style="width:66px;height:66px;border-radius:50%">👤</div>')+'</div><p style="margin-top:8px">'+suspended+' '+badge(U.role==="admin"?(U.is_super_admin?"مدیر ارشد":"مدیر بخش"):"عضو")+'</p><div style="margin-top:10px;color:var(--gold);font-size:15px">کارت عضویت سیمرغ</div><div class="code">'+esc(U.member_code||"")+'</div><div class="row" style="margin-top:12px"><span>سطح عضویت: '+esc(level.data?.name||"سطح یک")+'</span><b>امتیاز: '+fa(balance)+'</b></div></div>'+
   '<button class="menu" onclick="editProfile()">'+ic("account")+'<span>مشخصات کاربری</span>‹</button><button class="menu" onclick="go(\'mine\')">'+ic("receipt")+'<span>درخواست‌های من</span>‹</button><button class="menu" onclick="go(\'notifs\')">'+ic("bell")+'<span>اعلان‌ها</span>‹</button>'+
-  '<div class="sec">کتاب‌های امانت‌گرفته‌شده</div>'+((loans.data||[]).map(x=>'<div class="card"><h3>'+esc(x.book?.title||"کتاب")+'</h3><p>مهلت تحویل: '+when(x.current_due_at)+'</p></div>').join("")||'<div class="empty">کتاب امانی فعالی ندارید</div>')+
+  '<div class="sec">کتاب‌های امانت‌گرفته‌شده</div>'+((loans.data||[]).map(x=>'<div class="card"><h3>'+esc(x.book?.title||"کتاب")+'</h3><p>مهلت تحویل: '+when(x.current_due_at)+'</p>'+((extensions.data||[]).some(z=>z.loan_id===x.id)?badge("درخواست تمدید در انتظار بررسی"):'<button class="btn o s" onclick="requestLoanExtension(\\''+x.id+'\\')">درخواست تمدید یک هفته‌ای</button>')+'</div>').join('')||'<div class="empty">کتاب امانی فعالی ندارید</div>')+
   '<div class="sec">جریمه‌های باز</div>'+((fines.data||[]).map(x=>'<div class="card"><p>'+esc(x.reason)+'</p><b>'+fa(x.points_amount)+' امتیاز</b> · '+esc(x.fine_date)+'</div>').join("")||'<div class="empty">جریمه بازی ندارید</div>')+
   '<div class="sec">سوابق امتیاز</div>'+((points.data||[]).map(x=>'<div class="row card"><span>'+esc(x.description||x.reason_code)+'</span><b style="color:'+(x.points_delta<0?'var(--bad)':'var(--ok)')+'">'+(x.points_delta>0?'+':'')+fa(x.points_delta)+'</b></div>').join("")||'<div class="empty">هنوز تراکنش امتیازی ندارید</div>')+
   (U.role==="admin"?'<button class="menu" onclick="go(\'admin\')">'+ic("settings")+'<span>پنل مدیریت</span>‹</button>':"")+'<button class="btn r" onclick="logout()">خروج از حساب</button>';
