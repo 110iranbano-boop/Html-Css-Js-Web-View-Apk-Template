@@ -30,6 +30,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate application JavaScript
+        run: |
+          node --check www/supabase.js
+          node -e "const fs=require('fs'); const html=fs.readFileSync('www/index.html','utf8'); const m=html.match(/<script>\\s*([\\s\\S]*?)\\s*<\\/script>\\s*<\\/body>/i); if(!m) throw new Error('Inline application script not found'); fs.writeFileSync('/tmp/simorgh-index.js',m[1]);"
+          node --check /tmp/simorgh-index.js
+
       - name: Add Android platform
         run: npx cap add android
 
