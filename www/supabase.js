@@ -196,7 +196,7 @@
       if(error) throw error; return ok({ok:true});
     }
     if(p==="/profile"&&method==="PUT"){
-      const patch={display_name:String(body.full_name||"").trim(),username:String(body.username||"").trim()||null,bio:String(body.bio||"").trim()||null,avatar_url:String(body.avatar_url||"").trim()||null,profile_visibility:body.profile_visibility==="members"?"members":"private"};
+      const patch={display_name:String(body.full_name||"").trim(),username:String(body.username||"").trim()||null,bio:String(body.bio||"").trim()||null,avatar_url:String(body.avatar_url||"").trim()||null};if(body.profile_visibility)patch.profile_visibility=body.profile_visibility==="members"?"members":"private";
       const {data,error}=await sb.from("profiles").update(patch).eq("id",uid).select().single();
       if(error) throw error; return ok({...ctx.user,full_name:data.display_name,username:data.username,bio:data.bio,avatar_url:data.avatar_url,profile_visibility:data.profile_visibility});
     }
