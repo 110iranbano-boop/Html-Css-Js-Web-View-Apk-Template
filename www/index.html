@@ -123,6 +123,14 @@ async function api(p,o={},retried=false){
 }
 const send=(p,m,b)=>api(p,{method:m,body:b?JSON.stringify(b):undefined});
 
+function logout(silent=false){
+  localStorage.removeItem('token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+  U=null;cart=[];$('app').classList.add('hidden');
+  showAuth(false);
+  if(!silent)toast('از حساب خارج شدید');
+}
 /* ---------- ورود و ثبت‌نام ---------- */
 function showAuth(signup){
   document.body.dataset.pg='home';
