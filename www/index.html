@@ -64,6 +64,8 @@ input[type=checkbox]{width:auto}
 .modal>div{width:100%;max-height:88vh;overflow:auto;background:var(--bg);border-top:1.5px solid var(--gold);border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))}
 .toast{position:fixed;bottom:90px;right:50%;transform:translateX(50%);z-index:60;background:var(--gold);color:#1a1405;padding:10px 18px;border-radius:20px;font-size:13.5px;max-width:88vw;text-align:center}
 .auth{max-width:420px;margin:0 auto;padding:30px 18px}
+.user-pill{display:flex;align-items:center;gap:6px;max-width:118px;min-width:0;padding:4px 7px;border:1px solid var(--line);border-radius:22px;background:var(--s1);cursor:pointer;font-size:11px;color:var(--gold2)}
+.user-pill img{width:28px;height:28px;border-radius:50%;object-fit:cover}.user-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.user-pill .suspension-dot{width:8px;height:8px;min-width:8px;border-radius:50%;background:#e4c52c}
 @media (prefers-reduced-motion:no-preference){.wheel{animation:fade .6s ease}@keyframes fade{from{opacity:0;transform:scale(.96)}}}
 </style>
 </head>
@@ -73,6 +75,7 @@ input[type=checkbox]{width:auto}
   <div class="top">
     <button class="ib" id="back" onclick="go('home')" aria-label="خانه">→</button>
     <h1 id="title"></h1>
+    <button class="user-pill" id="userCard" onclick="go(&quot;account&quot;)" aria-label="پروفایل"></button>
     <button class="ib" onclick="go('notifs')" aria-label="اعلان‌ها"><img class="ic" src="img/icons/bell.svg" alt=""><b id="nb" class="hidden"></b></button>
     <button class="ib" onclick="go('cart')" aria-label="سبد خرید"><img class="ic" src="img/icons/cart.svg" alt=""><b id="cb" class="hidden"></b></button>
   </div>
@@ -157,6 +160,7 @@ function boot(){
   if(!U||!localStorage.getItem('token'))return showAuth(false);
   try{cart=JSON.parse(localStorage.getItem('cart_'+U.id)||'[]')}catch{cart=[]}
   $('auth').classList.add('hidden');$('app').classList.remove('hidden');
+  $('userCard').innerHTML=(U.avatar_url?'<img src="'+esc(U.avatar_url)+'" alt="">':'<span style="font-size:20px">👤</span>')+'<span>'+esc(U.full_name||'حساب کاربری')+'</span>'+(U.is_suspended?'<i class="suspension-dot"></i>':'');
   const N=[['home','home','خانه'],['library','library','کتابخانه'],['events','events','رویدادها'],['forum','forum','تاالر'],['art','art','گالری هنری'],['cafe','cafe','کافه'],['account','account','حساب']];
   $('nav').innerHTML=N.map(([k,i,t])=>`<button data-k="${k}" onclick="go('${k}')">${ic(i)}${t}</button>`).join('');
   go('home');refreshBadges();
