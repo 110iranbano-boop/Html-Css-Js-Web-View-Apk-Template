@@ -266,7 +266,7 @@ async admin(){
     <input placeholder="مبلغ نهایی (تومان)" inputmode="numeric" value="${r.final_price??''}" onchange="send('/admin/purchase-requests/${r.id}','PUT',{final_price:latin(this.value)}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px">
     <input placeholder="پیام برای کاربر" value="${esc(r.admin_note||'')}" onchange="send('/admin/purchase-requests/${r.id}','PUT',{admin_note:this.value}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px"></div>`).join('')||'<div class="empty">درخواستی نیست</div>'}
   else if(admTab==='loan'){const{d=[]}=await api('/admin/loan-requests');
-    body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt(${r.id},'approved')">تأیید</button> <button class="btn r s" onclick="loanSt(${r.id},'rejected')">رد</button>`:gb(r.status)}</div>`).join('')+
+    body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt(${r.id},'approved')">تأیید</button> <button class="btn r s" onclick="loanSt(${r.id},'rejected')">رد</button>`:r.status==='approved'?`<button class="btn s" onclick="pickupLoan(${r.id})">ثبت تحویل کتاب</button>`:gb(r.status)}</div>`).join('')+
     `<div class="sec">بازگشت کتاب</div><p class="sub">برای ثبت بازگشت کتاب، تب «کتاب‌ها» را باز کنید.</p>`||'';}
   else if(admTab==='breq'){const{d=[]}=await api('/admin/book-requests');
     body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.author||'')} — ${esc(r.full_name)} · ${esc(r.phone)}</p>${r.description?`<p>${esc(r.description)}</p>`:''}
@@ -302,6 +302,7 @@ async function unreg(id){const{ok}=await send(`/events/${id}/register`,'DELETE')
 function editProfile(){openM(`<h3 style="color:var(--gold2)">مشخصات کاربری</h3><label>نام و نام خانوادگی</label><input id="pn" value="${esc(U.full_name)}"><label>شمارهٔ همراه</label><input value="${esc(U.phone)}" disabled style="direction:ltr;text-align:left"><button class="btn" onclick="saveProfile()">ذخیره</button><button class="btn o" onclick="closeM()">بستن</button>`)}
 async function saveProfile(){const{ok,d}=await send('/profile','PUT',{full_name:$('pn').value});if(!ok)return toast(d.error||'خطا');U=d;localStorage.setItem('user',JSON.stringify(U));closeM();go('account')}
 async function loanSt(id,status){const{ok,d}=await send('/admin/loan-requests/'+id,'PUT',{status});toast(ok?'ثبت شد':d.error);go('admin')}
+async function pickupLoan(id){const{ok,d}=await send('/admin/loan-requests/'+id+'/pickup','POST',{});toast(ok?'تحویل کتاب ثبت شد':d.error||'خطا');go('admin')}
 async function admOff(r,id){if(!confirm('این مورد غیرفعال شود؟'))return;await send(`/admin/${r}/${id}`,'DELETE');go('admin')}
 async function regs(id){const{d=[]}=await api(`/admin/events/${id}/registrations`);openM(`<h3 style="color:var(--gold2)">ثبت‌نام‌شده‌ها (${fa(d.length)})</h3>`+(d.map(r=>`<p class="sub">${esc(r.full_name)} · ${esc(r.phone)}</p>`).join('')||'<div class="empty">کسی ثبت‌نام نکرده</div>')+`<button class="btn o" onclick="closeM()">بستن</button>`)}
 const F={ /* [کلید، برچسب، نوع، الزامی/گزینه‌ها] */
