@@ -221,6 +221,13 @@
       const {data,error}=await sb.rpc("review_book_loan_request",{p_request_id:m[1],p_approve:body.status==="approved",p_admin_note:body.admin_note||null});
       if(error)throw error;return ok({id:data});
     }
+    if(p==="/admin/active-loans"&&method==="GET"){
+      const {data,error}=await sb.from("book_loans").select("*,book:books(title)").is("returned_at",null).order("handed_over_at",{ascending:false});if(error)throw error;
+      const ids=[...new Set((data||[]).map(x=>x.user_id))];const {data:profiles,error:pe}=ids.length?await sb.from("profiles").select("id,display_name,phone").in("id",ids):{data:[],error:null};if(pe)throw pe;const pm=Object.fromEntries((profiles||[]).map(x=>[x.id,x]));
+      return ok((data||[]).map(x=>({...x,book_title:x.book?.title||"",full_name:pm[x.user_id]?.display_name||"",phone:pm[x.user_id]?.phone||""})));
+    }
+    m=p.match(/^\/admin\/active-loans\/([^/]+)\/return$/);
+    if(m&&method==="PUT"){const {data,error}=await sb.rpc("return_book",{p_loan_id:m[1]});if(error)throw error;return ok(data);}
     if(p==="/admin/loan-extensions"&&method==="GET"){
       const {data,error}=await sb.from("loan_extensions").select("*,loan:book_loans(id,user_id,book:books(title))").order("requested_at",{ascending:false});if(error)throw error;
       const ids=[...new Set((data||[]).map(x=>x.loan?.user_id).filter(Boolean))];const {data:profiles,error:pe}=ids.length?await sb.from("profiles").select("id,display_name,phone").in("id",ids):{data:[],error:null};if(pe)throw pe;const pm=Object.fromEntries((profiles||[]).map(x=>[x.id,x]));
