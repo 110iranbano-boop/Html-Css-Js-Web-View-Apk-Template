@@ -110,7 +110,10 @@
     }
     if(p==="/books"&&method==="GET"){
       const data=await rows("books","*,category:book_categories(name)");
-      return ok(data.filter(x=>x.is_active).map(x=>({id:x.id,title:x.title,author:x.author,description:x.description,category:x.category?.name||"",type:x.book_type==="both"?"sale":x.book_type,status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path})));
+      return ok(data.filter(x=>x.is_active).flatMap(x=>{
+        const base={id:x.id,title:x.title,author:x.author,description:x.description,category:x.category?.name||"",status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path};
+        return x.book_type==="both"?[{...base,type:"loan"},{...base,type:"sale"}]:[{...base,type:x.book_type}];
+      }));
     }
     if(p==="/loan-requests/my"&&method==="GET"){
       const [reqs,loans]=await Promise.all([
@@ -228,7 +231,7 @@
       return ok((data||[]).map(x=>({...x,book_title:x.book?.title||"",full_name:pm[x.user_id]?.display_name||"",phone:pm[x.user_id]?.phone||""})));
     }
     m=p.match(/^\/admin\/active-loans\/([^/]+)\/return$/);
-    if(m&&method==="PUT"){const {data,error}=await sb.rpc("return_book",{p_loan_id:m[1]});if(error)throw error;return ok(data);}
+    if(m&&method==="PUT"){const {data,error}=await sb.rpc("return_book",{p_book_id:Number(m[1])});if(error)throw error;return ok(data);}
     if(p==="/admin/loan-extensions"&&method==="GET"){
       const {data,error}=await sb.from("loan_extensions").select("*,loan:book_loans(id,user_id,book:books(title))").order("requested_at",{ascending:false});if(error)throw error;
       const ids=[...new Set((data||[]).map(x=>x.loan?.user_id).filter(Boolean))];const {data:profiles,error:pe}=ids.length?await sb.from("profiles").select("id,display_name,phone").in("id",ids):{data:[],error:null};if(pe)throw pe;const pm=Object.fromEntries((profiles||[]).map(x=>[x.id,x]));
@@ -257,7 +260,7 @@
     if(p==="/admin/bookCats"&&method==="GET") return ok((await rows("book_categories")).map(x=>({...x,image_url:x.image_path,active:x.is_active,sort:x.sort_order})));
     if(p==="/admin/storeCats"&&method==="GET") return ok((await rows("store_categories")).map(x=>({...x,image_url:x.image_path,active:x.is_active,sort:x.sort_order})));
     if(p==="/admin/events"&&method==="GET") return ok((await rows("events")).map(x=>({...x,event_date:x.starts_at,capacity:x.capacity_people,registration_open:x.is_registration_open,image_url:x.poster_path,active:x.status==="published"})));
-    if(p==="/admin/books"&&method==="GET") return ok((await rows("books")).map(x=>({...x,type:x.book_type==="both"?"sale":x.book_type,status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path,active:x.is_active})));
+    if(p==="/admin/books"&&method==="GET") return ok((await rows("books","*,category:book_categories(name)")).flatMap(x=>{const base={...x,category:x.category?.name||"",status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path,active:x.is_active};return x.book_type==="both"?[{...base,type:"loan"},{...base,type:"sale"}]:[{...base,type:x.book_type}]}));
     if(p==="/admin/menu"&&method==="GET") return ok((await rows("cafe_products","*,category:cafe_categories(name)")).map(x=>({...x,category:x.category?.name||"",price:x.price_toman,image_url:x.image_path,active:x.is_available})));
     if(p==="/admin/art"&&method==="GET") return ok((await rows("store_products","*,category:store_categories(name)")).map(x=>({...x,category:x.category?.name||"",price:x.price_toman,image_url:x.image_path,active:x.is_available,stock_status:x.stock_status||"in_stock",allow_custom:!!x.allow_custom})));
     m=p.match(/^\/admin\/(menu|books|art|events|cafeCats|bookCats|storeCats)(?:\/(\d+))?$/);
@@ -280,8 +283,16 @@
       if(res==="storeCats"){table="store_categories";payload={name:body.name,description:body.description||null,image_path:body.image_url||null,sort_order:Number(body.sort)||0,is_active:true};}
       if(res==="books"){table="books";const total=Math.max(0,Number(body.total_copies)||1);let available=total;if(id){const {data:old,error:oe}=await sb.from("books").select("total_copies,available_copies").eq("id",id).single();if(oe)throw oe;const borrowed=Math.max(0,old.total_copies-old.available_copies);if(total<borrowed)throw new Error("تعداد نسخه‌ها نمی‌تواند از تعداد نسخه‌های امانت‌داده‌شده کمتر باشد");available=total-borrowed;}payload={title:body.title,author:body.author||null,description:body.description||null,category_id:await categoryId("book_categories",body.category),sale_price_toman:body.type==="sale"||body.type==="both"?Number(body.price)||0:null,book_type:body.type==="sale"?"sale":body.type==="both"?"both":"loan",available_copies:available,total_copies:total,cover_path:body.image_url||null,is_active:true};}
       if(res==="art"){table="store_products";payload={name:body.name,description:body.description||null,price_toman:Number(body.price)||0,image_path:body.image_url||null,is_available:true,stock_status:body.stock_status||"in_stock",allow_custom:!!body.allow_custom,category_id:await categoryId("store_categories",body.category)};}
-      if(res==="events"){table="events";payload={title:body.title,description:body.description||null,starts_at:body.event_date||null,location:body.location||null,event_type:body.event_type||"timed",capacity_people:body.capacity?Number(body.capacity):null,required_teammates:Number(body.required_teammates)||0,points_on_registration:Number(body.points_on_registration)||0,points_on_attendance:Number(body.points_on_attendance)||0,award_points_when:body.award_points_when||"disabled",rules_text:body.rules_text||null,is_registration_open:body.event_type==="weekly"?false:!!body.registration_open,poster_path:body.image_url||null,status:"published"};}
-      if(id){const {data,error}=await sb.from(table).update(payload).eq("id",id).select().single();if(error)throw error;return ok(data);}
+      if(res==="events"){table="events";payload={title:body.title,description:body.description||null,starts_at:body.event_date||null,location:body.location||null,event_type:body.event_type||"timed",capacity_people:body.capacity?Number(body.capacity):null,required_teammates:Number(body.required_teammates)||0,points_on_registration:Number(body.points_on_registration)||0,points_on_attendance:Number(body.points_on_attendance)||0,award_points_mode:body.award_points_when||"disabled",rules_text:body.rules_text||null,is_registration_open:body.event_type==="weekly"?false:!!body.registration_open,poster_path:body.image_url||null,status:"published"};}
+      if(id){
+        if(res==="books"){
+          const {data:current,error:currentError}=await sb.from("books").select("total_copies,available_copies").eq("id",id).single();
+          if(currentError)throw currentError;
+          payload.total_copies=current.total_copies;
+          payload.available_copies=current.available_copies;
+        }
+        const {data,error}=await sb.from(table).update(payload).eq("id",id).select().single();if(error)throw error;return ok(data);
+      }
       return ok(await single(table,payload));
     }
     if(p==="/admin/events/registrations"&&method==="GET") return ok([]);
