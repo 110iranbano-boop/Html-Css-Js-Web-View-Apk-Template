@@ -1,0 +1,11 @@
+'use strict';
+const fs = require('node:fs');
+const vm = require('node:vm');
+const file = 'www/v2/index.html';
+const html = fs.readFileSync(file, 'utf8');
+const start = html.indexOf('<script>');
+const end = html.indexOf('</script>', start + 8);
+if (start < 0 || end < 0) throw new Error('Inline application script not found.');
+const source = html.slice(start + 8, end);
+new vm.Script(source, { filename: file });
+console.log('Simorgh v2 inline JavaScript syntax: OK');

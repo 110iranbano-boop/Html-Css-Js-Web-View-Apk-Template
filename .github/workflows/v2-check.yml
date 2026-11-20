@@ -1,0 +1,20 @@
+name: Simorgh v2 frontend checks
+on:
+  push:
+    branches: [rebuild/simorgh-v2-from-scratch]
+    paths:
+      - 'www/v2/**'
+      - 'scripts/check-v2.js'
+      - '.github/workflows/v2-check.yml'
+  pull_request:
+    branches: [rebuild/simorgh-v2-from-scratch]
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node --check scripts/check-v2.js
+      - run: node scripts/check-v2.js

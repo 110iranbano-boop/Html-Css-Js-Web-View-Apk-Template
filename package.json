@@ -7,7 +7,10 @@
     "android:add": "cap add android",
     "android:sync": "cap sync android",
     "android:apk": "cd android && ./gradlew assembleDebug",
-    "start": "npm --prefix server start"
+    "start": "npm --prefix server/v2 start",
+    "db:init": "npm --prefix server/v2 run db:init",
+    "admin:seed": "npm --prefix server/v2 run admin:seed",
+    "check": "npm --prefix server/v2 run check && node scripts/check-v2.js"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",
