@@ -22,7 +22,7 @@ app.use(express.json({ limit: '2mb' }));
 
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(err => {
   console.error(err);
-  res.status(500).json({ error: 'خطای سرور یا پایگاه داده' });
+  res.status(err.status || 500).json({ error: err.message || 'خطای سرور یا پایگاه داده' });
 });
 const fail = (res, message, status = 400) => res.status(status).json({ error: message });
 const digits = value => String(value || '').replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d)).replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim();
@@ -90,7 +90,7 @@ async function auth(req, res, next) {
   req.roles = p.roles;
   next();
 }
-const safeAuth = (req, res, next) => auth(req, res, next).catch(next);
+const safeAuth = (req, res, next) => auth(req, res, next).catch(err => { console.error(err); fail(res, err.message || 'خطای احراز هویت', err.status || 500); });
 const signedIn = [safeAuth];
 const isAdmin = async (userId, permission, action = 'view') => {
   const { data: roles, error: roleError } = await db.from('user_roles').select('role').eq('user_id', userId);
