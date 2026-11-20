@@ -28,6 +28,7 @@
 2. `supabase/migrations/003_forum_media.sql` — فضای ذخیره‌سازی تصاویر تالار و نمای امن نام نویسندگان.
 3. `supabase/migrations/004_atomic_library_events.sql` — ثبت/تأیید اتمیک امانت و ثبت امتیاز رویداد.
 4. `supabase/migrations/005_notifications.sql` — اعلان تغییر وضعیت درخواست‌ها و یادآوری سررسید امانت.
+5. `supabase/migrations/006_granular_admin_rls.sql` — اعمال مجوزهای جداگانه مشاهده/ایجاد/ویرایش/حذف برای مدیران بخش‌ها.
 
 این مهاجرت‌ها افزایشی‌اند و جدول یا داده‌ای را حذف نمی‌کنند.
 
