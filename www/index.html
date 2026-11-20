@@ -81,7 +81,9 @@ input[type=checkbox]{width:auto}
 </div>
 <div id="modal" class="modal hidden" onclick="if(event.target===this)closeM()"><div id="mbox"></div></div>
 <div id="toast" class="toast hidden" role="status"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
+<script src="supabase.js"></script>
 <script>
 const CFG=window.APP_CONFIG||{},API=(String(CFG.API_BASE||'').trim().replace(/\/+$/,''))||location.origin+'/api';
 const $=id=>document.getElementById(id);
@@ -100,12 +102,8 @@ function toast(m){const t=$('toast');t.textContent=m;t.classList.remove('hidden'
 function openM(h){$('mbox').innerHTML=h;$('modal').classList.remove('hidden')}
 function closeM(){$('modal').classList.add('hidden')}
 async function api(p,o={}){
-  const h={'Content-Type':'application/json'},t=localStorage.getItem('token');if(t)h.Authorization='Bearer '+t;
-  let r,d={};
-  try{r=await fetch(API+p,{...o,headers:h,signal:AbortSignal.timeout(20000)});d=await r.json().catch(()=>({}))}
-  catch{toast('ارتباط با سرور برقرار نشد');return{ok:false,d:{}}}
-  if(r.status===401&&t&&!/^\/(login|register)/.test(p)){logout(true);return{ok:false,d}}
-  return{ok:r.ok,d}
+  if(!window.SimorghDB?.ready){toast('اتصال Supabase آماده نیست');return{ok:false,d:{error:'تنظیمات Supabase را بررسی کنید'}}}
+  return window.SimorghDB.api(p,o);
 }
 const send=(p,m,b)=>api(p,{method:m,body:b?JSON.stringify(b):undefined});
 
