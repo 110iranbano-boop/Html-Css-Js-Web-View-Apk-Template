@@ -125,7 +125,7 @@ async function doLogin(){
   if(!phoneField||!passwordField)return toast('فیلدهای ورود پیدا نشدند؛ صفحه را دوباره باز کنید');
   const phone=latin(phoneField.value),password=passwordField.value;
   if(!phone||!password)return toast('شماره همراه و رمز عبور را وارد کنید');
-  if(!/^09\\d{9}$/.test(phone))return toast('شماره همراه باید ۱۱ رقم و با 09 شروع شود');
+  if(!/^09\d{9}$/.test(phone))return toast('شماره همراه باید ۱۱ رقم و با 09 شروع شود');
   const{ok,d}=await send('/login','POST',{phone,password});
   if(!ok)return toast(d.error||'ورود انجام نشد');
   if(!d.token||!d.user)return toast('پاسخ سرور برای ورود معتبر نیست');
@@ -137,7 +137,7 @@ async function doSignup(){
   const full_name=nameField.value.trim(),phone=latin(phoneField.value),password=passwordField.value;
   if(!full_name)return toast('نام و نام خانوادگی را وارد کنید');
   if(!phone)return toast('شماره همراه را وارد کنید');
-  if(!/^09\\d{9}$/.test(phone))return toast('شماره همراه باید ۱۱ رقم و با 09 شروع شود');
+  if(!/^09\d{9}$/.test(phone))return toast('شماره همراه باید ۱۱ رقم و با 09 شروع شود');
   if(!password)return toast('رمز عبور را وارد کنید');
   if(password.length<6)return toast('رمز عبور باید حداقل ۶ کاراکتر باشد');
   const{ok,d}=await send('/register','POST',{full_name,phone,password});
