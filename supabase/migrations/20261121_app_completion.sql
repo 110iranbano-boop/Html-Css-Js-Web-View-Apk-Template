@@ -168,7 +168,11 @@ begin
   select * into r from public.event_registrations where id=p_registration_id for update;
   if not found or r.user_id<>v_user or r.status<>'registered' then raise exception 'ثبت‌نام فعال پیدا نشد'; end if;
   select * into e from public.events where id=r.event_id;
-  -- A one-day-before cancellation costs 5 points. Post-start policy remains intentionally undefined.
+  -- Cancellation after event start is intentionally blocked until the policy is decided.
+  if e.starts_at is not null and now()>=e.starts_at then
+    raise exception 'قانون لغو پس از شروع رویداد هنوز تعیین نشده است';
+  end if;
+  -- A one-calendar-day-before cancellation costs 5 points.
   if e.starts_at is not null and e.starts_at::date-current_date=1 then
     delta:=-5;
     insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
