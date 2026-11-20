@@ -52,7 +52,7 @@ using (
   or public.has_permission('library.manage','view')
   or public.has_permission('store.manage','view')
   or public.has_permission('events.manage','view')
-  or public.has_permission('forum.moderate','view')
+  or public.has_permission('forum.manage','view')
   or (profile_visibility = 'members' and not is_suspended)
 );
 
