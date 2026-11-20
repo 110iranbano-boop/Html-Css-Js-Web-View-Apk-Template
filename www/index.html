@@ -212,7 +212,7 @@ async library(){
 async events(){
   const{ok,d}=await api('/events');if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';cache.events=d;
   $('main').innerHTML=d.map(e=>{const full=e.capacity&&e.registered>=e.capacity;
-    return `<div class="card">${e.image_url?img(e.image_url,'📅'):''}<h3>${esc(e.title)}</h3><p>📅 ${when(e.event_date)}${e.location?' · 📍 '+esc(e.location):''}</p>${e.description?`<p>${esc(e.description)}</p>`:''}${e.capacity?`<p>ظرفیت: ${fa(e.registered)} از ${fa(e.capacity)}</p>`:''}
+    return `<div class="card">${e.image_url?img(e.image_url,'📅'):''}<h3>${esc(e.title)}</h3><p>📅 ${when(e.event_date)}${e.location?' · 📍 '+esc(e.location):''}</p>${e.description?`<p>${esc(e.description)}</p>`:''}${e.rules_text?`<p>قوانین: ${esc(e.rules_text)}</p>`:''}${e.points?`<p>امتیاز ثبت‌نام: ${fa(e.points)}</p>`:''}${e.capacity?`<p>ظرفیت: ${fa(e.registered)} از ${fa(e.capacity)}</p>`:''}
     ${e.mine?`${badge('ثبت‌نام شده‌اید','ok')}<button class="btn r s" style="margin-inline-start:8px" onclick="unreg(${e.id})">لغو ثبت‌نام</button>`:!e.registration_open?badge('ثبت‌نام بسته است','no'):full?badge('ظرفیت تکمیل است','no'):`<button class="btn" onclick="reg(${e.id})">ثبت‌نام در رویداد</button>`}</div>`}).join('')||'<div class="empty">رویداد فعالی نیست</div>';
 },
 async art(){
