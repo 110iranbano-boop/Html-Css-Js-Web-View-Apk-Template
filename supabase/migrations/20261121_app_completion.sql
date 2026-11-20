@@ -255,37 +255,47 @@ create or replace function public.mark_event_attendance(
   p_attendance_status text,
   p_notes text default null
 )
-returns integer
+returns public.event_attendance
 language plpgsql
 security definer
 set search_path = public
 as $$
 declare
-  v_user uuid;
+  v_registration public.event_registrations%rowtype;
   a public.event_attendance%rowtype;
-  delta integer:=0;
 begin
-  if not (public.has_role('super_admin') or public.has_permission('events.manage','update')) then raise exception 'دسترسی ندارید'; end if;
-  if p_attendance_status not in ('present','absent','excused','pending') then raise exception 'وضعیت حضور نامعتبر است'; end if;
-  select r.user_id into v_user from public.event_registration_people ep
+  if not (public.has_role('super_admin') or public.has_permission('events.manage','update')) then
+    raise exception 'دسترسی ندارید';
+  end if;
+  if p_attendance_status not in ('present','absent','excused','pending') then
+    raise exception 'وضعیت حضور نامعتبر است';
+  end if;
+  select r.* into v_registration
+  from public.event_registration_people ep
   join public.event_registrations r on r.id=ep.registration_id
   where ep.id=p_registration_person_id;
-  if v_user is null then raise exception 'فرد ثبت‌نام‌شده پیدا نشد'; end if;
+  if v_registration.id is null then raise exception 'فرد ثبت‌نام‌شده پیدا نشد'; end if;
+
   insert into public.event_attendance(registration_person_id,attendance_status,marked_by,marked_at,notes,penalty_applied)
   values(p_registration_person_id,p_attendance_status,auth.uid(),now(),p_notes,false)
   on conflict(registration_person_id) do update
-    set attendance_status=excluded.attendance_status,marked_by=excluded.marked_by,marked_at=excluded.marked_at,notes=excluded.notes
+    set attendance_status=excluded.attendance_status,marked_by=excluded.marked_by,
+        marked_at=excluded.marked_at,notes=excluded.notes
   returning * into a;
+
   if p_attendance_status='absent' and not a.penalty_applied then
     insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
-    values(v_user,-10,'event_absence','کسر ۱۰ امتیاز بابت عدم حضور در رویداد','event_attendance',a.id,'event-absent:'||p_registration_person_id::text)
+    values(v_registration.user_id,-10,'event_absence','کسر ۱۰ امتیاز بابت عدم حضور در رویداد','event_attendance',a.id,'event-absent:'||p_registration_person_id::text)
     on conflict(idempotency_key) do nothing;
-    update public.event_attendance set penalty_applied=true where id=a.id;
-    insert into public.notifications(user_id,title,body,notification_type)
-    values(v_user,'عدم حضور در رویداد','۱۰ امتیاز بابت عدم حضور از امتیاز شما کسر شد.','event_attendance');
-    delta:=-10;
+    update public.event_attendance set penalty_applied=true where id=a.id returning * into a;
+    insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
+    values(v_registration.user_id,'عدم حضور در رویداد','۱۰ امتیاز بابت عدم حضور از امتیاز شما کسر شد.','event_attendance','event_registration',v_registration.id);
+  elsif p_attendance_status='present' and v_registration.attendance_points_snapshot>0 then
+    insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
+    values(v_registration.user_id,v_registration.attendance_points_snapshot,'event_attendance','امتیاز بابت حضور تأییدشده در رویداد','event_registration',v_registration.id,'event-present:'||p_registration_person_id::text)
+    on conflict(idempotency_key) do nothing;
   end if;
-  return delta;
+  return a;
 end;
 $$;
 
@@ -346,21 +356,28 @@ declare
   fine_id uuid;
 begin
   for l in select * from public.book_loans
-    where status in ('active','overdue') and current_due_at<now()-interval '7 days'
+    where status in ('active','overdue') and current_due_at<now()
     for update
   loop
-    update public.book_loans set status='overdue' where id=l.id and status='active';
-    for d in select generate_series((l.current_due_at::date+8)::timestamp,current_date::timestamp,interval '1 day')::date loop
-      insert into public.book_fines(loan_id,user_id,fine_date,points_amount,reason,status)
-      values(l.id,l.user_id,d,10,'loan_late','open')
-      on conflict(loan_id,fine_date) do nothing returning id into fine_id;
-      if fine_id is not null then
-        insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
-        values(l.user_id,-10,'loan_late','کسر ۱۰ امتیاز بابت یک روز دیرکرد امانت','book_fine',fine_id,'loan-fine:'||l.id::text||':'||d::text)
-        on conflict(idempotency_key) do nothing;
-        n:=n+1; fine_id:=null;
-      end if;
-    end loop;
+    if l.status='active' then
+      update public.book_loans set status='overdue',updated_at=now() where id=l.id;
+      insert into public.notifications(user_id,title,body,notification_type,reference_type,reference_id)
+      values(l.user_id,'یادآوری بازگشت کتاب','مهلت یک‌هفته‌ای امانت شما به پایان رسیده است. لطفاً کتاب را بازگردانید یا درخواست تمدید ثبت کنید.','loan_due','book_loan',l.id);
+    end if;
+    -- One week initial loan + one week grace = fines start on day 15.
+    if l.current_due_at < now() - interval '7 days' then
+      for d in select generate_series((l.current_due_at::date+8)::timestamp,current_date::timestamp,interval '1 day')::date loop
+        insert into public.book_fines(loan_id,user_id,fine_date,points_amount,reason,status)
+        values(l.id,l.user_id,d,10,'loan_late','open')
+        on conflict(loan_id,fine_date) do nothing returning id into fine_id;
+        if fine_id is not null then
+          insert into public.points_transactions(user_id,points_delta,reason_code,description,reference_type,reference_id,idempotency_key)
+          values(l.user_id,-10,'loan_late','کسر ۱۰ امتیاز بابت یک روز دیرکرد امانت','book_fine',fine_id,'loan-fine:'||l.id::text||':'||d::text)
+          on conflict(idempotency_key) do nothing;
+          n:=n+1; fine_id:=null;
+        end if;
+      end loop;
+    end if;
     if l.handed_over_at<now()-interval '1 month' then
       update public.profiles set is_suspended=true,suspension_reason='late_loan',suspended_at=coalesce(suspended_at,now())
       where id=l.user_id;
@@ -402,10 +419,14 @@ grant execute on function public.apply_loan_late_fines() to service_role;
 -- Keep the existing scheduler entry point documented in the original migrations.
 create or replace function public.process_overdue_book_fines()
 returns integer
-language sql
+language plpgsql
 security definer
 set search_path = public
-as $ select public.apply_loan_late_fines(); $;
+as $
+begin
+  return public.apply_loan_late_fines();
+end;
+$;
 revoke all on function public.process_overdue_book_fines() from public, anon, authenticated;
 grant execute on function public.process_overdue_book_fines() to service_role;
 
