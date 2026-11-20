@@ -1,62 +1,55 @@
-# فرهنگسرای سیمرغ
+# کافه‌کتاب سیمرغ
 
-اپلیکیشن اندرویدی مبتنی بر HTML/CSS/JS و Capacitor، به‌همراه API با Express و پایگاه داده PostgreSQL.
+اپلیکیشن اندرویدی مبتنی بر HTML/CSS/JS و Capacitor با Supabase Auth، PostgreSQL، Row Level Security و Storage.
 
-## ساختار
-- `www/`: رابط کاربری اپ
-- `www/config.js`: نشانی API مورد استفاده APK
-- `server/`: سرور Node.js و فایل ساخت جداول PostgreSQL
+## معماری پروژه
+
+- `www/`: رابط کاربری اپلیکیشن
+- `www/config.js`: نشانی پروژه Supabase و کلید عمومی Publishable
+- `www/supabase.js`: اتصال مستقیم امن کلاینت به Supabase و نگاشت عملیات برنامه به جدول‌ها و RPCها
+- `supabase/migrations/`: مهاجرت‌های تکمیلی پایگاه داده
 - `.github/workflows/build-apk.yml`: ساخت APK در GitHub Actions
+- پوشه `server/` کد قدیمی PostgreSQL/JWT است و در مسیر اجرای نسخه Supabase استفاده نمی‌شود.
 
-## استقرار API روی چابکان
-در تنظیمات سرویس Node.js این مقادیر را تنظیم کنید:
-- مسیر/Root Directory: `server`
-- نسخه Node.js: ترجیحاً 20
-- Build/Install Command: `npm install`
-- Start Command: `npm start`
+## تنظیم Supabase
 
-متغیرهای محیطی (Environment Variables):
-- `DATABASE_URL`: آدرس اتصال PostgreSQL که از پنل پایگاه داده دریافت می‌شود.
-- `JWT_SECRET`: یک مقدار تصادفی محرمانه و طولانی؛ حداقل ۳۲ کاراکتر. نمونه تولید در Node: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
-- `PGSSL`: اگر اتصال PostgreSQL ارائه‌شده توسط چابکان به SSL نیاز دارد، `true`؛ در غیر این صورت `false`.
-- `PORT`: معمولاً توسط پلتفرم تنظیم می‌شود؛ اگر چابکان مقدار اختصاصی اعلام کرده، همان مقدار را نگه دارید.
-- `ADMIN_PHONE` و `ADMIN_PASSWORD`: اختیاری؛ فقط اگر می‌خواهید مدیر اولیه هنگام شروع سرور به‌صورت خودکار ساخته شود. هر دو را با هم وارد کنید.
+پروژه Supabase در `www/config.js` تنظیم شده است. کلید قرارگرفته باید فقط کلید Publishable/anon باشد. هرگز کلید `service_role` یا Secret را در اپلیکیشن، فایل‌های عمومی یا GitHub قرار ندهید.
 
-سرور در زمان شروع، فایل `schema.sql` را اجرا می‌کند و جدول‌های لازم را می‌سازد؛ بنابراین اجرای جداگانهٔ `npm run db:init` برای استقرار معمول لازم نیست. برای اجرای دستی:
-```bash
-npm run db:init
+در Supabase > Authentication > Providers:
+1. Phone را فعال کنید.
+2. Phone confirmations را خاموش نگه دارید تا ورود با شماره و رمز عبور بدون OTP انجام شود.
+3. ثبت‌نام با شماره تلفن باید با قالب بین‌المللی ایران (+98) به Supabase ارسال شود؛ رابط کاربری شماره 09 را به این قالب تبدیل می‌کند.
+
+## مهاجرت‌های پایگاه داده
+
+ساختار پایه ۲۵ جدول قبلاً در SQL Editor پروژه اجرا شده است. آن اسکریپت را دوباره اجرا نکنید. فایل‌های تکمیلی زیر را به ترتیب، هر کدام یک بار، در Supabase > SQL Editor اجرا کنید:
+
+1. `supabase/migrations/002_simorgh_workflows.sql` — فیلدهای تکمیلی پروفایل، رویداد و خرید؛ لغو رویداد، جریمه‌ها و بازگشت کتاب.
+2. `supabase/migrations/003_forum_media.sql` — فضای ذخیره‌سازی تصاویر تالار و نمای امن نام نویسندگان.
+3. `supabase/migrations/004_atomic_library_events.sql` — ثبت/تأیید اتمیک امانت و ثبت امتیاز رویداد.
+
+این مهاجرت‌ها افزایشی‌اند و جدول یا داده‌ای را حذف نمی‌کنند.
+
+## ساخت مدیر ارشد اولیه
+
+1. ابتدا از داخل اپ یک حساب با شماره مدیر اصلی بسازید.
+2. در Supabase > Authentication > Users شناسه UUID همان حساب را کپی کنید.
+3. فقط یک بار دستور زیر را در SQL Editor اجرا کنید و UUID واقعی را جایگزین کنید:
+
+```sql
+insert into public.user_roles (user_id, role)
+values ('UUID-حساب-مدیر', 'super_admin')
+on conflict (user_id, role) do nothing;
 ```
 
-پس از Deploy، این نشانی را باز کنید:
-```
-https://دامنه-API-شما/api/health
-```
-پاسخ مورد انتظار:
-```json
-{"ok":true}
-```
+پس از ورود مجدد، تب «دسترسی‌ها» در پنل مدیریت ظاهر می‌شود. مدیر ارشد می‌تواند برای مدیران دیگر نقش و مجوز مشاهده/ایجاد/ویرایش/حذف هر بخش را تعیین کند. برای مدیران بخش‌ها، مجوزهای `cafe.manage`، `library.manage`، `store.manage`، `events.manage`، `forum.moderate` و `users.manage` قابل استفاده‌اند.
 
-## ساخت مدیر
-ابتدا با شمارهٔ موردنظر از داخل اپ ثبت‌نام کنید. سپس در محیط اجرای سرور، از پوشهٔ `server` اجرا کنید:
-```bash
-npm run make-admin -- 09123456789
-```
-این دستور نقش همان شماره را در جدول `users` به `admin` تغییر می‌دهد.
+## جریمه دیرکرد امانت
 
-## نشانی API در APK
-فایل `www/config.js` باید شامل نشانی دقیق API و مسیر `/api` باشد. در حال حاضر:
-```js
-window.APP_CONFIG = { API_BASE: "https://nodejs-brjrka.chbkn.dev/api" };
-```
-اگر دامنهٔ چابکان تغییر کرد، همین مقدار را با دامنهٔ جدید جایگزین کنید و APK را دوباره بسازید.
+تابع `public.process_overdue_book_fines()` برای اجرای روزانه توسط زمان‌بند مورد اعتماد طراحی شده است. این تابع برای کلاینت عمومی مجوز اجرا ندارد. آن را از Supabase Cron یا یک Edge Function امن زمان‌بندی کنید. منطق تابع از روز پانزدهم پس از سررسید، روزانه ۱۰ امتیاز کسر می‌کند و پس از گذشت بیش از یک ماه از تحویل واقعی کتاب، حساب را تعلیق می‌کند.
 
 ## ساخت APK
-در GitHub وارد تب Actions شوید و آخرین اجرای موفق workflow با نام **Build Simorgh Cafe APK** را باز کنید. فایل Artifact با نام `Simorgh-Cafe-APK` را دانلود کنید؛ فایل داخل آن `Simorgh-Cafe.apk` است.
 
-نسخهٔ فعلی APK از نوع Debug است و برای نصب و آزمایش مناسب است. انتشار عمومی در مارکت‌ها به نسخهٔ Release و امضای معتبر نیاز دارد.
+در GitHub وارد Actions شوید و آخرین اجرای موفق workflow با نام **Build Simorgh Cafe APK** را باز کنید. Artifact با نام `Simorgh-Cafe-APK` را دانلود کنید. فایل خروجی `Simorgh-Cafe.apk` است.
 
-## نکات امنیتی
-- فایل‌های `.env`، رمز پایگاه داده و `JWT_SECRET` را در GitHub قرار ندهید.
-- `JWT_SECRET` و `DATABASE_URL` فقط در Environment Variables سرویس چابکان ثبت شوند.
-- API باید از HTTPS استفاده کند.
-- `cleartext` و `allowMixedContent` در تنظیمات Capacitor خاموش هستند.
+نسخه فعلی Debug برای نصب و آزمایش است. انتشار عمومی نیازمند نسخه Release و امضای معتبر است.
