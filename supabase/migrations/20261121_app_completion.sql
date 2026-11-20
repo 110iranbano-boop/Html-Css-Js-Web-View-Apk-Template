@@ -158,7 +158,7 @@ returns public.event_registrations
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_user uuid := auth.uid();
   r public.event_registrations%rowtype;
@@ -426,11 +426,11 @@ returns integer
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   return public.apply_loan_late_fines();
 end;
-$;
+$$;
 revoke all on function public.process_overdue_book_fines() from public, anon, authenticated;
 grant execute on function public.process_overdue_book_fines() to service_role;
 
