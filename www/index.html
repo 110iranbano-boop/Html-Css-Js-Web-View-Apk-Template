@@ -283,7 +283,7 @@ async notifs(){
   if(ok&&d.some(n=>!n.is_read)){await send('/notifications/read','PUT');refreshBadges()}
 },
 async admin(){
-  const T=[['purchase','خرید'],['loan','امانت'],['breq','درخواست کتاب'],['menu','منوی کافه'],['books','کتاب‌ها'],['art','گالری'],['events','رویدادها']];
+  const T=[['purchase','خرید'],['loan','امانت'],['breq','درخواست کتاب'],['menu','منوی کافه'],['books','کتاب‌ها'],['art','فروشگاه'],['events','رویدادها'],['users','کاربران']];
   const head=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===admTab?'on':''}" onclick="admTab='${k}';go('admin')">${t}</button>`).join('')}</div>`;
   let body='';
   if(admTab==='purchase'){const{d=[]}=await api('/admin/purchase-requests');
@@ -294,6 +294,14 @@ async admin(){
   else if(admTab==='loan'){const{d=[]}=await api('/admin/loan-requests');
     body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.full_name)} · ${esc(r.phone)}</p>${r.status==='pending'?`<button class="btn s" onclick="loanSt(${r.id},'approved')">تأیید</button> <button class="btn r s" onclick="loanSt(${r.id},'rejected')">رد</button>`:gb(r.status)}</div>`).join('')+
     `<div class="sec">بازگشت کتاب</div><p class="sub">برای ثبت بازگشت کتاب، تب «کتاب‌ها» را باز کنید.</p>`||'';}
+  else if(admTab==='users'){
+    const{ok,d=[]}=await api('/admin/users');
+    body=ok?d.map(u=>`<div class="card"><div class="row"><h3>${esc(u.full_name||'عضو')}</h3>${badge(u.role==='admin'?'مدیر':'عضو')}${u.is_suspended?badge('تعلیق','no'):''}</div><p>${esc(u.phone)}</p>
+    <label><input type="checkbox" ${u.can_create_topic?'checked':''} onchange="send('/admin/users/${u.id}/forum-permission','PUT',{can_create_topic:this.checked}).then(x=>toast(x.ok?'مجوز به‌روزرسانی شد':'خطا'))"> اجازه ایجاد تاپیک</label>
+    <label><input type="checkbox" ${u.is_suspended?'checked':''} onchange="send('/admin/users/${u.id}/suspension','PUT',{is_suspended:this.checked,reason:'admin'}).then(x=>toast(x.ok?'وضعیت به‌روزرسانی شد':'خطا'))"> تعلیق حساب</label>
+    ${U.roles?.includes('super_admin')?`<label>نقش</label><select onchange="send('/admin/users/${u.id}/role','PUT',{role:this.value}).then(x=>toast(x.ok?'نقش به‌روزرسانی شد':'خطا'))"><option value="member" ${u.role==='member'?'selected':''}>عضو</option><option value="admin" ${u.role==='admin'?'selected':''}>مدیر</option></select>`:''}
+    </div>`).join(''):'<div class="empty">دسترسی مدیریت کاربران را ندارید</div>';
+  }
   else if(admTab==='breq'){const{d=[]}=await api('/admin/book-requests');
     body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.author||'')} — ${esc(r.full_name)} · ${esc(r.phone)}</p>${r.description?`<p>${esc(r.description)}</p>`:''}
     <select onchange="send('/admin/book-requests/${r.id}','PUT',{status:this.value}).then(x=>toast(x.ok?'ثبت شد':'خطا'))">${Object.entries(GST).map(([k,t])=>`<option value="${k}" ${k===r.status?'selected':''}>${t}</option>`).join('')}</select>
