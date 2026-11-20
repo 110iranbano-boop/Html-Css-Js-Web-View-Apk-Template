@@ -293,7 +293,7 @@ async forum(){
   $("main").innerHTML=html;
 },
 async admin(){
-  const T=[['purchase','خرید'],['loan','امانت'],['breq','درخواست کتاب'],['menu','منوی کافه'],['books','کتاب‌ها'],['art','گالری'],['events','رویدادها']];
+  const T=[['purchase','خرید'],['loan','امانت'],['breq','درخواست کتاب'],['menu','منوی کافه'],['books','کتاب‌ها'],['art','فروشگاه'],['events','رویدادها']];if(U.is_super_admin)T.push(['access','دسترسی‌ها']);
   const head=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===admTab?'on':''}" onclick="admTab='${k}';go('admin')">${t}</button>`).join('')}</div>`;
   let body='';
   if(admTab==='purchase'){const{d=[]}=await api('/admin/purchase-requests');
@@ -308,6 +308,22 @@ async admin(){
     body=d.map(r=>`<div class="card"><h3>${esc(r.book_title)}</h3><p>${esc(r.author||'')} — ${esc(r.full_name)} · ${esc(r.phone)}</p>${r.description?`<p>${esc(r.description)}</p>`:''}
     <select onchange="send('/admin/book-requests/${r.id}','PUT',{status:this.value}).then(x=>toast(x.ok?'ثبت شد':'خطا'))">${Object.entries(GST).map(([k,t])=>`<option value="${k}" ${k===r.status?'selected':''}>${t}</option>`).join('')}</select>
     <input placeholder="نتیجهٔ بررسی برای کاربر" value="${esc(r.admin_note||'')}" onchange="send('/admin/book-requests/${r.id}','PUT',{admin_note:this.value}).then(x=>toast(x.ok?'ذخیره شد':'خطا'))" style="margin-top:6px"></div>`).join('')||'<div class="empty">درخواستی نیست</div>'}
+  else if(admTab==='access'){
+    if(!U.is_super_admin)body='<div class="empty">فقط مدیر ارشد می‌تواند نقش‌ها و مجوزها را تغییر دهد.</div>';
+    else{
+      const [pr,rr,pp,fp]=await Promise.all([sb.from("profiles").select("id,display_name,phone,is_suspended,suspension_reason").order("created_at",{ascending:false}).limit(200),sb.from("user_roles").select("user_id,role"),sb.from("admin_permissions").select("*"),sb.from("forum_permissions").select("*")]);
+      if(pr.error||rr.error||pp.error||fp.error)body='<div class="empty">دریافت فهرست کاربران و مجوزها ناموفق بود.</div>';
+      else{
+        const roleMap={},permMap={},forumMap={};for(const x of rr.data||[])(roleMap[x.user_id]??=[]).push(x.role);for(const x of pp.data||[])permMap[x.user_id+'|'+x.permission_key]=x;for(const x of fp.data||[])forumMap[x.user_id]=x;
+        const keys=[['cafe.manage','کافه'],['library.manage','کتابخانه'],['store.manage','فروشگاه'],['events.manage','رویدادها'],['forum.moderate','تالار'],['users.manage','کاربران']];
+        body=(pr.data||[]).map(p=>{
+          const roles=roleMap[p.id]||[],role=roles.includes('super_admin')?'super_admin':roles.some(x=>x!=='member')?'admin':'member';
+          const checks=keys.map(([key,label])=>{const v=permMap[p.id+'|'+key]||{};return '<div class="card" style="padding:10px"><b>'+label+'</b><div class="row" style="flex-wrap:wrap">'+[['view','مشاهده'],['create','ایجاد'],['update','ویرایش'],['delete','حذف']].map(([a,t])=>'<label style="margin:4px"><input type="checkbox" id="perm_'+p.id+'_'+key+'_'+a+'" '+(v['can_'+a]?'checked':'')+'> '+t+'</label>').join('')+'</div><button class="btn o s" onclick="saveUserPermission(\''+p.id+'\',\''+key+'\')">ذخیره مجوز '+label+'</button></div>'}).join('');
+          return '<div class="card"><h3>'+esc(p.display_name||'بدون نام')+'</h3><p>'+esc(p.phone||'')+'</p><label>نقش</label><select id="role_'+p.id+'"><option value="member" '+(role==='member'?'selected':'')+'>عضو</option><option value="admin" '+(role==='admin'?'selected':'')+'>مدیر دارای مجوزهای انتخابی</option><option value="super_admin" '+(role==='super_admin'?'selected':'')+'>مدیر ارشد</option></select><button class="btn s" onclick="saveUserRole(\''+p.id+'\')">ذخیره نقش</button><label><input type="checkbox" id="suspend_'+p.id+'" '+(p.is_suspended?'checked':'')+'> تعلیق حساب</label><button class="btn o s" onclick="setUserSuspension(\''+p.id+'\')">ذخیره وضعیت حساب</button><label><input type="checkbox" id="topic_'+p.id+'" '+(!!forumMap[p.id]?.can_create_topic?'checked':'')+'> اجازه ایجاد تاپیک</label><button class="btn o s" onclick="setForumPermission(\''+p.id+'\')">ذخیره مجوز تالار</button>'+checks+'</div>';
+        }).join('')||'<div class="empty">هنوز کاربری ثبت‌نام نکرده است.</div>';
+      }
+    }
+  }
   else{const{d=[]}=await api('/admin/'+admTab);cache['adm_'+admTab]=d;const nm=i=>i.name||i.title;
     body=`<button class="btn" onclick="admForm('${admTab}')">+ افزودن</button>`+d.map(i=>`<div class="card" style="margin-top:10px;${i.active?'':'opacity:.5'}"><div class="row"><h3>${esc(nm(i))}</h3>${i.active?'':badge('غیرفعال','no')}</div>
     <button class="btn o s" onclick="admForm('${admTab}',${i.id})">ویرایش</button> ${admTab==='books'&&i.type==='loan'&&i.status==='loaned'?`<button class="btn s" onclick="send('/admin/books/${i.id}/return','PUT').then(()=>go('admin'))">ثبت بازگشت</button>`:''}
@@ -316,6 +332,12 @@ async admin(){
 }};
 
 /* ---------- عملیات ---------- */
+
+
+async function saveUserRole(id){const role=$('role_'+id).value;const {error:de}=await sb.from('user_roles').delete().eq('user_id',id).neq('role','member');if(de)return toast(de.message);if(role!=='member'){const {error}=await sb.from('user_roles').upsert({user_id:id,role},{onConflict:'user_id,role'});if(error)return toast(error.message)}toast('نقش ذخیره شد');go('admin')}
+async function saveUserPermission(id,key){const a=['view','create','update','delete'],v={};for(const x of a)v['can_'+x]=$('perm_'+id+'_'+key+'_'+x).checked;const allOff=a.every(x=>!v['can_'+x]);if(allOff){const {error}=await sb.from('admin_permissions').delete().eq('user_id',id).eq('permission_key',key);if(error)return toast(error.message)}else{const {error}=await sb.from('admin_permissions').upsert({user_id:id,permission_key:key,...v,granted_by:U.id},{onConflict:'user_id,permission_key'});if(error)return toast(error.message)}toast('مجوز ذخیره شد')}
+async function setForumPermission(id){const can_create_topic=$('topic_'+id).checked;if(can_create_topic){const {error}=await sb.from('forum_permissions').upsert({user_id:id,can_create_topic,granted_by:U.id},{onConflict:'user_id'});if(error)return toast(error.message)}else{const {error}=await sb.from('forum_permissions').delete().eq('user_id',id);if(error)return toast(error.message)}toast('مجوز تالار ذخیره شد')}
+async function setUserSuspension(id){const is_suspended=$('suspend_'+id).checked;const {error}=await sb.from('profiles').update({is_suspended,suspension_reason:is_suspended?'تعلیق توسط مدیریت':null,suspended_at:is_suspended?new Date().toISOString():null}).eq('id',id);if(error)return toast(error.message);toast('وضعیت حساب ذخیره شد')}
 
 function newForumTopic(){openM('<h3 style="color:var(--gold2)">تاپیک جدید</h3><label>عنوان</label><input id="forumTitle" maxlength="200"><label>متن</label><textarea id="forumBody" rows="5"></textarea><label>تصاویر (اختیاری)</label><input id="forumFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple><button class="btn" onclick="submitForumTopic()">انتشار</button><button class="btn o" onclick="closeM()">انصراف</button>')}
 async function submitForumTopic(){
