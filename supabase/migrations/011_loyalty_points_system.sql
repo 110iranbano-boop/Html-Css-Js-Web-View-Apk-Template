@@ -384,4 +384,97 @@ values
  ('volunteer_activity','مشارکت داوطلبانه','بر اساس نوع فعالیت و تأیید مسئول',30,true,true)
 on conflict(code) do nothing;
 
+-- Internal trigger helper: only active, non-approval rules are awarded automatically.
+create or replace function public.award_loyalty_points_from_trigger(
+  p_user_id uuid,p_rule_code text,p_reference_type text,p_reference_id text,p_description text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $
+declare r public.point_rules%rowtype;
+begin
+  select * into r from public.point_rules
+  where code=p_rule_code and is_active and not requires_approval;
+  if not found then return; end if;
+  insert into public.points_transactions(
+    user_id,points_delta,reason_code,description,reference_type,reference_id,
+    idempotency_key,points_bucket,rule_code
+  ) values (
+    p_user_id,r.points,r.code,coalesce(p_description,r.title),p_reference_type,p_reference_id,
+    'loyalty:'||r.code||':'||p_user_id::text||':'||p_reference_type||':'||p_reference_id,
+    'both',r.code
+  ) on conflict(idempotency_key) do nothing;
+end;
+$;
+
+create or replace function public.award_profile_completion_points()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  if nullif(trim(new.display_name),'') is not null
+     and nullif(trim(new.phone),'') is not null then
+    perform public.award_loyalty_points_from_trigger(
+      new.id,'profile_complete','profile',new.id::text,'امتیاز بابت تکمیل پروفایل'
+    );
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists profiles_award_completion_points on public.profiles;
+create trigger profiles_award_completion_points
+after insert or update of display_name,phone on public.profiles
+for each row execute function public.award_profile_completion_points();
+
+create or replace function public.award_book_loan_points()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  perform public.award_loyalty_points_from_trigger(
+    new.user_id,'book_borrow','book_loan',new.id::text,'امتیاز بابت امانت گرفتن کتاب'
+  );
+  return new;
+end;
+$;
+
+drop trigger if exists book_loans_award_points on public.book_loans;
+create trigger book_loans_award_points
+after insert on public.book_loans
+for each row execute function public.award_book_loan_points();
+
+create or replace function public.award_on_time_book_return_points()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $
+begin
+  if old.returned_at is null and new.returned_at is not null
+     and new.returned_at <= new.current_due_at then
+    perform public.award_loyalty_points_from_trigger(
+      new.user_id,'book_return_on_time','book_loan',new.id::text,'امتیاز بابت بازگرداندن به‌موقع کتاب'
+    );
+  end if;
+  return new;
+end;
+$;
+
+drop trigger if exists book_loans_award_on_time_return on public.book_loans;
+create trigger book_loans_award_on_time_return
+after update of returned_at on public.book_loans
+for each row execute function public.award_on_time_book_return_points();
+
+revoke all on function public.award_loyalty_points_from_trigger(uuid,text,text,text,text) from public, anon, authenticated;
+revoke all on function public.award_profile_completion_points() from public, anon, authenticated;
+revoke all on function public.award_book_loan_points() from public, anon, authenticated;
+revoke all on function public.award_on_time_book_return_points() from public, anon, authenticated;
+
 commit;
