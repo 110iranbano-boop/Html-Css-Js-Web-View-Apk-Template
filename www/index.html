@@ -406,7 +406,14 @@ async admin(){
        sb.from("reward_redemptions").select("*,reward:rewards(title)").in("status",["pending","approved","ready"]).order("created_at",{ascending:true}),
        sb.from("profiles").select("id,display_name,phone").order("display_name").limit(500)
      ]);
-     if(rules.error||tiers.error||rewards.error||redemptions.error||profiles.error)body='<div class="empty">دریافت تنظیمات امتیازدهی ناموفق بود. اجرای migration شماره 011 و مجوزهای مدیریتی را بررسی کنید.</div>';
+     const loyaltyErrors=[
+       ["قوانین امتیازدهی",rules.error],
+       ["سطوح عضویت",tiers.error],
+       ["جوایز",rewards.error],
+       ["درخواست‌های جایزه",redemptions.error],
+       ["فهرست اعضا",profiles.error]
+     ].filter(([,error])=>error);
+     if(loyaltyErrors.length)body='<div class="empty"><h3>خطا در دریافت اطلاعات امتیازدهی</h3><p>جزئیات درخواست‌های ناموفق:</p>'+loyaltyErrors.map(([name,error])=>'<div class="card"><strong>'+esc(name)+'</strong><p>کد: '+esc(error.code||'نامشخص')+'</p><p>پیام: '+esc(error.message||'بدون پیام')+'</p>'+(error.details?'<p>جزئیات: '+esc(error.details)+'</p>':'')+(error.hint?'<p>راهنما: '+esc(error.hint)+'</p>':'')+'</div>').join('')+'</div>';
      else body='<div class="sec">قوانین کسب امتیاز</div><p class="sub">مقدار امتیاز و فعال یا غیرفعال بودن هر فعالیت را تغییر دهید.</p>'+
        (rules.data||[]).map(x=>'<div class="card"><h3>'+esc(x.title)+'</h3><label>امتیاز</label><input id="rule_points_'+x.id+'" type="number" min="1" value="'+x.points+'"><label><input id="rule_active_'+x.id+'" type="checkbox" '+(x.is_active?'checked':'')+'> فعال</label><label><input id="rule_approval_'+x.id+'" type="checkbox" '+(x.requires_approval?'checked':'')+'> نیازمند تأیید</label><button class="btn s" onclick="savePointRule(\''+x.id+'\')">ذخیره قانون</button></div>').join('')+
        '<div class="sec">اعطای دستی امتیاز</div><div class="card"><label>انتخاب عضو</label><select id="award_user"><option value="">انتخاب کاربر</option>'+((profiles.data||[]).map(p=>'<option value="'+p.id+'">'+esc(p.display_name||'بدون نام')+' · '+esc(p.phone||'')+'</option>').join(''))+'</select><label>نوع فعالیت</label><select id="award_rule"><option value="">انتخاب قانون</option>'+((rules.data||[]).filter(x=>x.is_active).map(x=>'<option value="'+esc(x.code)+'">'+esc(x.title)+' · '+fa(x.points)+' امتیاز</option>').join(''))+'</select><label>شرح فعالیت / شناسه مرجع</label><input id="award_reference" placeholder="مثلاً نقد کتاب شماره ۱۲"><button class="btn" onclick="awardLoyaltyPoints()">ثبت امتیاز برای عضو</button></div>'+
