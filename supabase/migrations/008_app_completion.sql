@@ -12,6 +12,10 @@ alter table public.notifications add column if not exists read_at timestamptz;
 alter table public.events add column if not exists location text;
 alter table public.book_loans add column if not exists updated_at timestamptz not null default now();
 alter table public.event_registrations add column if not exists attendance_points_snapshot integer not null default 0;
+alter table public.events add column if not exists award_points_when text not null default 'disabled'
+  check (award_points_when in ('disabled','registration','attendance'));
+alter table public.loan_extensions add column if not exists applied_at timestamptz;
+alter table public.profiles add column if not exists can_create_topic boolean not null default false;
 alter table public.purchase_requests drop constraint if exists purchase_requests_status_check;
 alter table public.purchase_requests add constraint purchase_requests_status_check
   check (status in ('pending','registered','reviewing','approved','confirmed','awaiting_contact','ready','shipped','rejected','completed','cancelled'));
