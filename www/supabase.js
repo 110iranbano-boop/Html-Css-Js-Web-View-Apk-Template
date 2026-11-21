@@ -290,12 +290,6 @@
       if(res==="art"){table="store_products";payload={name:body.name,description:body.description||null,price_toman:Number(body.price)||0,image_path:body.image_url||null,is_available:true,stock_status:body.stock_status||"in_stock",allow_custom:!!body.allow_custom,category_id:await categoryId("store_categories",body.category)};}
       if(res==="events"){table="events";payload={title:body.title,description:body.description||null,starts_at:body.event_date||null,location:body.location||null,event_type:body.event_type||"timed",capacity_people:body.capacity?Number(body.capacity):null,required_teammates:Number(body.required_teammates)||0,points_on_registration:Number(body.points_on_registration)||0,points_on_attendance:Number(body.points_on_attendance)||0,award_points_when:body.award_points_when||"disabled",rules_text:body.rules_text||null,is_registration_open:body.event_type==="weekly"?false:!!body.registration_open,poster_path:body.image_url||null,status:"published"};}
       if(id){
-        if(res==="books"){
-          const {data:current,error:currentError}=await sb.from("books").select("total_copies,available_copies").eq("id",id).single();
-          if(currentError)throw currentError;
-          payload.total_copies=current.total_copies;
-          payload.available_copies=current.available_copies;
-        }
         const {data,error}=await sb.from(table).update(payload).eq("id",id).select().single();if(error)throw error;return ok(data);
       }
       return ok(await single(table,payload));
