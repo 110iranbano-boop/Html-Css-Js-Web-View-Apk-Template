@@ -156,6 +156,9 @@ const CFG=window.APP_CONFIG||{},API=(String(CFG.API_BASE||'').trim().replace(/\/
 const $=id=>document.getElementById(id);
 const ic=n=>`<img src="img/icons/${n}.svg" alt="">`;
 let U=null,page='home',cart=[],libTab='sale',cache={},admTab='purchase';
+const apiCache=new Map();
+function clearApiCache(){apiCache.clear()}
+const cacheTTL=p=>p==='/notifications'?8000:(p.includes('/my')||p.startsWith('/admin/'))?12000:45000;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fa=n=>Number(n).toLocaleString('fa-IR');
 const money=n=>n==null||n===''?'قیمت: پس از استعلام':fa(Math.round(n))+' تومان';
@@ -170,7 +173,12 @@ function openM(h){$('mbox').innerHTML=h;$('modal').classList.remove('hidden')}
 function closeM(){$('modal').classList.add('hidden')}
 async function api(p,o={}){
   if(!window.SimorghDB?.ready){toast('اتصال Supabase آماده نیست');return{ok:false,d:{error:'تنظیمات Supabase را بررسی کنید'}}}
-  return window.SimorghDB.api(p,o);
+  const method=o.method||'GET',key=(U?.id||'guest')+'|'+p;
+  if(method==='GET'&&!o.skipCache){const hit=apiCache.get(key);if(hit&&Date.now()-hit.time<cacheTTL(p))return hit.value;}
+  const result=await window.SimorghDB.api(p,o);
+  if(method==='GET'&&result?.ok&&!o.skipCache)apiCache.set(key,{time:Date.now(),value:result});
+  if(method!=='GET'&&result?.ok)clearApiCache();
+  return result;
 }
 const send=(p,m,b)=>api(p,{method:m,body:b?JSON.stringify(b):undefined});
 
@@ -230,12 +238,14 @@ function boot(){
   go('home');refreshBadges();
 }
 const TITLES={home:'سیمرغ',cafe:'کافه‌کتاب',library:'کتابخانه',events:'رویدادها',forum:'تالار سیمرغ',art:'فروشگاه سیمرغ',cart:'سبد خرید',account:'حساب کاربری',notifs:'اعلان‌ها',mine:'درخواست‌های من',admin:'پنل مدیریت'};
-async function go(p,arg){
+async function go(p,arg,force=false){
   page=p;document.body.dataset.pg=p;if(p==='library'&&arg)libTab=arg;
+  if(force)clearApiCache();
   $('title').textContent=TITLES[p];$('back').classList.toggle('hidden',p==='home');
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===p));
   $('main').innerHTML='<div class="empty">در حال بارگذاری…</div>';scrollTo(0,0);
   await R[p]();
+  if(page===p&&p!=='home')$('main').insertAdjacentHTML('afterbegin','<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn o s" onclick="go(\''+p+'\',undefined,true)">↻ تازه‌سازی اطلاعات</button></div>');
 }
 function saveCart(){localStorage.setItem('cart_'+U.id,JSON.stringify(cart));refreshBadges()}
 async function refreshBadges(){
