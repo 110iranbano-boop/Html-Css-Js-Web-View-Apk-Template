@@ -9,12 +9,14 @@
 <style>
 :root{--bg:#0b2426;--s1:#10312f;--s2:#174240;--gold:#d8a84e;--gold2:#f0cf8a;--tx:#f1e8d4;--mu:#9db3ab;--line:rgba(216,168,78,.35);--bad:#e0735d;--ok:#79c79a}
 *{margin:0;padding:0;box-sizing:border-box;font-family:Vazirmatn,Vazir,Tahoma,sans-serif}
-body{background:var(--bg) url(img/bg-page.jpg) center top/cover fixed no-repeat;color:var(--tx);min-height:100vh;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+body{background:var(--bg) url(img/bg-page.jpg.webp) center top/cover fixed no-repeat;color:var(--tx);min-height:100vh;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 button,input,textarea,select{font:inherit;color:inherit}
 .hidden{display:none!important}
 .top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;background:rgba(11,36,38,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
 .top h1{flex:1;font-size:18px;color:var(--gold2)}
-body[data-pg=home]{background-image:url(img/bg-home.jpg)}
+body[data-pg=home]{background-image:url(img/bg-home.jpg.webp)}
+body[data-pg=cafe]{background-image:url(img/bg-cafe.jpg.webp)}
+body[data-pg=library]{background-image:url(img/bg-library.jpg.webp)}
 .ic{width:100%;height:100%;display:block}
 .ib{position:relative;padding:9px;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--s1);font-size:18px;cursor:pointer}
 .ib b{position:absolute;top:-3px;left:-3px;min-width:18px;height:18px;border-radius:9px;background:var(--bad);font-size:11px;line-height:18px;text-align:center;padding:0 4px}
