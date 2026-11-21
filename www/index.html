@@ -162,13 +162,13 @@ function clearDataCache(){Object.keys(dataCache).forEach(k=>delete dataCache[k])
 async function loadMore(kind){
   if(pageState[kind+'_loading'])return;
   pageState[kind+'_loading']=true;pageState[kind]=(pageState[kind]||0)+1;
-  try{await go(kind==='books'?'library':kind==='menu'?'cafe':kind==='products'?'art':'events');}
+  try{await go(kind==='books'?'library':kind==='menu'?'cafe':kind==='products'?'art':kind==='forum'?'forum':'events');}
   finally{pageState[kind+'_loading']=false;}
 }
 function refreshPage(){
   clearDataCache();
-  ['books','menu','products','events'].forEach(k=>pageState[k]=0);
-  ['books','menu','art','events'].forEach(k=>delete cache[k]);
+  ['books','menu','products','events','forum'].forEach(k=>pageState[k]=0);
+  ['books','menu','art','events','forumTopics'].forEach(k=>delete cache[k]);
   go(page);
 }
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -385,10 +385,13 @@ async notifs(){
 },
 
 async forum(){
-  const {data:topics,error}=await sb.from("forum_topics").select("*").eq("status","published").order("created_at",{ascending:false});
+  const offset=(pageState.forum||0)*PAGE_SIZE;
+  const {data:pageTopics,error}=await sb.from("forum_topics").select("*").eq("status","published").order("created_at",{ascending:false}).range(offset,offset+PAGE_SIZE-1);
   if(error){$("main").innerHTML='<div class="empty">تالار بارگذاری نشد. اجرای مهاجرت Supabase را بررسی کنید.</div>';return}
-  const ids=(topics||[]).map(x=>x.user_id);
-  const topicIds=(topics||[]).map(x=>x.id);
+  const topics=offset?[...(cache.forumTopics||[]),...(pageTopics||[])]:pageTopics||[];
+  cache.forumTopics=topics;
+  const ids=topics.map(x=>x.user_id);
+  const topicIds=topics.map(x=>x.id);
   const [authors,images,comments]=await Promise.all([
     ids.length?sb.from("forum_public_profiles").select("*").in("id",ids):Promise.resolve({data:[]}),
     topicIds.length?sb.from("forum_topic_images").select("*").in("topic_id",topicIds).order("sort_order"):Promise.resolve({data:[]}),
@@ -411,7 +414,7 @@ async forum(){
     const pics=(images.data||[]).filter(i=>i.topic_id===t.id).map(i=>'<img src="'+esc(sb.storage.from("forum-images").getPublicUrl(i.storage_path).data.publicUrl)+'" alt="" loading="lazy">').join("");
     return '<article class="card"><div class="row">'+(a.avatar_url?'<img src="'+esc(a.avatar_url)+'" style="width:34px;height:34px;border-radius:50%">':'<span>👤</span>')+'<b>'+esc(a.display_name||"عضو سیمرغ")+'</b>'+(a.is_suspended?'<i class="suspension-dot"></i>':'')+'<small>'+when(t.created_at)+'</small></div><h3 style="margin-top:8px">'+esc(t.title)+'</h3><p>'+esc(t.body)+'</p>'+pics+'<div class="sec">گفت‌وگو</div>'+draw(t.id,null,0)+'<button class="btn o" onclick="replyForum(&quot;'+t.id+'&quot;,null)">ثبت نظر</button>'+((U.is_super_admin||(U.permissions||[]).includes("forum.moderate"))?'<button class="btn r s" onclick="hideForumTopic(&quot;'+t.id+'&quot;)">پنهان‌کردن تاپیک</button>':"")+'</article>';
   }).join("")||'<div class="empty">هنوز تاپیکی ثبت نشده است.</div>';
-  $("main").innerHTML=html;
+  $("main").innerHTML=html+(pageTopics.length===PAGE_SIZE?'<button class="btn o" onclick="loadMore(\\'forum\\')">نمایش تاپیک‌های بیشتر</button>':'');
 },
 async admin(){
   const P=U.permissions||[],can=k=>U.is_super_admin||P.includes(k);const T=[['purchase','خرید',can('store.manage')||can('library.manage')],['loan','درخواست امانت',can('library.manage')],['activeLoans','امانت‌های فعال',can('library.manage')],['extensions','تمدید امانت',can('library.manage')],['fines','جریمه‌ها',can('library.manage')],['breq','درخواست کتاب',can('library.manage')],['cafeCats','دسته‌های کافه',can('cafe.manage')],['menu','منوی کافه',can('cafe.manage')],['bookCats','موضوعات کتاب',can('library.manage')],['books','کتاب‌ها',can('library.manage')],['storeCats','موضوعات فروشگاه',can('store.manage')],['art','فروشگاه',can('store.manage')],['events','رویدادها',can('events.manage')],['loyalty','امتیاز و جوایز',can('users.manage')&&can('store.manage')]].filter(x=>x[2]).map(x=>x.slice(0,2));if(U.is_super_admin)T.push(['access','دسترسی‌ها']);
@@ -561,11 +564,11 @@ async function submitForumTopic(){
     const up=await sb.storage.from("forum-images").upload(path,file,{upsert:false});
     if(!up.error){const ins=await sb.from("forum_topic_images").insert({topic_id:topic.id,storage_path:path,alt_text:file.name});if(ins.error)console.error(ins.error)}
   }
-  closeM();toast("تاپیک منتشر شد");go("forum");
+  closeM();toast("تاپیک منتشر شد");pageState.forum=0;delete cache.forumTopics;go("forum");
 }
 function replyForum(topicId,parentId){openM('<h3 style="color:var(--gold2)">ثبت نظر</h3><textarea id="forumComment" rows="4" placeholder="متن دیدگاه"></textarea><button class="btn" onclick="submitForumComment(\''+topicId+'\', '+(parentId?"\'"+parentId+"\'":"null")+')">ارسال</button><button class="btn o" onclick="closeM()">انصراف</button>')}
-async function submitForumComment(topicId,parentId){const body=$("forumComment").value.trim();if(!body)return toast("متن دیدگاه را وارد کنید");const {error}=await sb.from("forum_comments").insert({topic_id:topicId,user_id:U.id,parent_id:parentId,body});if(error)return toast(error.message);closeM();toast("دیدگاه ثبت شد");go("forum")}
-async function hideForumTopic(id){if(!confirm("این تاپیک پنهان شود؟"))return;const {error}=await sb.from("forum_topics").update({status:"hidden"}).eq("id",id);if(error)return toast(error.message);go("forum")}
+async function submitForumComment(topicId,parentId){const body=$("forumComment").value.trim();if(!body)return toast("متن دیدگاه را وارد کنید");const {error}=await sb.from("forum_comments").insert({topic_id:topicId,user_id:U.id,parent_id:parentId,body});if(error)return toast(error.message);closeM();toast("دیدگاه ثبت شد");pageState.forum=0;delete cache.forumTopics;go("forum")}
+async function hideForumTopic(id){if(!confirm("این تاپیک پنهان شود؟"))return;const {error}=await sb.from("forum_topics").update({status:"hidden"}).eq("id",id);if(error)return toast(error.message);pageState.forum=0;delete cache.forumTopics;go("forum")}
 async function logout(){try{await sb.auth.signOut()}catch(e){console.warn(e)}localStorage.removeItem("token");localStorage.removeItem("user");U=null;cart=[];showAuth(false)}
 
 function addCart(type,id){
