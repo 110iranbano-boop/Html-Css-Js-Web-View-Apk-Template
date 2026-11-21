@@ -11,6 +11,10 @@
 - `.github/workflows/build-apk.yml`: ساخت APK در GitHub Actions
 - پوشه `server/` کد قدیمی PostgreSQL/JWT است و در مسیر اجرای نسخه Supabase استفاده نمی‌شود.
 
+## آیکون اپلیکیشن اندروید
+
+طرح پر طلایی و فیروزه‌ای در `assets/android/simorgh-feather-foreground.png.b64` نگهداری می‌شود. Workflow پس از ساخت و همگام‌سازی پروژه Capacitor، منابع Adaptive Icon و اندازه‌های استاندارد لانچر اندروید (MDPI تا XXXHDPI) را با `scripts/generate_android_icons.py` تولید می‌کند. بنابراین فایل‌های تولیدشده داخل پوشه موقت `android/` نیاز نیست در مخزن نگهداری شوند.
+
 ## تنظیم Supabase
 
 پروژه Supabase در `www/config.js` تنظیم شده است. کلید قرارگرفته باید فقط کلید Publishable/anon باشد. هرگز کلید `service_role` یا Secret را در اپلیکیشن، فایل‌های عمومی یا GitHub قرار ندهید.
