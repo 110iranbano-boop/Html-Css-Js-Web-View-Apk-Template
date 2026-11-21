@@ -474,7 +474,8 @@ async function redeemReward(id){
  toast(data?.status==='pending'?'درخواست برای تأیید مدیریت ثبت شد':'درخواست جایزه ثبت شد');
  go('account');
 }
-\n/* ---------- عملیات ---------- */
+
+/* ---------- عملیات ---------- */
 
 
 async function returnActiveLoan(id){if(!confirm('تحویل واقعی این کتاب ثبت شود؟'))return;const{ok,d}=await send('/admin/active-loans/'+id+'/return','PUT');if(!ok)return toast(d.error||'ثبت بازگشت ناموفق بود');toast('بازگشت کتاب ثبت شد');go('admin')}
