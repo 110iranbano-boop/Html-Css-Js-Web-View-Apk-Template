@@ -304,7 +304,18 @@
       if(error)throw error;return ok((data||[]).map(x=>({full_name:x.registrant_name,phone:x.registrant_phone,people:x.people||[]})));
     }
     if(p==="/admin/forum-topics"&&method==="GET"){
-      const {data,error}=await sb.from("forum_topics").select("*,profile:profiles(display_name)").order("created_at",{ascending:false});if(error)throw error;return ok(data||[]);
+      const {data,error}=await sb.from("forum_topics").select("*").order("created_at",{ascending:false});
+      if(error)throw error;
+      const topicRows=data||[];
+      const authorIds=[...new Set(topicRows.map(x=>x.user_id).filter(Boolean))];
+      const {data:profiles,error:profileError}=authorIds.length
+        ? await sb.from("forum_public_profiles")
+            .select("id,display_name,username,avatar_url,is_suspended")
+            .in("id",authorIds)
+        : {data:[],error:null};
+      if(profileError)throw profileError;
+      const profileMap=Object.fromEntries((profiles||[]).map(x=>[x.id,x]));
+      return ok(topicRows.map(x=>({...x,profile:profileMap[x.user_id]||null})));
     }
     throw new Error("این عملیات هنوز در لایه داده پیاده‌سازی نشده است: "+method+" "+p);
   }
