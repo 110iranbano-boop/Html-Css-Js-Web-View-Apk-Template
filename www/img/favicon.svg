@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+<defs>
+ <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#092e2d"/><stop offset=".55" stop-color="#124b45"/><stop offset="1" stop-color="#062725"/></linearGradient>
+ <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0b0"/><stop offset=".28" stop-color="#e8b64f"/><stop offset=".62" stop-color="#a85d1e"/><stop offset="1" stop-color="#f6d887"/></linearGradient>
+ <linearGradient id="feather" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f9d985"/><stop offset=".5" stop-color="#c27b27"/><stop offset="1" stop-color="#0b6963"/></linearGradient>
+ <radialGradient id="halo"><stop stop-color="#1b7169" stop-opacity=".8"/><stop offset="1" stop-color="#092d2b" stop-opacity="0"/></radialGradient>
+ <pattern id="tile" width="54" height="54" patternUnits="userSpaceOnUse"><path d="M27 3 51 27 27 51 3 27zM27 12 42 27 27 42 12 27z" fill="none" stroke="#d6a64d" stroke-width="2" opacity=".55"/><circle cx="27" cy="27" r="3" fill="#e5bb69"/></pattern>
+ <filter id="glow"><feGaussianBlur stdDeviation="12" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1024" height="1024" rx="190" fill="url(#bg)"/>
+<rect x="18" y="18" width="988" height="988" rx="178" fill="none" stroke="url(#gold)" stroke-width="13"/>
+<rect x="39" y="39" width="946" height="946" rx="160" fill="url(#tile)" opacity=".48"/>
+<path d="M90 910V400C90 220 255 75 512 60c257 15 422 160 422 340v510" fill="none" stroke="url(#gold)" stroke-width="24"/>
+<path d="M125 900V405C125 250 275 112 512 98c237 14 387 152 387 307v495" fill="none" stroke="#f2d18a" stroke-width="5" opacity=".8"/>
+<circle cx="512" cy="440" r="355" fill="url(#halo)"/>
+<g fill="none" stroke="url(#gold)" stroke-width="8" opacity=".9"><path d="M140 210q65-100 130 0-65 100-130 0zm614 0q65-100 130 0-65 100-130 0z"/><path d="M175 155q35-55 70 0-35 55-70 0zm534 0q35-55 70 0-35 55-70 0z"/></g>
+<!-- Phoenix tail and body -->
+<g filter="url(#glow)">
+ <path d="M510 650c-70 95-180 150-270 190 95 4 205-30 285-105-25 85-93 142-160 190 135-35 230-135 240-255" fill="none" stroke="url(#feather)" stroke-width="46" stroke-linecap="round"/>
+ <path d="M520 650c45 100 120 155 230 205-35-65-75-125-145-185 90 45 160 65 250 60-95-55-170-120-230-210" fill="none" stroke="url(#gold)" stroke-width="30" stroke-linecap="round"/>
+ <path d="M520 625c-30-100-15-195 15-265 45 85 60 180 25 270 55-70 75-150 55-230 70 95 65 195 5 280" fill="url(#feather)" stroke="url(#gold)" stroke-width="13"/>
+</g>
+<!-- left wing feathers -->
+<g fill="url(#feather)" stroke="url(#gold)" stroke-width="8" stroke-linejoin="round">
+ <path d="M500 445C365 270 220 220 95 250c95 65 190 130 270 230-120-55-230-65-300-25 115 40 205 105 300 170z"/>
+ <path d="M485 470C330 355 205 345 95 390c105 50 205 100 285 180-105-35-200-30-280 20 140 5 250 60 365 110z"/>
+ <path d="M470 510C330 450 220 475 130 540c115 15 210 45 295 105-95-10-170 20-235 75 135-30 220-20 315 5z"/>
+</g>
+<!-- right wing feathers -->
+<g fill="url(#feather)" stroke="url(#gold)" stroke-width="8" stroke-linejoin="round">
+ <path d="M530 445C665 270 810 220 935 250c-95 65-190 130-270 230 120-55 230-65 300-25-115 40-205 105-300 170z"/>
+ <path d="M545 470C700 355 825 345 935 390c-105 50-205 100-285 180 105-35 200-30 280 20-140 5-250 60-365 110z"/>
+ <path d="M560 510C700 450 810 475 900 540c-115 15-210 45-295 105 95-10 170 20 235 75-135-30-220-20-315 5z"/>
+</g>
+<!-- feather etched lines -->
+<g fill="none" stroke="#fff0b0" stroke-width="5" opacity=".78"><path d="M120 270q180 55 355 230M115 405q175 25 355 175M160 555q145-5 310 100M904 270q-180 55-355 230M909 405q-175 25-355 175M864 555q-145-5-310 100"/></g>
+<!-- head, crest and beak -->
+<path d="M478 340q-80-65-105-150 80 38 130 105-25-100-10-160 75 70 80 175 70-55 135-45-45 50-105 70 50 5 85 35-90 30-170 0" fill="url(#gold)" stroke="#fff0b0" stroke-width="8" stroke-linejoin="round"/>
+<path d="M525 345q65-40 130-18l-40 30q-40 12-90-12" fill="url(#gold)" stroke="#a65c20" stroke-width="6"/>
+<circle cx="590" cy="319" r="10" fill="#092b29"/><circle cx="593" cy="316" r="3" fill="#fff3c4"/>
+<!-- neck -->
+<path d="M490 350q-45 105 15 220 65 85 5 155 115-55 95-160-10-65-60-115 20-50-5-100" fill="url(#gold)" stroke="#f8d98c" stroke-width="9"/>
+<path d="M505 395q45 60 25 120m25-100q45 65 25 120m-55 5q55 45 45 100" fill="none" stroke="#0d5a53" stroke-width="10" stroke-linecap="round"/>
+<!-- breast ornamental feathers -->
+<g fill="none" stroke="#f8d98c" stroke-width="7"><path d="M470 500q50 15 75 65m-90-25q55 15 85 70m-70-5q40 10 65 55"/></g>
+<!-- lotus base -->
+<path d="M330 860q70-110 140-35 42-115 84 0 70-75 140 35-90-20-182 42-92-62-182-42z" fill="url(#gold)" stroke="#fff0b0" stroke-width="8"/>
+<path d="M512 820q-55-65 0-120 55 55 0 120zm-35-4q-80-5-90-70 75 0 90 70zm70 0q80-5 90-70-75 0-90 70z" fill="#0d514b" stroke="url(#gold)" stroke-width="7"/>
+<g fill="#f5d48b"><circle cx="210" cy="115" r="8"/><circle cx="814" cy="115" r="8"/><path d="m512 35 12 22-12 22-12-22z"/></g>
+</svg>
