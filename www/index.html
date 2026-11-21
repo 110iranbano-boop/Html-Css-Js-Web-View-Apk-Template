@@ -377,9 +377,12 @@ async notifs(){
   if(ok&&d.some(n=>!n.is_read)){await send('/notifications/read','PUT');refreshBadges()}
 },
 
-async forum(){
-  const {data:topics,error}=await sb.from("forum_topics").select("*").eq("status","published").order("created_at",{ascending:false});
+async forum(loadMore=false){
+  const forumPage=loadMore?(cache.forumPage||0)+1:0;
+  const {data:topics,error}=await sb.from("forum_topics").select("*").eq("status","published").order("created_at",{ascending:false}).range(forumPage*20,forumPage*20+19);
   if(error){$("main").innerHTML='<div class="empty">تالار بارگذاری نشد. اجرای مهاجرت Supabase را بررسی کنید.</div>';return}
+  cache.forumPage=forumPage;
+  const oldForumHtml=loadMore?$('main').innerHTML:'';
   const ids=(topics||[]).map(x=>x.user_id);
   const topicIds=(topics||[]).map(x=>x.id);
   const [authors,images,comments]=await Promise.all([
@@ -398,13 +401,13 @@ async forum(){
     const a=cmap[c.user_id]||{};
     return '<div class="card" style="margin:8px 0 8px '+Math.min(depth*12,48)+'px;padding:10px"><div class="row">'+(a.avatar_url?'<img src="'+esc(a.avatar_url)+'" style="width:28px;height:28px;border-radius:50%">':'<span>👤</span>')+'<b>'+esc(a.display_name||"عضو سیمرغ")+'</b>'+(a.is_suspended?'<i class="suspension-dot"></i>':'')+'</div><p>'+esc(c.body)+'</p><button class="btn o s" onclick="replyForum(&quot;'+topicId+'&quot;,&quot;'+c.id+'&quot;)">پاسخ</button>'+draw(topicId,c.id,depth+1)+'</div>';
   }).join(""));
-  let html=canCreate?'<button class="btn" onclick="newForumTopic()">+ ایجاد تاپیک جدید</button>':'<p class="sub">برای ایجاد تاپیک باید مدیر تالار به حساب شما مجوز بدهد. امکان مشاهده و ثبت نظر فعال است.</p>';
+  let html=loadMore?oldForumHtml:(canCreate?'<button class="btn" onclick="newForumTopic()">+ ایجاد تاپیک جدید</button>':'<p class="sub">برای ایجاد تاپیک باید مدیر تالار به حساب شما مجوز بدهد. امکان مشاهده و ثبت نظر فعال است.</p>');
   html+=(topics||[]).map(t=>{
     const a=amap[t.user_id]||{};
     const pics=(images.data||[]).filter(i=>i.topic_id===t.id).map(i=>'<img src="'+esc(sb.storage.from("forum-images").getPublicUrl(i.storage_path).data.publicUrl)+'" alt="" loading="lazy">').join("");
     return '<article class="card"><div class="row">'+(a.avatar_url?'<img src="'+esc(a.avatar_url)+'" style="width:34px;height:34px;border-radius:50%">':'<span>👤</span>')+'<b>'+esc(a.display_name||"عضو سیمرغ")+'</b>'+(a.is_suspended?'<i class="suspension-dot"></i>':'')+'<small>'+when(t.created_at)+'</small></div><h3 style="margin-top:8px">'+esc(t.title)+'</h3><p>'+esc(t.body)+'</p>'+pics+'<div class="sec">گفت‌وگو</div>'+draw(t.id,null,0)+'<button class="btn o" onclick="replyForum(&quot;'+t.id+'&quot;,null)">ثبت نظر</button>'+((U.is_super_admin||(U.permissions||[]).includes("forum.moderate"))?'<button class="btn r s" onclick="hideForumTopic(&quot;'+t.id+'&quot;)">پنهان‌کردن تاپیک</button>':"")+'</article>';
   }).join("")||'<div class="empty">هنوز تاپیکی ثبت نشده است.</div>';
-  $("main").innerHTML=html;
+  $("main").innerHTML=html+(topics&&topics.length===20?'<button id="forumMore" class="btn o" onclick="forum(true)">نمایش تاپیک‌های بیشتر</button>':'');
 },
 async admin(){
   const P=U.permissions||[],can=k=>U.is_super_admin||P.includes(k);const T=[['purchase','خرید',can('store.manage')||can('library.manage')],['loan','درخواست امانت',can('library.manage')],['activeLoans','امانت‌های فعال',can('library.manage')],['extensions','تمدید امانت',can('library.manage')],['fines','جریمه‌ها',can('library.manage')],['breq','درخواست کتاب',can('library.manage')],['cafeCats','دسته‌های کافه',can('cafe.manage')],['menu','منوی کافه',can('cafe.manage')],['bookCats','موضوعات کتاب',can('library.manage')],['books','کتاب‌ها',can('library.manage')],['storeCats','موضوعات فروشگاه',can('store.manage')],['art','فروشگاه',can('store.manage')],['events','رویدادها',can('events.manage')],['loyalty','امتیاز و جوایز',can('users.manage')&&can('store.manage')]].filter(x=>x[2]).map(x=>x.slice(0,2));if(U.is_super_admin)T.push(['access','دسترسی‌ها']);
