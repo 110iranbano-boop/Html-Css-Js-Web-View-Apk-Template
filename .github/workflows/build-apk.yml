@@ -49,7 +49,7 @@ jobs:
           const refs = new Set([
             ...Array.from(html.matchAll(/url\((['"]?)(img\/[^)'"]+)\1\)/g), m => m[2]),
             ...Array.from(html.matchAll(/(?:src|href)=["'](img\/[^"']+)["']/g), m => m[1]),
-          ]);
+          ].filter(ref => !ref.includes('${')));
           for (const ref of refs) {
             const file = path.join('www', ref);
             if (!fs.existsSync(file)) throw new Error('Missing bundled image: ' + file);
