@@ -3,18 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0b2426">
+<meta name="theme-color" content="#0b4545">
 <title>کافه‌کتاب سیمرغ</title>
-<link rel="icon" href="img/favicon.png">
+<link rel="icon" type="image/png" href="img/www/img/simorgh-app-icon.png">
 <style>
 :root{--bg:#0b2426;--s1:#10312f;--s2:#174240;--gold:#d8a84e;--gold2:#f0cf8a;--tx:#f1e8d4;--mu:#9db3ab;--line:rgba(216,168,78,.35);--bad:#e0735d;--ok:#79c79a}
 *{margin:0;padding:0;box-sizing:border-box;font-family:Vazirmatn,Vazir,Tahoma,sans-serif}
-body{background:var(--bg) url(img/bg-page.jpg) center top/cover fixed no-repeat;color:var(--tx);min-height:100vh;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
+body{background-color:var(--bg);background-image:linear-gradient(180deg,rgba(247,239,223,.78),rgba(243,234,216,.88)),url('img/bg-page.jpg.webp');background-position:center top,center top;background-size:cover,cover;background-attachment:fixed,fixed;background-repeat:no-repeat;color:var(--tx);min-height:100vh;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))}
 button,input,textarea,select{font:inherit;color:inherit}
 .hidden{display:none!important}
 .top{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;background:rgba(11,36,38,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
 .top h1{flex:1;font-size:18px;color:var(--gold2)}
-body[data-pg=home]{background-image:url(img/bg-home.jpg)}
+body[data-pg=home]{background-image:linear-gradient(180deg,rgba(247,239,223,.64),rgba(243,234,216,.82)),url('img/bg-home.jpg.webp')}
 .ic{width:100%;height:100%;display:block}
 .ib{position:relative;padding:9px;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--s1);font-size:18px;cursor:pointer}
 .ib b{position:absolute;top:-3px;left:-3px;min-width:18px;height:18px;border-radius:9px;background:var(--bad);font-size:11px;line-height:18px;text-align:center;padding:0 4px}
@@ -67,6 +67,79 @@ input[type=checkbox]{width:auto}
 .user-pill{display:flex;align-items:center;gap:6px;max-width:118px;min-width:0;padding:4px 7px;border:1px solid var(--line);border-radius:22px;background:var(--s1);cursor:pointer;font-size:11px;color:var(--gold2)}
 .user-pill img{width:28px;height:28px;border-radius:50%;object-fit:cover}.user-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.suspension-dot{display:inline-block;width:8px;height:8px;min-width:8px;border-radius:50%;background:#e4c52c}.user-pill .suspension-dot{margin-inline-start:2px}
 @media (prefers-reduced-motion:no-preference){.wheel{animation:fade .6s ease}@keyframes fade{from{opacity:0;transform:scale(.96)}}}
+
+/* ---------- Persian modern visual identity: Simorgh ---------- */
+:root{
+ --bg:#f3ead8;--s1:#fff8eb;--s2:#ead9bb;--gold:#b9822d;--gold2:#80551e;
+ --tx:#243b38;--mu:#6f7770;--line:rgba(157,112,48,.32);--bad:#b94e42;--ok:#34785b;
+ --teal:#0b4545;--teal2:#12615d;--cream:#f7efdf;--paper:#fffaf0;
+}
+html{background:var(--bg)}
+body{background-color:var(--bg);color:var(--tx)}
+body[data-pg=home]{background-image:linear-gradient(180deg,rgba(247,239,223,.64),rgba(243,234,216,.82)),url('img/bg-home.jpg.webp')}
+body[data-pg=cafe]{background-image:linear-gradient(180deg,rgba(247,239,223,.62),rgba(243,234,216,.84)),url('img/bg-cafe.jpg.webp')}
+body[data-pg=library]{background-image:linear-gradient(180deg,rgba(247,239,223,.62),rgba(243,234,216,.84)),url('img/bg-library.jpg.webp')}
+body[data-pg=art]{background-image:linear-gradient(180deg,rgba(247,239,223,.62),rgba(243,234,216,.84)),url('img/bg-page.jpg.webp');background-size:cover;background-position:center;background-attachment:fixed}
+body[data-pg=account],body[data-pg=profile]{background-image:linear-gradient(180deg,rgba(247,239,223,.64),rgba(243,234,216,.86)),url('img/profile-bg.png');background-size:cover;background-position:center;background-attachment:fixed}
+body[data-pg=events]{background-image:linear-gradient(180deg,rgba(247,239,223,.64),rgba(243,234,216,.86)),url('img/events-bg.png');background-size:cover;background-position:center;background-attachment:fixed}
+body[data-pg=forum]{background-image:linear-gradient(180deg,rgba(247,239,223,.64),rgba(243,234,216,.86)),url('img/hall-bg.png');background-size:cover;background-position:center;background-attachment:fixed}
+.avatar-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:10px 0}
+.avatar-option{border:2px solid var(--line);border-radius:14px;background:var(--paper);padding:8px;color:var(--tx);cursor:pointer}
+.avatar-option.selected{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(201,157,85,.25)}
+.avatar-option img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px}
+.avatar-option span{display:block;font-size:12px;margin-top:5px}
+body[data-pg=auth]{background-image:linear-gradient(180deg,rgba(247,239,223,.58),rgba(243,234,216,.82)),url('img/bg-home.jpg.webp')}
+.top{background:rgba(8,57,57,.97);border-bottom:2px solid #bd914b;box-shadow:0 3px 16px #173b3420}
+.top h1{color:#f5dfae}
+.ib{background:#12514e;border-color:#c99d55;color:#f7e8c5}
+.ib img{filter:brightness(0) saturate(100%) invert(85%) sepia(27%) saturate(578%) hue-rotate(347deg) brightness(101%)}
+main{padding:14px 14px 20px}
+.brand .name{color:#174e4a;text-shadow:0 1px #fff4dc}
+.brand p{color:#9b6b2c}
+.wheel{border:3px solid #bd914b;background:radial-gradient(circle at 50% 42%,#17625c 0%,#0b4545 67%,#073437 100%);box-shadow:inset 0 0 0 7px rgba(237,204,133,.13),inset 0 0 36px #e2b75c24,0 12px 30px #173b3425}
+.wheel:before{content:"";position:absolute;inset:9px;border:1px solid rgba(235,201,132,.55);border-radius:50%;pointer-events:none}
+.wheel .core{background:#f7ecd8;border:3px solid #c49a55;box-shadow:0 0 0 5px #0b4545,0 0 0 7px #c49a55}
+.seg{background:linear-gradient(145deg,#17635e,#083d40);border:2px solid #c79c56;color:#fff1d1;box-shadow:0 4px 12px #001e1d65,inset 0 0 0 2px #ffffff0b}
+.seg img{filter:brightness(0) saturate(100%) invert(85%) sepia(28%) saturate(588%) hue-rotate(347deg) brightness(102%)}
+.seg:active{background:#28746d;border-color:#f3d28b}
+.tag{color:#93652d;font-weight:600}
+.nav{background:rgba(255,249,237,.98);border-top:2px solid #c6a064;box-shadow:0 -5px 18px #3c302018}
+.nav button{color:#73766c}
+.nav button img{filter:brightness(0) saturate(100%) invert(24%) sepia(23%) saturate(1122%) hue-rotate(126deg) brightness(92%);opacity:.75}
+.nav button.on{color:#0b5550;font-weight:700}
+.nav button.on img{filter:brightness(0) saturate(100%) invert(31%) sepia(27%) saturate(1074%) hue-rotate(126deg) brightness(90%);opacity:1;drop-shadow:0 0 3px #c99d55}
+.card{background:linear-gradient(145deg,#fffaf0,#f0e2c9);border:1px solid #d4b77e;border-radius:17px;box-shadow:0 4px 13px #4b382015}
+.card h3{color:#174e49}
+.card p,.sub{color:#68736c}
+.card img,.ph{border:1px solid #d9c49b;background:#e9dcc2}
+.price{color:#956323}
+.sec{color:#155650}
+.sec:before{color:#b78b46}
+.btn{border:1px solid #a87932;background:linear-gradient(180deg,#d9b56e,#bd8a3c);color:#24352e;box-shadow:0 3px 8px #76521b24}
+.btn.o{background:transparent;color:#17534e;border-color:#8b9c83}
+.btn.r{color:#a44338;border-color:#b94e42}
+.tabs button{background:#fff8eb;border-color:#d5bc8d;color:#59685f}
+.tabs button.on{background:linear-gradient(180deg,#17635d,#0b4545);color:#fff0d0;border-color:#c49a55}
+label{color:#53685f}
+input,textarea,select{background:#fffaf0;border-color:#d2b77e;color:#243b38}
+input::placeholder,textarea::placeholder{color:#9a9a89}
+.badge{color:#80551e;border-color:#c8a66a}
+.menu{background:#fff8eb;border-color:#d5bc8d;box-shadow:0 3px 10px #4b382012}
+.menu img{filter:brightness(0) saturate(100%) invert(30%) sepia(25%) saturate(1068%) hue-rotate(127deg)}
+.mc{background:linear-gradient(135deg,#155b55,#073c40);border:2px solid #c49a55;color:#fff1d1}
+.mc .code{color:#f2d28b}
+.empty{color:#72776d}
+.modal>div{background:#f6eddc;border-top:2px solid #bd914b;color:#263c37}
+.toast{background:#145650;color:#fff2d2;border:1px solid #d1a85e}
+.auth{background:transparent;min-height:100vh}
+.user-pill{background:#14534f;border-color:#c49a55;color:#f5e6c5}
+.user-pill img{border:1px solid #d7b46d}
+#main .card h3,#main .menu span{letter-spacing:0}
+button{transition:background-color .18s ease,border-color .18s ease,transform .18s ease}
+button:active{transform:scale(.985)}
+@media(min-width:700px){main{max-width:760px;margin:0 auto}.top{padding-inline:max(14px,calc((100vw - 760px)/2))}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+
 </style>
 </head>
 <body>
@@ -92,6 +165,20 @@ const CFG=window.APP_CONFIG||{},API=(String(CFG.API_BASE||'').trim().replace(/\/
 const $=id=>document.getElementById(id);
 const ic=n=>`<img src="img/icons/${n}.svg" alt="">`;
 let U=null,page='home',cart=[],libTab='sale',cache={},admTab='purchase';
+const apiCache=new Map();
+function clearApiCache(){apiCache.clear();delete cache.cafeProducts;delete cache.bookRows;delete cache.artRows;delete cache.eventRows;delete cache.hasMore;delete cache.pageTimes;delete cache.forumPage}
+const cacheTTL=p=>p==='/notifications'?8000:(p.includes('/my')||p.startsWith('/admin/'))?12000:45000;
+const PAGE_SIZE=24;
+function pageCacheFresh(kind){return !!cache.pageTimes?.[kind]&&Date.now()-cache.pageTimes[kind]<45000}
+function loadMoreButton(kind){return cache.hasMore?.[kind]?'<button class="btn o" style="margin:12px 0" onclick="loadMoreList(\''+kind+'\')">نمایش موارد بیشتر</button>':''}
+async function loadMoreList(kind){
+  const cfg={cafe:['/menu','cafeProducts'],library:['/books','bookRows'],art:['/art','artRows'],events:['/events','eventRows']}[kind];if(!cfg)return;
+  const [route,key]=cfg;if(!pageCacheFresh(kind)){delete cache[key];await R[kind]();return;}const offset=(cache[key]||[]).length;
+  const {ok,d}=await api(route+'?offset='+offset+'&limit='+PAGE_SIZE,{skipCache:true});
+  if(!ok)return toast('دریافت ادامه فهرست ناموفق بود');
+  const next=d||[];cache[key]=(cache[key]||[]).concat(next.slice(0,PAGE_SIZE));cache.pageTimes=cache.pageTimes||{};cache.pageTimes[kind]=Date.now();cache.hasMore=cache.hasMore||{};cache.hasMore[kind]=next.length>PAGE_SIZE;
+  await R[kind]();
+}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fa=n=>Number(n).toLocaleString('fa-IR');
 const money=n=>n==null||n===''?'قیمت: پس از استعلام':fa(Math.round(n))+' تومان';
@@ -106,7 +193,12 @@ function openM(h){$('mbox').innerHTML=h;$('modal').classList.remove('hidden')}
 function closeM(){$('modal').classList.add('hidden')}
 async function api(p,o={}){
   if(!window.SimorghDB?.ready){toast('اتصال Supabase آماده نیست');return{ok:false,d:{error:'تنظیمات Supabase را بررسی کنید'}}}
-  return window.SimorghDB.api(p,o);
+  const method=o.method||'GET',key=(U?.id||'guest')+'|'+p;
+  if(method==='GET'&&!o.skipCache){const hit=apiCache.get(key);if(hit&&Date.now()-hit.time<cacheTTL(p))return hit.value;}
+  const result=await window.SimorghDB.api(p,o);
+  if(method==='GET'&&result?.ok&&!o.skipCache)apiCache.set(key,{time:Date.now(),value:result});
+  if(method!=='GET'&&result?.ok)clearApiCache();
+  return result;
 }
 const send=(p,m,b)=>api(p,{method:m,body:b?JSON.stringify(b):undefined});
 
@@ -166,12 +258,14 @@ function boot(){
   go('home');refreshBadges();
 }
 const TITLES={home:'سیمرغ',cafe:'کافه‌کتاب',library:'کتابخانه',events:'رویدادها',forum:'تالار سیمرغ',art:'فروشگاه سیمرغ',cart:'سبد خرید',account:'حساب کاربری',notifs:'اعلان‌ها',mine:'درخواست‌های من',admin:'پنل مدیریت'};
-async function go(p,arg){
+async function go(p,arg,force=false){
   page=p;document.body.dataset.pg=p;if(p==='library'&&arg)libTab=arg;
+  if(force){clearApiCache();cache.hasMore={};delete cache.cafeProducts;delete cache.bookRows;delete cache.artRows;delete cache.eventRows;delete cache.forumPage;}
   $('title').textContent=TITLES[p];$('back').classList.toggle('hidden',p==='home');
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===p));
   $('main').innerHTML='<div class="empty">در حال بارگذاری…</div>';scrollTo(0,0);
   await R[p]();
+  if(page===p&&p!=='home')$('main').insertAdjacentHTML('afterbegin','<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn o s" onclick="go(\''+p+'\',undefined,true)">↻ تازه‌سازی اطلاعات</button></div>');
 }
 function saveCart(){localStorage.setItem('cart_'+U.id,JSON.stringify(cart));refreshBadges()}
 async function refreshBadges(){
@@ -192,47 +286,54 @@ home(){
   <div class="wheel"><div class="core"><img src="img/logo-512.png" alt=""></div>${seg}</div><div class="tag">جایی برای رویاها، کتاب‌ها و هنر…</div>`;
 },
 async cafe(){
-  const [m,c]=await Promise.all([api('/menu'),api('/cafe-categories')]);
+  const [m,c]=await Promise.all([pageCacheFresh('cafe')?{ok:true,d:cache.cafeProducts}:api('/menu?offset=0&limit='+PAGE_SIZE,{skipCache:true}),api('/cafe-categories')]);
   if(!m.ok||!c.ok)return $('main').innerHTML='<div class="empty">منو بارگذاری نشد</div>';
+  if(!pageCacheFresh('cafe')){cache.cafeProducts=(m.d||[]).slice(0,PAGE_SIZE);cache.pageTimes=cache.pageTimes||{};cache.pageTimes.cafe=Date.now();cache.hasMore=cache.hasMore||{};cache.hasMore.cafe=(m.d||[]).length>PAGE_SIZE;}
   const cats=c.d||[],selected=cats.find(x=>x.id===cache.cafeCat)?.name||'همه';
   const tabs='<div class="tabs"><button class="'+(selected==='همه'?'on':'')+'" onclick="cache.cafeCat=0;go(&quot;cafe&quot;)">همه</button>'+cats.map(x=>'<button class="'+(selected===x.name?'on':'')+'" onclick="cache.cafeCat='+x.id+';go(&quot;cafe&quot;)">'+esc(x.name)+'</button>').join('')+'</div>';
   const categoryCards=selected==='همه'?'<div class="grid">'+cats.map(x=>'<button class="card" onclick="cache.cafeCat='+x.id+';go(&quot;cafe&quot;)">'+(x.image_url?img(x.image_url,'☕'):'<div class="ph">☕</div>')+'<h3>'+esc(x.name)+'</h3><p>'+esc(x.description||'')+'</p></button>').join('')+'</div>':'';
-  const products=m.d.filter(x=>selected==='همه'||x.category===selected);
+  const products=cache.cafeProducts.filter(x=>selected==='همه'||x.category===selected);
   const items=products.map(i=>'<div class="card">'+(i.image_url?img(i.image_url,'☕'):'')+'<div class="row"><h3>'+esc(i.name)+'</h3><span class="price">'+money(i.price)+'</span></div>'+(i.description?'<p>'+esc(i.description)+'</p>':'')+'</div>').join('')||'<div class="empty">محصولی در این دسته ثبت نشده است</div>';
-  $('main').innerHTML=tabs+categoryCards+items;
+  $('main').innerHTML=tabs+categoryCards+items+loadMoreButton('cafe');
   /* کافه فقط نمایش منو است؛ سفارش‌گیری تعریف نشده است */
 },
 async library(){
-  const[b,l,c]=await Promise.all([api('/books'),api('/loan-requests/my'),api('/book-categories')]);
+  const[b,l,c]=await Promise.all([pageCacheFresh('library')?{ok:true,d:cache.bookRows}:api('/books?offset=0&limit='+PAGE_SIZE,{skipCache:true}),api('/loan-requests/my'),api('/book-categories')]);
   if(!b.ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
-  cache.books=b.d;cache.bookCats=c.ok?c.d:[];const pend=new Set((l.ok?l.d:[]).filter(x=>x.status==='pending').map(x=>x.book_id));
+  if(!pageCacheFresh('library')){cache.bookRows=(b.d||[]).slice(0,PAGE_SIZE);cache.pageTimes=cache.pageTimes||{};cache.pageTimes.library=Date.now();cache.hasMore=cache.hasMore||{};cache.hasMore.library=(b.d||[]).length>PAGE_SIZE;}
+  cache.books=cache.bookRows;cache.bookCats=c.ok?c.d:[];const pend=new Set((l.ok?l.d:[]).filter(x=>x.status==='pending').map(x=>x.book_id));
   const T=[['sale','فروش کتاب'],['loan','امانی'],['request','درخواست کتاب']];
   let body='';
-  if(libTab==='sale')body=b.d.filter(x=>x.type==='sale'&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<div class="row"><h3>${esc(x.title)}</h3><span class="price">${money(x.price)}</span></div><p>${esc(x.author||'')}${x.category?' · '+esc(x.category):''}</p>${x.description?`<p>${esc(x.description)}</p>`:''}<button class="btn s" onclick="addCart('book',${x.id})">افزودن به سبد</button></div>`).join('')||'<div class="empty">کتابی برای فروش ثبت نشده است</div>';
-  if(libTab==='loan')body=b.d.filter(x=>x.type==='loan'&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<h3>${esc(x.title)}</h3><p>${esc(x.author||'')}</p>${x.description?`<p>${esc(x.description)}</p>`:''}${x.status!=='available'?badge('امانت داده شده','no'):pend.has(x.id)?badge('درخواست شما در حال بررسی است'):`<button class="btn s" onclick="reqLoan(${x.id})">درخواست امانت</button>`}</div>`).join('')||'<div class="empty">کتاب امانی ثبت نشده است</div>';
+  if(libTab==='sale')body=cache.bookRows.filter(x=>(x.type==='sale'||x.type==='both')&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<div class="row"><h3>${esc(x.title)}</h3><span class="price">${money(x.price)}</span></div><p>${esc(x.author||'')}${x.category?' · '+esc(x.category):''}</p>${x.description?`<p>${esc(x.description)}</p>`:''}<button class="btn s" onclick="addCart('book',${x.id})">افزودن به سبد</button></div>`).join('')||'<div class="empty">کتابی برای فروش ثبت نشده است</div>';
+  if(libTab==='loan')body=cache.bookRows.filter(x=>(x.type==='loan'||x.type==='both')&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<h3>${esc(x.title)}</h3><p>${esc(x.author||'')}</p>${x.description?`<p>${esc(x.description)}</p>`:''}${x.status!=='available'?badge('امانت داده شده','no'):pend.has(x.id)?badge('درخواست شما در حال بررسی است'):`<button class="btn s" onclick="reqLoan(${x.id})">درخواست امانت</button>`}</div>`).join('')||'<div class="empty">کتاب امانی ثبت نشده است</div>';
   if(libTab==='request'){
     const r=await api('/book-requests/my');
     body=`<div class="card"><h3>کتابی می‌خواهید که در سیمرغ نیست؟</h3><label>عنوان کتاب</label><input id="rt"><label>نویسنده یا ناشر (اختیاری)</label><input id="ra"><label>توضیح (اختیاری)</label><textarea id="rd" rows="2"></textarea><button class="btn" onclick="sendBookReq()">ارسال درخواست</button></div>
     <div class="sec">درخواست‌های کتاب من</div>`+((r.ok?r.d:[]).map(x=>`<div class="card"><h3>${esc(x.book_title)}</h3><p>${esc(x.author||'')}</p>${gb(x.status)}${x.admin_note?`<p>پاسخ مدیریت: ${esc(x.admin_note)}</p>`:''}</div>`).join('')||'<div class="empty">هنوز درخواستی ثبت نکرده‌اید</div>');
   }
-  $('main').innerHTML=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===libTab?'on':''}" onclick="cache.bookCat='';go('library','${k}')">${t}</button>`).join('')}</div>`+(libTab!=='request'?`<div class="tabs"><button class="${!cache.bookCat?'on':''}" onclick="cache.bookCat='';go('library')">همه موضوعات</button>${cache.bookCats.map(c=>`<button class="${cache.bookCat===c.name?'on':''}" onclick="cache.bookCat='${esc(c.name).replace(/'/g,'')}';go('library')">${esc(c.name)}</button>`).join('')}</div>`:'')+body;
+  $('main').innerHTML=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===libTab?'on':''}" onclick="cache.bookCat='';go('library','${k}')">${t}</button>`).join('')}</div>`+(libTab!=='request'?`<div class="tabs"><button class="${!cache.bookCat?'on':''}" onclick="cache.bookCat='';go('library')">همه موضوعات</button>${cache.bookCats.map(c=>`<button class="${cache.bookCat===c.name?'on':''}" onclick="cache.bookCat='${esc(c.name).replace(/'/g,'')}';go('library')">${esc(c.name)}</button>`).join('')}</div>`:'')+body+(libTab!=='request'?loadMoreButton('library'):'');
 },
 async events(){
-  const{ok,d}=await api('/events');if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';cache.events=d;
-  $('main').innerHTML=d.map(e=>{const full=e.capacity&&e.registered>=e.capacity;
+  const result=pageCacheFresh('events')?{ok:true,d:cache.eventRows}:await api('/events?offset=0&limit='+PAGE_SIZE,{skipCache:true});
+  const{ok,d}=result;if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
+  if(!pageCacheFresh('events')){cache.eventRows=(d||[]).slice(0,PAGE_SIZE);cache.pageTimes=cache.pageTimes||{};cache.pageTimes.events=Date.now();cache.hasMore=cache.hasMore||{};cache.hasMore.events=(d||[]).length>PAGE_SIZE;}
+  cache.events=cache.eventRows;
+  $('main').innerHTML=cache.eventRows.map(e=>{const full=e.capacity&&e.registered>=e.capacity;
     return `<div class="card">${e.image_url?img(e.image_url,'📅'):''}<h3>${esc(e.title)}</h3><p>📅 ${when(e.event_date)}${e.location?' · 📍 '+esc(e.location):''}</p>${e.description?`<p>${esc(e.description)}</p>`:''}${e.rules_text?`<p>قوانین: ${esc(e.rules_text)}</p>`:''}${e.points?`<p>امتیاز ثبت‌نام: ${fa(e.points)}</p>`:''}${e.capacity?`<p>ظرفیت: ${fa(e.registered)} از ${fa(e.capacity)}</p>`:''}
     ${e.mine?`${badge('ثبت‌نام شده‌اید','ok')}<button class="btn r s" style="margin-inline-start:8px" onclick="unreg(${e.id})">لغو ثبت‌نام</button>`:!e.registration_open?badge('ثبت‌نام بسته است','no'):full?badge('ظرفیت تکمیل است','no'):`<button class="btn" onclick="reg(${e.id})">ثبت‌نام در رویداد</button>`}</div>`}).join('')||'<div class="empty">رویداد فعالی نیست</div>';
+  $('main').insertAdjacentHTML('beforeend',loadMoreButton('events'));
 },
 async art(){
-  const [a,c]=await Promise.all([api('/art'),api('/store-categories')]);
+  const [a,c]=await Promise.all([pageCacheFresh('art')?{ok:true,d:cache.artRows}:api('/art?offset=0&limit='+PAGE_SIZE,{skipCache:true}),api('/store-categories')]);
   if(!a.ok||!c.ok)return $('main').innerHTML='<div class="empty">فروشگاه بارگذاری نشد</div>';
-  cache.art=a.d;const cats=c.d||[],selected=cats.find(x=>x.id===cache.artCat)?.name||'همه';
+  if(!pageCacheFresh('art')){cache.artRows=(a.d||[]).slice(0,PAGE_SIZE);cache.pageTimes=cache.pageTimes||{};cache.pageTimes.art=Date.now();cache.hasMore=cache.hasMore||{};cache.hasMore.art=(a.d||[]).length>PAGE_SIZE;}
+  cache.art=cache.artRows;const cats=c.d||[],selected=cats.find(x=>x.id===cache.artCat)?.name||'همه';
   const tabs='<div class="tabs"><button class="'+(selected==='همه'?'on':'')+'" onclick="cache.artCat=0;go(&quot;art&quot;)">همه</button>'+cats.map(x=>'<button class="'+(selected===x.name?'on':'')+'" onclick="cache.artCat='+x.id+';go(&quot;art&quot;)">'+esc(x.name)+'</button>').join('')+'</div>';
   const categoryCards=selected==='همه'?'<div class="grid">'+cats.map(x=>'<button class="card" onclick="cache.artCat='+x.id+';go(&quot;art&quot;)">'+(x.image_url?img(x.image_url,'🎨'):'<div class="ph">🎨</div>')+'<h3>'+esc(x.name)+'</h3><p>'+esc(x.description||'')+'</p></button>').join('')+'</div>':'';
   const SL={in_stock:'موجود',made_to_order:'ساخت بر اساس سفارش',out:'ناموجود'};
-  const products=a.d.filter(i=>selected==='همه'||i.category===selected);
+  const products=cache.artRows.filter(i=>selected==='همه'||i.category===selected);
   const cards=products.map(i=>'<div class="card">'+img(i.image_url,'🎨')+'<h3>'+esc(i.name)+'</h3><div class="price">'+money(i.price)+'</div><p>'+SL[i.stock_status]+(i.allow_custom?' · سفارشی‌سازی':'')+'</p><button class="btn s" '+(i.stock_status==='out'?'disabled':'')+' onclick="addCart(\'art\','+i.id+')">افزودن به سبد</button></div>').join('')||'<div class="empty">محصولی در این موضوع ثبت نشده است</div>';
-  $('main').innerHTML=tabs+categoryCards+'<div class="grid">'+cards+'</div>';
+  $('main').innerHTML=tabs+categoryCards+'<div class="grid">'+cards+'</div>'+loadMoreButton('art');
 },
 cart(){
   if(!cart.length)return $('main').innerHTML='<div class="empty">سبد خرید خالی است.<br>کتاب فروشی یا محصول گالری را به سبد اضافه کنید.</div>';
@@ -246,18 +347,27 @@ cart(){
   <button class="btn" onclick="submitCart()">ثبت درخواست خرید</button><p style="margin-top:6px">پرداخت اینترنتی در برنامه انجام نمی‌شود؛ این فقط ثبت درخواست است.</p></div>`;
 },
 async account(){
-  const [loans,fines,points,level,extensions,balanceData]=await Promise.all([
+  const [loans,fines,points,levels,extensions,balanceData,rewards,redemptions]=await Promise.all([
     sb.from("book_loans").select("*,book:books(title)").eq("user_id",U.id).is("returned_at",null).order("handed_over_at",{ascending:false}),
     sb.from("book_fines").select("*").eq("user_id",U.id).eq("status","open"),
     sb.from("points_transactions").select("*").eq("user_id",U.id).order("created_at",{ascending:false}).limit(12),
-    sb.from("membership_levels").select("id,name,min_points").order("min_points",{ascending:true}),
+    sb.from("membership_levels").select("id,name,min_points,discount_percent,is_active").eq("is_active",true).order("min_points",{ascending:true}),
     sb.from("loan_extensions").select("loan_id,status").eq("status","pending"),
-    sb.from("user_points_balance").select("points_balance").eq("user_id",U.id).maybeSingle()
+    sb.from("user_loyalty_balance").select("membership_points,spendable_points").eq("user_id",U.id).maybeSingle(),
+    sb.from("rewards").select("*").eq("is_active",true).order("points_cost",{ascending:true}),
+    sb.from("reward_redemptions").select("*,reward:rewards(title)").eq("user_id",U.id).order("created_at",{ascending:false}).limit(10)
   ]);
-  const balance=Number(balanceData.data?.points_balance||0);const levelName=(level.data||[]).filter(x=>balance>=x.min_points).slice(-1)[0]?.name||"سطح یک";
+  const membershipPoints=Number(balanceData.data?.membership_points||0),spendable=Number(balanceData.data?.spendable_points||0);
+  const tier=(levels.data||[]).filter(x=>membershipPoints>=x.min_points).slice(-1)[0];
+  const nextTier=(levels.data||[]).find(x=>membershipPoints<x.min_points);
+  const levelName=tier?.name||"برنزی",discount=Number(tier?.discount_percent||0);
   const suspended=U.is_suspended?'<span class="badge no">حساب تعلیق‌شده</span>':'<span class="badge ok">حساب فعال</span>';
-  $("main").innerHTML='<div class="mc"><div class="row"><div><b style="font-size:18px">'+esc(U.full_name)+'</b><p>'+esc(U.phone)+'</p></div>'+(U.avatar_url?'<img src="'+esc(U.avatar_url)+'" style="width:66px;height:66px;border-radius:50%;object-fit:cover">':'<div class="ph" style="width:66px;height:66px;border-radius:50%">👤</div>')+'</div><p style="margin-top:8px">'+suspended+' '+badge(U.role==="admin"?(U.is_super_admin?"مدیر ارشد":"مدیر بخش"):"عضو")+'</p><div style="margin-top:10px;color:var(--gold);font-size:15px">کارت عضویت سیمرغ</div><div class="code">'+esc(U.member_code||"")+'</div><div class="row" style="margin-top:12px"><span>سطح عضویت: '+esc(levelName)+'</span><b>امتیاز: '+fa(balance)+'</b></div></div>'+
+  const rewardCards=(rewards.data||[]).map(x=>'<div class="card"><h3>'+esc(x.title)+'</h3><p>'+esc(x.description||'')+'</p><div class="row"><b class="price">'+fa(x.points_cost)+' امتیاز</b><button class="btn s" onclick="redeemReward(\''+x.id+'\')">دریافت جایزه</button></div>'+(x.stock_quantity!==null?'<p>موجودی: '+fa(x.stock_quantity)+'</p>':'')+'</div>').join('')||'<div class="empty">در حال حاضر جایزه‌ای ثبت نشده است.</div>';
+  const redemptionRows=(redemptions.data||[]).map(x=>'<div class="row card"><span>'+esc(x.reward?.title||'جایزه')+'<small style="display:block;color:var(--mu)">'+when(x.created_at)+' · '+esc(x.status)+'</small></span><b>'+fa(x.points_cost)+'</b></div>').join('')||'<div class="empty">درخواستی ثبت نشده است.</div>';
+  $("main").innerHTML='<div class="mc"><div class="row"><div><b style="font-size:18px">'+esc(U.full_name)+'</b><p>'+esc(U.phone)+'</p></div>'+(U.avatar_url?'<img src="'+esc(U.avatar_url)+'" style="width:66px;height:66px;border-radius:50%;object-fit:cover">':'<div class="ph" style="width:66px;height:66px;border-radius:50%">👤</div>')+'</div><p style="margin-top:8px">'+suspended+' '+badge(U.role==="admin"?(U.is_super_admin?"مدیر ارشد":"مدیر بخش"):"عضو")+'</p><div style="margin-top:10px;color:var(--gold);font-size:15px">کارت عضویت سیمرغ</div><div class="code">'+esc(U.member_code||"")+'</div><div class="row" style="margin-top:12px"><span>سطح عضویت: '+esc(levelName)+'</span><b>تخفیف: '+fa(discount)+'٪</b></div><div class="row" style="margin-top:8px"><span>امتیاز پیشرفت عضویت</span><b>'+fa(membershipPoints)+'</b></div><div class="row" style="margin-top:6px"><span>امتیاز قابل‌خرج</span><b>'+fa(spendable)+'</b></div>'+(nextTier?'<p style="margin-top:8px">تا سطح '+esc(nextTier.name)+'، '+fa(Math.max(0,Number(nextTier.min_points)-membershipPoints))+' امتیاز پیشرفت باقی مانده است.</p>':'<p style="margin-top:8px">به بالاترین سطح فعلی رسیده‌اید.</p>')+'</div>'+
   '<button class="menu" onclick="editProfile()">'+ic("account")+'<span>مشخصات کاربری</span>‹</button><button class="menu" onclick="go(\'mine\')">'+ic("receipt")+'<span>درخواست‌های من</span>‹</button><button class="menu" onclick="go(\'notifs\')">'+ic("bell")+'<span>اعلان‌ها</span>‹</button>'+
+  '<div class="sec">جوایز و خدمات قابل دریافت</div>'+rewardCards+
+  '<div class="sec">درخواست‌های جایزه من</div>'+redemptionRows+
   '<div class="sec">کتاب‌های امانت‌گرفته‌شده</div>'+((loans.data||[]).map(x=>'<div class="card"><h3>'+esc(x.book?.title||"کتاب")+'</h3><p>مهلت تحویل: '+when(x.current_due_at)+'</p>'+((extensions.data||[]).some(z=>z.loan_id===x.id)?badge("درخواست تمدید در انتظار بررسی"):'<button class="btn o s" onclick="requestLoanExtension(this.dataset.id)" data-id="'+x.id+'">درخواست تمدید یک هفته‌ای</button>')+'</div>').join('')||'<div class="empty">کتاب امانی فعالی ندارید</div>')+
   '<div class="sec">جریمه‌های باز</div>'+((fines.data||[]).map(x=>'<div class="card"><p>'+esc(x.reason)+'</p><b>'+fa(x.points_amount)+' امتیاز</b> · '+esc(x.fine_date)+'</div>').join("")||'<div class="empty">جریمه بازی ندارید</div>')+
   '<div class="sec">سوابق امتیاز</div>'+((points.data||[]).map(x=>'<div class="row card"><span>'+esc(x.description||x.reason_code)+'</span><b style="color:'+(x.points_delta<0?'var(--bad)':'var(--ok)')+'">'+(x.points_delta>0?'+':'')+fa(x.points_delta)+'</b></div>').join("")||'<div class="empty">هنوز تراکنش امتیازی ندارید</div>')+
@@ -277,9 +387,13 @@ async notifs(){
   if(ok&&d.some(n=>!n.is_read)){await send('/notifications/read','PUT');refreshBadges()}
 },
 
-async forum(){
-  const {data:topics,error}=await sb.from("forum_topics").select("*").eq("status","published").order("created_at",{ascending:false});
+async forum(loadMore=false){
+  const forumPage=loadMore?(cache.forumPage||0)+1:0;
+  const {data:topics,error}=await sb.from("forum_topics").select("*").eq("status","published").order("created_at",{ascending:false}).range(forumPage*20,forumPage*20+19);
   if(error){$("main").innerHTML='<div class="empty">تالار بارگذاری نشد. اجرای مهاجرت Supabase را بررسی کنید.</div>';return}
+  if(loadMore&&(!topics||topics.length===0)){$('main').innerHTML=$('main').innerHTML.replace(/<button id="forumMore"[^>]*>.*?<\/button>/,'');return;}
+  cache.forumPage=forumPage;
+  const oldForumHtml=loadMore?$('main').innerHTML.replace(/<button id="forumMore"[^>]*>.*?<\/button>/,''):'';
   const ids=(topics||[]).map(x=>x.user_id);
   const topicIds=(topics||[]).map(x=>x.id);
   const [authors,images,comments]=await Promise.all([
@@ -298,16 +412,16 @@ async forum(){
     const a=cmap[c.user_id]||{};
     return '<div class="card" style="margin:8px 0 8px '+Math.min(depth*12,48)+'px;padding:10px"><div class="row">'+(a.avatar_url?'<img src="'+esc(a.avatar_url)+'" style="width:28px;height:28px;border-radius:50%">':'<span>👤</span>')+'<b>'+esc(a.display_name||"عضو سیمرغ")+'</b>'+(a.is_suspended?'<i class="suspension-dot"></i>':'')+'</div><p>'+esc(c.body)+'</p><button class="btn o s" onclick="replyForum(&quot;'+topicId+'&quot;,&quot;'+c.id+'&quot;)">پاسخ</button>'+draw(topicId,c.id,depth+1)+'</div>';
   }).join(""));
-  let html=canCreate?'<button class="btn" onclick="newForumTopic()">+ ایجاد تاپیک جدید</button>':'<p class="sub">برای ایجاد تاپیک باید مدیر تالار به حساب شما مجوز بدهد. امکان مشاهده و ثبت نظر فعال است.</p>';
+  let html=loadMore?oldForumHtml:(canCreate?'<button class="btn" onclick="newForumTopic()">+ ایجاد تاپیک جدید</button>':'<p class="sub">برای ایجاد تاپیک باید مدیر تالار به حساب شما مجوز بدهد. امکان مشاهده و ثبت نظر فعال است.</p>');
   html+=(topics||[]).map(t=>{
     const a=amap[t.user_id]||{};
     const pics=(images.data||[]).filter(i=>i.topic_id===t.id).map(i=>'<img src="'+esc(sb.storage.from("forum-images").getPublicUrl(i.storage_path).data.publicUrl)+'" alt="" loading="lazy">').join("");
     return '<article class="card"><div class="row">'+(a.avatar_url?'<img src="'+esc(a.avatar_url)+'" style="width:34px;height:34px;border-radius:50%">':'<span>👤</span>')+'<b>'+esc(a.display_name||"عضو سیمرغ")+'</b>'+(a.is_suspended?'<i class="suspension-dot"></i>':'')+'<small>'+when(t.created_at)+'</small></div><h3 style="margin-top:8px">'+esc(t.title)+'</h3><p>'+esc(t.body)+'</p>'+pics+'<div class="sec">گفت‌وگو</div>'+draw(t.id,null,0)+'<button class="btn o" onclick="replyForum(&quot;'+t.id+'&quot;,null)">ثبت نظر</button>'+((U.is_super_admin||(U.permissions||[]).includes("forum.moderate"))?'<button class="btn r s" onclick="hideForumTopic(&quot;'+t.id+'&quot;)">پنهان‌کردن تاپیک</button>':"")+'</article>';
   }).join("")||'<div class="empty">هنوز تاپیکی ثبت نشده است.</div>';
-  $("main").innerHTML=html;
+  $("main").innerHTML=html+(topics&&topics.length===20?'<button id="forumMore" class="btn o" onclick="forum(true)">نمایش تاپیک‌های بیشتر</button>':'');
 },
 async admin(){
-  const P=U.permissions||[],can=k=>U.is_super_admin||P.includes(k);const T=[['purchase','خرید',can('store.manage')||can('library.manage')],['loan','درخواست امانت',can('library.manage')],['activeLoans','امانت‌های فعال',can('library.manage')],['extensions','تمدید امانت',can('library.manage')],['fines','جریمه‌ها',can('library.manage')],['breq','درخواست کتاب',can('library.manage')],['cafeCats','دسته‌های کافه',can('cafe.manage')],['menu','منوی کافه',can('cafe.manage')],['bookCats','موضوعات کتاب',can('library.manage')],['books','کتاب‌ها',can('library.manage')],['storeCats','موضوعات فروشگاه',can('store.manage')],['art','فروشگاه',can('store.manage')],['events','رویدادها',can('events.manage')]].filter(x=>x[2]).map(x=>x.slice(0,2));if(U.is_super_admin)T.push(['access','دسترسی‌ها']);
+  const P=U.permissions||[],can=k=>U.is_super_admin||P.includes(k);const T=[['purchase','خرید',can('store.manage')||can('library.manage')],['loan','درخواست امانت',can('library.manage')],['activeLoans','امانت‌های فعال',can('library.manage')],['extensions','تمدید امانت',can('library.manage')],['fines','جریمه‌ها',can('library.manage')],['breq','درخواست کتاب',can('library.manage')],['cafeCats','دسته‌های کافه',can('cafe.manage')],['menu','منوی کافه',can('cafe.manage')],['bookCats','موضوعات کتاب',can('library.manage')],['books','کتاب‌ها',can('library.manage')],['storeCats','موضوعات فروشگاه',can('store.manage')],['art','فروشگاه',can('store.manage')],['events','رویدادها',can('events.manage')],['loyalty','امتیاز و جوایز',can('users.manage')&&can('store.manage')]].filter(x=>x[2]).map(x=>x.slice(0,2));if(U.is_super_admin)T.push(['access','دسترسی‌ها']);
   const head=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===admTab?'on':''}" onclick="admTab='${k}';go('admin')">${t}</button>`).join('')}</div>`;
   let body='';
   if(admTab==='purchase'){const{d=[]}=await api('/admin/purchase-requests');
@@ -325,7 +439,34 @@ async admin(){
   else if(admTab==='activeLoans'){const{d=[]}=await api('/admin/active-loans');body=d.map(x=>'<div class="card"><h3>'+esc(x.book_title)+'</h3><p>'+esc(x.full_name)+' · '+esc(x.phone)+'</p><p>تحویل: '+when(x.handed_over_at)+' · سررسید: '+when(x.current_due_at)+'</p><button class="btn" onclick="returnActiveLoan(\''+x.id+'\')">ثبت بازگشت واقعی کتاب</button></div>').join('')||'<div class="empty">امانت فعالی وجود ندارد.</div>'}
   else if(admTab==='extensions'){const{d=[]}=await api('/admin/loan-extensions');body=d.map(x=>'<div class="card"><h3>'+esc(x.book_title)+'</h3><p>'+esc(x.full_name)+' · '+esc(x.phone)+'</p><p>درخواست: '+when(x.requested_at)+'</p>'+badge(x.status==='pending'?'در انتظار بررسی':x.status==='approved'?'تأییدشده':'ردشده')+(x.status==='pending'?'<button class="btn s" onclick="reviewExtension(\''+x.id+'\',true)">تأیید تمدید ۷ روزه</button><button class="btn r s" onclick="reviewExtension(\''+x.id+'\',false)">رد درخواست</button>':"")+'</div>').join('')||'<div class="empty">درخواست تمدیدی وجود ندارد.</div>'}
   else if(admTab==='fines'){const{d=[]}=await api('/admin/fines');const by={};for(const x of d)(by[x.user_id]??=[]).push(x);body=Object.entries(by).map(([uid,items])=>'<div class="card"><h3>'+esc(items[0].full_name)+' · '+esc(items[0].phone)+'</h3>'+items.map(x=>'<p>'+esc(x.book_title)+' · '+esc(x.fine_date)+' · '+fa(x.points_amount)+' امتیاز</p>').join('')+'<button class="btn" onclick="settleFines(\''+uid+'\')">ثبت تسویه جریمه‌ها</button></div>').join('')||'<div class="empty">جریمه بازی ثبت نشده است.</div>'}
-  else if(admTab==='access'){
+  else if(admTab==='loyalty'){
+     const [rules,tiers,rewards,redemptions,profiles]=await Promise.all([
+       sb.from("point_rules").select("*").order("title"),
+       sb.from("membership_levels").select("*").order("min_points"),
+       sb.from("rewards").select("*").order("points_cost"),
+       sb.from("reward_redemptions").select("*,reward:rewards(title)").in("status",["pending","approved","ready"]).order("created_at",{ascending:true}),
+       sb.from("profiles").select("id,display_name,phone").order("display_name").limit(500)
+     ]);
+     const loyaltyErrors=[
+       ["قوانین امتیازدهی",rules.error],
+       ["سطوح عضویت",tiers.error],
+       ["جوایز",rewards.error],
+       ["درخواست‌های جایزه",redemptions.error],
+       ["فهرست اعضا",profiles.error]
+     ].filter(([,error])=>error);
+     if(loyaltyErrors.length)body='<div class="empty"><h3>خطا در دریافت اطلاعات امتیازدهی</h3><p>جزئیات درخواست‌های ناموفق:</p>'+loyaltyErrors.map(([name,error])=>'<div class="card"><strong>'+esc(name)+'</strong><p>کد: '+esc(error.code||'نامشخص')+'</p><p>پیام: '+esc(error.message||'بدون پیام')+'</p>'+(error.details?'<p>جزئیات: '+esc(error.details)+'</p>':'')+(error.hint?'<p>راهنما: '+esc(error.hint)+'</p>':'')+'</div>').join('')+'</div>';
+     else body='<div class="sec">قوانین کسب امتیاز</div><p class="sub">مقدار امتیاز و فعال یا غیرفعال بودن هر فعالیت را تغییر دهید.</p>'+
+       (rules.data||[]).map(x=>'<div class="card"><h3>'+esc(x.title)+'</h3><label>امتیاز</label><input id="rule_points_'+x.id+'" type="number" min="1" value="'+x.points+'"><label><input id="rule_active_'+x.id+'" type="checkbox" '+(x.is_active?'checked':'')+'> فعال</label><label><input id="rule_approval_'+x.id+'" type="checkbox" '+(x.requires_approval?'checked':'')+'> نیازمند تأیید</label><button class="btn s" onclick="savePointRule(\''+x.id+'\')">ذخیره قانون</button></div>').join('')+
+       '<div class="sec">اعطای دستی امتیاز</div><div class="card"><label>انتخاب عضو</label><select id="award_user"><option value="">انتخاب کاربر</option>'+((profiles.data||[]).map(p=>'<option value="'+p.id+'">'+esc(p.display_name||'بدون نام')+' · '+esc(p.phone||'')+'</option>').join(''))+'</select><label>نوع فعالیت</label><select id="award_rule"><option value="">انتخاب قانون</option>'+((rules.data||[]).filter(x=>x.is_active).map(x=>'<option value="'+esc(x.code)+'">'+esc(x.title)+' · '+fa(x.points)+' امتیاز</option>').join(''))+'</select><label>شرح فعالیت / شناسه مرجع</label><input id="award_reference" placeholder="مثلاً نقد کتاب شماره ۱۲"><button class="btn" onclick="awardLoyaltyPoints()">ثبت امتیاز برای عضو</button></div>'+
+       '<div class="sec">سطوح عضویت و تخفیف</div><p class="sub">خرج کردن امتیاز، سطح عضویت را کاهش نمی‌دهد.</p>'+
+       (tiers.data||[]).map(x=>'<div class="card"><h3>'+esc(x.name)+'</h3><label>حداقل امتیاز پیشرفت</label><input id="tier_points_'+x.id+'" type="number" min="0" value="'+x.min_points+'"><label>درصد تخفیف</label><input id="tier_discount_'+x.id+'" type="number" min="0" max="100" step="0.5" value="'+(x.discount_percent||0)+'"><button class="btn s" onclick="saveMembershipTier(\''+x.id+'\')">ذخیره سطح</button></div>').join('')+
+       '<div class="sec">افزودن جایزه یا خدمت</div><div class="card"><label>عنوان جایزه</label><input id="reward_title" placeholder="مثلاً نوشیدنی رایگان"><label>توضیحات</label><textarea id="reward_description" rows="2"></textarea><label>هزینه امتیازی</label><input id="reward_cost" type="number" min="1" value="100"><label>موجودی (خالی = نامحدود)</label><input id="reward_stock" type="number" min="0" placeholder="نامحدود"><label><input id="reward_approval" type="checkbox" checked> نیازمند تأیید مدیر</label><button class="btn" onclick="createLoyaltyReward()">ثبت جایزه</button></div>'+
+       '<div class="sec">جوایز ثبت‌شده</div>'+
+        (rewards.data||[]).map(x=>'<div class="card"><label>عنوان جایزه</label><input id="reward_title_'+x.id+'" value="'+esc(x.title)+'"><label>توضیحات</label><textarea id="reward_description_'+x.id+'" rows="2">'+esc(x.description||'')+'</textarea><label>هزینه امتیازی</label><input id="reward_cost_'+x.id+'" type="number" min="1" value="'+x.points_cost+'"><label>موجودی (خالی = نامحدود)</label><input id="reward_stock_'+x.id+'" type="number" min="0" value="'+(x.stock_quantity===null?'':x.stock_quantity)+'" placeholder="نامحدود"><label><input id="reward_approval_'+x.id+'" type="checkbox" '+(x.requires_approval?'checked':'')+'> نیازمند تأیید مدیر</label><label><input id="reward_active_'+x.id+'" type="checkbox" '+(x.is_active?'checked':'')+'> فعال</label><button class="btn s" onclick="saveLoyaltyReward(\''+x.id+'\')">ذخیره جایزه</button></div>').join('')+
+       '<div class="sec">درخواست‌های در انتظار</div>'+
+       ((redemptions.data||[]).map(x=>'<div class="card"><h3>'+esc(x.reward?.title||'جایزه')+'</h3><p>'+fa(x.points_cost)+' امتیاز · '+when(x.created_at)+' · '+esc(x.status)+'</p>'+(x.status==='pending'?'<button class="btn s" onclick="reviewLoyaltyReward(\''+x.id+'\',true)">تأیید</button><button class="btn r s" onclick="reviewLoyaltyReward(\''+x.id+'\',false)">رد و بازگشت امتیاز</button>':x.status==='approved'||x.status==='ready'?'<button class="btn s" onclick="deliverLoyaltyReward(\''+x.id+'\')">ثبت تحویل</button>': '')+'</div>').join('')||'<div class="empty">درخواست در انتظار بررسی یا تحویل وجود ندارد.</div>');
+   }
+   else if(admTab==='access'){
     if(!U.is_super_admin)body='<div class="empty">فقط مدیر ارشد می‌تواند نقش‌ها و مجوزها را تغییر دهد.</div>';
     else{
       const [pr,rr,pp,fp]=await Promise.all([sb.from("profiles").select("id,display_name,phone,is_suspended,suspension_reason").order("created_at",{ascending:false}).limit(200),sb.from("user_roles").select("user_id,role"),sb.from("admin_permissions").select("*"),sb.from("forum_permissions").select("*")]);
@@ -347,6 +488,60 @@ async admin(){
     ${admTab==='events'?`<button class="btn o s" onclick="regs(${i.id})">ثبت‌نام‌شده‌ها</button>`:''} ${i.active?`<button class="btn r s" onclick="admOff('${admTab}',${i.id})">غیرفعال</button>`:''}</div>`).join('')}
   $('main').innerHTML=head+body;
 }};
+
+async function savePointRule(id){
+ const {error}=await sb.from('point_rules').update({points:Number($('rule_points_'+id).value),is_active:$('rule_active_'+id).checked,requires_approval:$('rule_approval_'+id).checked,updated_at:new Date().toISOString()}).eq('id',id);
+ if(error)return toast(error.message);toast('قانون امتیاز ذخیره شد');go('admin');
+}
+async function saveMembershipTier(id){
+ const min_points=Number($('tier_points_'+id).value),discount_percent=Number($('tier_discount_'+id).value);
+ if(!Number.isInteger(min_points)||min_points<0||!Number.isFinite(discount_percent)||discount_percent<0||discount_percent>100)return toast('مقادیر سطح عضویت معتبر نیست');
+ const {error}=await sb.from('membership_levels').update({min_points,discount_percent}).eq('id',id);
+ if(error)return toast(error.message);toast('سطح عضویت ذخیره شد');go('admin');
+}
+async function createLoyaltyReward(){
+ const title=$('reward_title').value.trim(),points_cost=Number($('reward_cost').value),stockRaw=$('reward_stock').value.trim();
+ if(!title||!Number.isInteger(points_cost)||points_cost<1)return toast('عنوان و هزینه امتیازی معتبر وارد کنید');
+ const payload={title,description:$('reward_description').value.trim()||null,points_cost,stock_quantity:stockRaw===''?null:Number(stockRaw),requires_approval:$('reward_approval').checked,is_active:true};
+ if(payload.stock_quantity!==null&&(!Number.isInteger(payload.stock_quantity)||payload.stock_quantity<0))return toast('موجودی معتبر نیست');
+ const {error}=await sb.from('rewards').insert(payload);if(error)return toast(error.message);toast('جایزه ثبت شد');go('admin');
+}
+async function saveLoyaltyReward(id){
+ const title=$('reward_title_'+id).value.trim();
+ const description=$('reward_description_'+id).value.trim();
+ const points_cost=Number($('reward_cost_'+id).value);
+ const stockRaw=$('reward_stock_'+id).value.trim();
+ const stock_quantity=stockRaw===''?null:Number(stockRaw);
+ const requires_approval=$('reward_approval_'+id).checked;
+ const is_active=$('reward_active_'+id).checked;
+ if(!title||!Number.isInteger(points_cost)||points_cost<1)return toast('عنوان و هزینه امتیازی معتبر نیست');
+ if(stock_quantity!==null&&(!Number.isInteger(stock_quantity)||stock_quantity<0))return toast('موجودی باید عدد صحیح نامنفی یا خالی باشد');
+ const {error}=await sb.from('rewards').update({title,description:description||null,points_cost,stock_quantity,requires_approval,is_active,updated_at:new Date().toISOString()}).eq('id',id);
+ if(error)return toast(error.message);toast('جایزه ذخیره شد');go('admin');
+}
+async function awardLoyaltyPoints(){
+ const user_id=$('award_user').value,rule_code=$('award_rule').value,description=$('award_reference').value.trim();
+ if(!user_id||!rule_code||!description)return toast('عضو، نوع فعالیت و شرح یا شناسه فعالیت را وارد کنید');
+ const reference_id='manual-'+Date.now();
+ const {error}=await sb.rpc('award_loyalty_points',{p_user_id:user_id,p_rule_code:rule_code,p_reference_type:'manual',p_reference_id:reference_id,p_description:description});
+ if(error)return toast(error.message);toast('امتیاز با موفقیت ثبت شد');go('admin');
+}
+async function deliverLoyaltyReward(id){
+ const {error}=await sb.rpc('mark_loyalty_reward_delivered',{p_redemption_id:id});
+ if(error)return toast(error.message);toast('تحویل جایزه ثبت شد');go('admin');
+}
+async function reviewLoyaltyReward(id,approve){
+ const note=approve?null:(prompt('دلیل رد درخواست (اختیاری)')||null);
+ const {error}=await sb.rpc('review_loyalty_redemption',{p_redemption_id:id,p_approve:approve,p_admin_note:note});
+ if(error)return toast(error.message);toast(approve?'درخواست تأیید شد':'درخواست رد شد و امتیاز بازگشت');go('admin');
+}
+async function redeemReward(id){
+ if(!confirm('امتیاز لازم از موجودی قابل‌خرج شما کسر و درخواست جایزه ثبت شود؟'))return;
+ const {data,error}=await sb.rpc('redeem_loyalty_reward',{p_reward_id:id});
+ if(error)return toast(error.message||'ثبت درخواست ناموفق بود');
+ toast(data?.status==='pending'?'درخواست برای تأیید مدیریت ثبت شد':'درخواست جایزه ثبت شد');
+ go('account');
+}
 
 /* ---------- عملیات ---------- */
 
@@ -401,8 +596,11 @@ async function sendBookReq(){
 function reg(id){const e=(cache.events||[]).find(x=>x.id===id)||{};const count=Number(e.required_teammates||0);let h='<h3 style="color:var(--gold2)">ثبت‌نام در رویداد</h3><label>نام و نام خانوادگی</label><input id="regName" value="'+esc(U.full_name)+'"><label>شماره تماس</label><input id="regPhone" value="'+esc(U.phone)+'" style="direction:ltr;text-align:left">';for(let i=0;i<count;i++)h+='<div class="sec">همراه '+(i+1)+'</div><label>نام و نام خانوادگی</label><input id="teamName'+i+'"><label>شماره تماس</label><input id="teamPhone'+i+'" style="direction:ltr;text-align:left">';h+='<button class="btn" onclick="submitEventReg('+id+','+count+')">تأیید ثبت‌نام</button><button class="btn o" onclick="closeM()">انصراف</button>';openM(h)}
 async function submitEventReg(id,count){const teammates=[];for(let i=0;i<count;i++){const full_name=$('teamName'+i).value.trim(),phone=latin($('teamPhone'+i).value);if(!full_name||!phone)return toast('اطلاعات همه همراهان را کامل کنید');teammates.push({full_name,phone,sort_order:i+1})}const{ok,d}=await send('/events/'+id+'/register','POST',{registrant_name:$('regName').value.trim(),registrant_phone:latin($('regPhone').value),teammates});if(!ok)return toast(d.error||'ثبت‌نام انجام نشد');closeM();toast('ثبت‌نام انجام شد');go('events')}
 async function unreg(id){const{ok}=await send(`/events/${id}/register`,'DELETE');toast(ok?'ثبت‌نام لغو شد':'خطا');go('events')}
-function editProfile(){openM('<h3 style="color:var(--gold2)">مشخصات کاربری</h3><label>نام نمایشی</label><input id="pn" value="'+esc(U.full_name)+'"><label>نام کاربری</label><input id="pu" value="'+esc(U.username||"")+'"><label>توضیح کوتاه</label><textarea id="pb" rows="2">'+esc(U.bio||"")+'</textarea><label>نشانی تصویر پروفایل (اختیاری)</label><input id="pa" value="'+esc(U.avatar_url||"")+'"><label>شماره همراه</label><input value="'+esc(U.phone)+'" disabled style="direction:ltr;text-align:left"><button class="btn" onclick="saveProfile()">ذخیره</button><button class="btn o" onclick="closeM()">بستن</button>')}
-async function saveProfile(){const{ok,d}=await send('/profile','PUT',{full_name:$('pn').value,username:$('pu').value,bio:$('pb').value,avatar_url:$('pa').value});if(!ok)return toast(d.error||'خطا');U={...U,...d};localStorage.setItem('user',JSON.stringify(U));closeM();boot();go('account')}
+let avatarOptions=[],selectedAvatarKey=U?.avatar_key||"",selectedAvatarUrl=U?.avatar_url||"";
+function editProfile(){selectedAvatarKey=U?.avatar_key||"";selectedAvatarUrl=U?.avatar_url||"";openM('<h3 style="color:var(--gold2)">مشخصات کاربری</h3><label>نام نمایشی</label><input id="pn" value="'+esc(U.full_name)+'"><label>نام کاربری</label><input id="pu" value="'+esc(U.username||"")+'"><label>توضیح کوتاه</label><textarea id="pb" rows="2">'+esc(U.bio||"")+'</textarea><label>تصویر پروفایل</label><div id="avatarOptions" class="avatar-options"><div class="empty">در حال دریافت تصاویر…</div></div><label>شماره همراه</label><input value="'+esc(U.phone)+'" disabled style="direction:ltr;text-align:left"><button class="btn" onclick="saveProfile()">ذخیره</button><button class="btn o" onclick="closeM()">بستن</button>');loadAvatarOptions()}
+async function loadAvatarOptions(){const box=$('avatarOptions');if(!box)return;const{data,error}=await sb.from('profile_avatar_options').select('id,title,image_path').eq('is_active',true).order('sort_order').order('title');if(error){box.innerHTML='<div class="empty">دریافت تصاویر ممکن نشد. تنظیمات گالری تصاویر در Supabase را بررسی کنید.</div>';return}avatarOptions=data||[];if(!avatarOptions.length){box.innerHTML='<div class="empty">هنوز تصویری ثبت نشده است.</div>';return}box.innerHTML=avatarOptions.map((x,i)=>{const url=sb.storage.from('profile-avatars').getPublicUrl(x.image_path).data.publicUrl;return '<button type="button" class="avatar-option '+(x.image_path===selectedAvatarKey?'selected':'')+'" onclick="chooseAvatar('+i+')"><img src="'+esc(url)+'" alt="'+esc(x.title)+'"><span>'+esc(x.title)+'</span></button>'}).join('')}
+function chooseAvatar(i){const x=avatarOptions[i];if(!x)return;selectedAvatarKey=x.image_path;selectedAvatarUrl=sb.storage.from('profile-avatars').getPublicUrl(x.image_path).data.publicUrl;document.querySelectorAll('.avatar-option').forEach((el,n)=>el.classList.toggle('selected',n===i))}
+async function saveProfile(){const{ok,d}=await send('/profile','PUT',{full_name:$('pn').value,username:$('pu').value,bio:$('pb').value,avatar_key:selectedAvatarKey,avatar_url:selectedAvatarUrl});if(!ok)return toast(d.error||'خطا');U={...U,...d};localStorage.setItem('user',JSON.stringify(U));closeM();boot();go('account')}
 async function loanSt(id,status){const{ok,d}=await send('/admin/loan-requests/'+id,'PUT',{status});toast(ok?'ثبت شد':d.error);go('admin')}
 async function admOff(r,id){if(!confirm('این مورد غیرفعال شود؟'))return;await send(`/admin/${r}/${id}`,'DELETE');go('admin')}
 async function regs(id){const{d=[]}=await api(`/admin/events/${id}/registrations`);let h='<h3 style="color:var(--gold2)">ثبت‌نام‌شده‌ها ('+fa(d.length)+')</h3>';h+=d.map(r=>'<div class="card"><b>'+esc(r.full_name)+'</b><p>'+esc(r.phone)+'</p>'+((r.people||[]).map(p=>'<div class="row" style="margin-top:6px"><span>'+esc(p.full_name)+' · '+esc(p.phone)+'</span><span><button class="btn s" onclick="markAttendance(\''+p.id+'\',\'present\')">حاضر</button><button class="btn r s" onclick="markAttendance(\''+p.id+'\',\'absent\')">غایب</button></span></div>').join(''))+'</div>').join('')||'<div class="empty">کسی ثبت‌نام نکرده</div>';h+='<button class="btn o" onclick="closeM()">بستن</button>';openM(h)}

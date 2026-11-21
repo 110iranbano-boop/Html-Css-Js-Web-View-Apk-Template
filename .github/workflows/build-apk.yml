@@ -7,6 +7,7 @@ on:
       - main
       - simorgh-supabase-completion-v2
       - fix/forum-admin-profile-view
+      - design/persian-simorgh-redesign
   pull_request:
     branches:
       - main
@@ -46,6 +47,34 @@ jobs:
 
       - name: Sync Capacitor
         run: npx cap sync android
+
+      - name: Generate branded Android launcher icons
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          convert www/img/www/img/simorgh-app-icon.png -resize 640x640 -gravity center -background none -extent 1024x1024 /tmp/simorgh-app-icon.png
+          RES="android/app/src/main/res"
+          for spec in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
+            set -- $spec
+            density="$1"
+            size="$2"
+            mkdir -p "$RES/mipmap-$density"
+            convert /tmp/simorgh-app-icon.png -resize "${size}x${size}" "$RES/mipmap-$density/ic_launcher.png"
+            cp "$RES/mipmap-$density/ic_launcher.png" "$RES/mipmap-$density/ic_launcher_round.png"
+            convert /tmp/simorgh-app-icon.png -resize "${size}x${size}" "$RES/mipmap-$density/ic_launcher_foreground.png"
+          done
+          mkdir -p "$RES/mipmap-anydpi-v26" "$RES/values"
+          cat > "$RES/mipmap-anydpi-v26/ic_launcher.xml" <<'EOF'
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+            <background android:drawable="@color/ic_launcher_background"/>
+            <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
+          </adaptive-icon>
+          EOF
+          cp "$RES/mipmap-anydpi-v26/ic_launcher.xml" "$RES/mipmap-anydpi-v26/ic_launcher_round.xml"
+          cat > "$RES/values/ic_launcher_background.xml" <<'EOF'
+          <resources><color name="ic_launcher_background">#073437</color></resources>
+          EOF
+
 
       - name: Build APK
         run: |
