@@ -391,7 +391,7 @@ returns void
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 declare r public.point_rules%rowtype;
 begin
   select * into r from public.point_rules
@@ -406,14 +406,14 @@ begin
     'both',r.code
   ) on conflict(idempotency_key) do nothing;
 end;
-$;
+$$;
 
 create or replace function public.award_profile_completion_points()
 returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   if nullif(trim(new.display_name),'') is not null
      and nullif(trim(new.phone),'') is not null then
@@ -423,7 +423,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists profiles_award_completion_points on public.profiles;
 create trigger profiles_award_completion_points
@@ -435,14 +435,14 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   perform public.award_loyalty_points_from_trigger(
     new.user_id,'book_borrow','book_loan',new.id::text,'امتیاز بابت امانت گرفتن کتاب'
   );
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists book_loans_award_points on public.book_loans;
 create trigger book_loans_award_points
@@ -454,7 +454,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = public
-as $
+as $$
 begin
   if old.returned_at is null and new.returned_at is not null
      and new.returned_at <= new.current_due_at then
@@ -464,7 +464,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists book_loans_award_on_time_return on public.book_loans;
 create trigger book_loans_award_on_time_return
