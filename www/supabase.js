@@ -49,7 +49,7 @@
     const {data,error}=await sb.from("profiles").select("*").eq("id",id).single();
     if(error) throw error; return data;
   };
-  const rows = async (table,select="*",offset=0,limit=25) => {
+  const rows = async (table,select="*",offset=0,limit=999) => {
     const {data,error}=await sb.from(table).select(select).range(offset,offset+limit);
     if(error) throw error; return data||[];
   };
