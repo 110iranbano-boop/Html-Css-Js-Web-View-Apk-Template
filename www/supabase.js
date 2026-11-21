@@ -126,7 +126,15 @@
       if(error) throw error; return ok({id:data});
     }
     if(p==="/loan-extensions/my"&&method==="GET"){
-      const {data,error}=await sb.from("loan_extensions").select("*,loan:book_loans(id,book_id,current_due_at,returned_at,book:books(title))").order("requested_at",{ascending:false});if(error)throw error;return ok(data||[]);
+      const {data:myLoans,error:loanError}=await sb.from("book_loans").select("id").eq("user_id",uid);
+      if(loanError)throw loanError;
+      const loanIds=(myLoans||[]).map(x=>x.id);
+      if(!loanIds.length)return ok([]);
+      const {data,error}=await sb.from("loan_extensions")
+        .select("*,loan:book_loans(id,book_id,current_due_at,returned_at,book:books(title))")
+        .in("loan_id",loanIds).order("requested_at",{ascending:false});
+      if(error)throw error;
+      return ok(data||[]);
     }
     if(p==="/loan-extensions"&&method==="POST"){
       const {data,error}=await sb.from("loan_extensions").insert({loan_id:body.loan_id,status:"pending"}).select().single();if(error)throw error;return ok(data);
@@ -282,12 +290,6 @@
       if(res==="art"){table="store_products";payload={name:body.name,description:body.description||null,price_toman:Number(body.price)||0,image_path:body.image_url||null,is_available:true,stock_status:body.stock_status||"in_stock",allow_custom:!!body.allow_custom,category_id:await categoryId("store_categories",body.category)};}
       if(res==="events"){table="events";payload={title:body.title,description:body.description||null,starts_at:body.event_date||null,location:body.location||null,event_type:body.event_type||"timed",capacity_people:body.capacity?Number(body.capacity):null,required_teammates:Number(body.required_teammates)||0,points_on_registration:Number(body.points_on_registration)||0,points_on_attendance:Number(body.points_on_attendance)||0,award_points_when:body.award_points_when||"disabled",rules_text:body.rules_text||null,is_registration_open:body.event_type==="weekly"?false:!!body.registration_open,poster_path:body.image_url||null,status:"published"};}
       if(id){
-        if(res==="books"){
-          const {data:current,error:currentError}=await sb.from("books").select("total_copies,available_copies").eq("id",id).single();
-          if(currentError)throw currentError;
-          payload.total_copies=current.total_copies;
-          payload.available_copies=current.available_copies;
-        }
         const {data,error}=await sb.from(table).update(payload).eq("id",id).select().single();if(error)throw error;return ok(data);
       }
       return ok(await single(table,payload));
@@ -304,7 +306,18 @@
       if(error)throw error;return ok((data||[]).map(x=>({full_name:x.registrant_name,phone:x.registrant_phone,people:x.people||[]})));
     }
     if(p==="/admin/forum-topics"&&method==="GET"){
-      const {data,error}=await sb.from("forum_topics").select("*,profile:profiles(display_name)").order("created_at",{ascending:false});if(error)throw error;return ok(data||[]);
+      const {data,error}=await sb.from("forum_topics").select("*").order("created_at",{ascending:false});
+      if(error)throw error;
+      const topicRows=data||[];
+      const authorIds=[...new Set(topicRows.map(x=>x.user_id).filter(Boolean))];
+      const {data:profiles,error:profileError}=authorIds.length
+        ? await sb.from("forum_public_profiles")
+            .select("id,display_name,username,avatar_url,is_suspended")
+            .in("id",authorIds)
+        : {data:[],error:null};
+      if(profileError)throw profileError;
+      const profileMap=Object.fromEntries((profiles||[]).map(x=>[x.id,x]));
+      return ok(topicRows.map(x=>({...x,profile:profileMap[x.user_id]||null})));
     }
     throw new Error("این عملیات هنوز در لایه داده پیاده‌سازی نشده است: "+method+" "+p);
   }

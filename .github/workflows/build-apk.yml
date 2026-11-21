@@ -6,6 +6,10 @@ on:
     branches:
       - main
       - simorgh-supabase-completion-v2
+      - fix/forum-admin-profile-view
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
