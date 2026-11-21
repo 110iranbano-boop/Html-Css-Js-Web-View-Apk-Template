@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0b2426">
+<meta name="theme-color" content="#0b4545">
 <title>کافه‌کتاب سیمرغ</title>
-<link rel="icon" href="img/favicon.png">
+<link rel="icon" type="image/svg+xml" href="img/simorgh-app-icon.svg">
 <style>
 :root{--bg:#0b2426;--s1:#10312f;--s2:#174240;--gold:#d8a84e;--gold2:#f0cf8a;--tx:#f1e8d4;--mu:#9db3ab;--line:rgba(216,168,78,.35);--bad:#e0735d;--ok:#79c79a}
 *{margin:0;padding:0;box-sizing:border-box;font-family:Vazirmatn,Vazir,Tahoma,sans-serif}
@@ -67,6 +67,67 @@ input[type=checkbox]{width:auto}
 .user-pill{display:flex;align-items:center;gap:6px;max-width:118px;min-width:0;padding:4px 7px;border:1px solid var(--line);border-radius:22px;background:var(--s1);cursor:pointer;font-size:11px;color:var(--gold2)}
 .user-pill img{width:28px;height:28px;border-radius:50%;object-fit:cover}.user-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.suspension-dot{display:inline-block;width:8px;height:8px;min-width:8px;border-radius:50%;background:#e4c52c}.user-pill .suspension-dot{margin-inline-start:2px}
 @media (prefers-reduced-motion:no-preference){.wheel{animation:fade .6s ease}@keyframes fade{from{opacity:0;transform:scale(.96)}}}
+
+/* ---------- Persian modern visual identity: Simorgh ---------- */
+:root{
+ --bg:#f3ead8;--s1:#fff8eb;--s2:#ead9bb;--gold:#b9822d;--gold2:#80551e;
+ --tx:#243b38;--mu:#6f7770;--line:rgba(157,112,48,.32);--bad:#b94e42;--ok:#34785b;
+ --teal:#0b4545;--teal2:#12615d;--cream:#f7efdf;--paper:#fffaf0;
+}
+html{background:var(--bg)}
+body{background:var(--bg);color:var(--tx)}
+body[data-pg=home]{background:linear-gradient(180deg,#f4ead7 0%,#efe1c7 100%)}
+.top{background:rgba(8,57,57,.97);border-bottom:2px solid #bd914b;box-shadow:0 3px 16px #173b3420}
+.top h1{color:#f5dfae}
+.ib{background:#12514e;border-color:#c99d55;color:#f7e8c5}
+.ib img{filter:brightness(0) saturate(100%) invert(85%) sepia(27%) saturate(578%) hue-rotate(347deg) brightness(101%)}
+main{padding:14px 14px 20px}
+.brand .name{color:#174e4a;text-shadow:0 1px #fff4dc}
+.brand p{color:#9b6b2c}
+.wheel{border:3px solid #bd914b;background:radial-gradient(circle at 50% 42%,#17625c 0%,#0b4545 67%,#073437 100%);box-shadow:inset 0 0 0 7px rgba(237,204,133,.13),inset 0 0 36px #e2b75c24,0 12px 30px #173b3425}
+.wheel:before{content:"";position:absolute;inset:9px;border:1px solid rgba(235,201,132,.55);border-radius:50%;pointer-events:none}
+.wheel .core{background:#f7ecd8;border:3px solid #c49a55;box-shadow:0 0 0 5px #0b4545,0 0 0 7px #c49a55}
+.seg{background:linear-gradient(145deg,#17635e,#083d40);border:2px solid #c79c56;color:#fff1d1;box-shadow:0 4px 12px #001e1d65,inset 0 0 0 2px #ffffff0b}
+.seg img{filter:brightness(0) saturate(100%) invert(85%) sepia(28%) saturate(588%) hue-rotate(347deg) brightness(102%)}
+.seg:active{background:#28746d;border-color:#f3d28b}
+.tag{color:#93652d;font-weight:600}
+.nav{background:rgba(255,249,237,.98);border-top:2px solid #c6a064;box-shadow:0 -5px 18px #3c302018}
+.nav button{color:#73766c}
+.nav button img{filter:brightness(0) saturate(100%) invert(24%) sepia(23%) saturate(1122%) hue-rotate(126deg) brightness(92%);opacity:.75}
+.nav button.on{color:#0b5550;font-weight:700}
+.nav button.on img{filter:brightness(0) saturate(100%) invert(31%) sepia(27%) saturate(1074%) hue-rotate(126deg) brightness(90%);opacity:1;drop-shadow:0 0 3px #c99d55}
+.card{background:linear-gradient(145deg,#fffaf0,#f0e2c9);border:1px solid #d4b77e;border-radius:17px;box-shadow:0 4px 13px #4b382015}
+.card h3{color:#174e49}
+.card p,.sub{color:#68736c}
+.card img,.ph{border:1px solid #d9c49b;background:#e9dcc2}
+.price{color:#956323}
+.sec{color:#155650}
+.sec:before{color:#b78b46}
+.btn{border:1px solid #a87932;background:linear-gradient(180deg,#d9b56e,#bd8a3c);color:#24352e;box-shadow:0 3px 8px #76521b24}
+.btn.o{background:transparent;color:#17534e;border-color:#8b9c83}
+.btn.r{color:#a44338;border-color:#b94e42}
+.tabs button{background:#fff8eb;border-color:#d5bc8d;color:#59685f}
+.tabs button.on{background:linear-gradient(180deg,#17635d,#0b4545);color:#fff0d0;border-color:#c49a55}
+label{color:#53685f}
+input,textarea,select{background:#fffaf0;border-color:#d2b77e;color:#243b38}
+input::placeholder,textarea::placeholder{color:#9a9a89}
+.badge{color:#80551e;border-color:#c8a66a}
+.menu{background:#fff8eb;border-color:#d5bc8d;box-shadow:0 3px 10px #4b382012}
+.menu img{filter:brightness(0) saturate(100%) invert(30%) sepia(25%) saturate(1068%) hue-rotate(127deg)}
+.mc{background:linear-gradient(135deg,#155b55,#073c40);border:2px solid #c49a55;color:#fff1d1}
+.mc .code{color:#f2d28b}
+.empty{color:#72776d}
+.modal>div{background:#f6eddc;border-top:2px solid #bd914b;color:#263c37}
+.toast{background:#145650;color:#fff2d2;border:1px solid #d1a85e}
+.auth{background:linear-gradient(180deg,#f4ead7,#fff9ee);min-height:100vh}
+.user-pill{background:#14534f;border-color:#c49a55;color:#f5e6c5}
+.user-pill img{border:1px solid #d7b46d}
+#main .card h3,#main .menu span{letter-spacing:0}
+button{transition:background-color .18s ease,border-color .18s ease,transform .18s ease}
+button:active{transform:scale(.985)}
+@media(min-width:700px){main{max-width:760px;margin:0 auto}.top{padding-inline:max(14px,calc((100vw - 760px)/2))}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}
+
 </style>
 </head>
 <body>
