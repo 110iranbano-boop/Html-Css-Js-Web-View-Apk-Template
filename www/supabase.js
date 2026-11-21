@@ -126,7 +126,15 @@
       if(error) throw error; return ok({id:data});
     }
     if(p==="/loan-extensions/my"&&method==="GET"){
-      const {data,error}=await sb.from("loan_extensions").select("*,loan:book_loans(id,book_id,current_due_at,returned_at,book:books(title))").order("requested_at",{ascending:false});if(error)throw error;return ok(data||[]);
+      const {data:myLoans,error:loanError}=await sb.from("book_loans").select("id").eq("user_id",uid);
+      if(loanError)throw loanError;
+      const loanIds=(myLoans||[]).map(x=>x.id);
+      if(!loanIds.length)return ok([]);
+      const {data,error}=await sb.from("loan_extensions")
+        .select("*,loan:book_loans(id,book_id,current_due_at,returned_at,book:books(title))")
+        .in("loan_id",loanIds).order("requested_at",{ascending:false});
+      if(error)throw error;
+      return ok(data||[]);
     }
     if(p==="/loan-extensions"&&method==="POST"){
       const {data,error}=await sb.from("loan_extensions").insert({loan_id:body.loan_id,status:"pending"}).select().single();if(error)throw error;return ok(data);
