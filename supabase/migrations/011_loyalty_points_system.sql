@@ -377,7 +377,6 @@ values
  ('profile_complete','تکمیل پروفایل','تکمیل اطلاعات ضروری حساب',20,true,false),
  ('book_borrow','امانت گرفتن کتاب','ثبت امانت معتبر',10,true,false),
  ('book_return_on_time','بازگرداندن به‌موقع کتاب','ثبت بازگشت در موعد مقرر',10,true,false),
- ('event_attendance','حضور در رویداد','پس از ثبت حضور توسط مسئول رویداد',20,true,false),
  ('workshop_attendance','شرکت در کارگاه','پس از تأیید حضور',25,true,false),
  ('book_review','نقد یا معرفی کتاب','پس از تأیید محتوای منتشرشده',30,true,true),
  ('member_referral','معرفی عضو جدید','پس از ثبت‌نام و احراز شرط معرفی',30,true,true),
