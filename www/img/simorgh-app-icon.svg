@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+ <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#062f32"/><stop offset=".55" stop-color="#0b4b49"/><stop offset="1" stop-color="#031e25"/></linearGradient>
+ <linearGradient id="gold" x2=".8" y2="1"><stop stop-color="#fff0b0"/><stop offset=".38" stop-color="#e6b94e"/><stop offset=".72" stop-color="#a96b22"/><stop offset="1" stop-color="#f4d77d"/></linearGradient>
+ <linearGradient id="teal" x2="1" y2="1"><stop stop-color="#69d2c1"/><stop offset=".5" stop-color="#167d78"/><stop offset="1" stop-color="#063d43"/></linearGradient>
+ <radialGradient id="glow"><stop stop-color="#e7bd61" stop-opacity=".3"/><stop offset="1" stop-color="#e7bd61" stop-opacity="0"/></radialGradient>
+ <pattern id="tile" width="42" height="42" patternUnits="userSpaceOnUse"><path d="M21 2 40 21 21 40 2 21Z" fill="none" stroke="#d8a84e" stroke-opacity=".38" stroke-width="1.6"/><circle cx="21" cy="21" r="4" fill="#d8a84e" fill-opacity=".45"/></pattern>
+</defs>
+<rect width="512" height="512" rx="88" fill="url(#bg)"/>
+<rect x="12" y="12" width="488" height="488" rx="78" fill="url(#tile)" stroke="url(#gold)" stroke-width="5"/>
+<path d="M54 442V178Q54 72 256 35Q458 72 458 178V442" fill="none" stroke="url(#gold)" stroke-width="10"/>
+<path d="M74 430V184Q74 93 256 58Q438 93 438 184V430" fill="none" stroke="#d9a94d" stroke-opacity=".55" stroke-width="2"/>
+<circle cx="256" cy="236" r="177" fill="url(#glow)"/>
+<!-- phoenix wings -->
+<path d="M249 242C190 194 133 123 77 119C89 163 126 202 164 228C123 214 89 204 56 210C83 258 136 286 198 287C150 300 118 325 91 357C151 365 211 331 250 289Z" fill="url(#gold)" stroke="#f8df91" stroke-width="4" stroke-linejoin="round"/>
+<path d="M263 242C322 194 379 123 435 119C423 163 386 202 348 228C389 214 423 204 456 210C429 258 376 286 314 287C362 300 394 325 421 357C361 365 301 331 262 289Z" fill="url(#gold)" stroke="#f8df91" stroke-width="4" stroke-linejoin="round"/>
+<g fill="none" stroke="#0b5554" stroke-width="7" stroke-linecap="round">
+ <path d="M238 248Q155 167 96 145M225 267Q145 224 75 228M221 286Q154 277 112 337"/>
+ <path d="M274 248Q357 167 416 145M287 267Q367 224 437 228M291 286Q358 277 400 337"/>
+</g>
+<!-- body and tail -->
+<path d="M256 160C220 188 213 237 229 281C238 308 252 329 256 356C260 329 274 308 283 281C299 237 292 188 256 160Z" fill="url(#gold)" stroke="#fff0b0" stroke-width="4"/>
+<path d="M256 341C229 385 185 402 145 420C198 429 238 408 256 383C274 408 314 429 367 420C327 402 283 385 256 341Z" fill="url(#teal)" stroke="url(#gold)" stroke-width="5"/>
+<path d="M256 351C239 391 216 413 197 438M256 351C273 391 296 413 315 438" fill="none" stroke="url(#gold)" stroke-width="8" stroke-linecap="round"/>
+<!-- head -->
+<path d="M244 169Q228 134 251 111Q276 132 267 169L291 154Q284 183 256 193Q229 183 221 154Z" fill="url(#gold)" stroke="#fff0b0" stroke-width="4"/>
+<path d="M260 141Q286 127 311 139Q292 153 269 154" fill="url(#gold)" stroke="#fff0b0" stroke-width="3"/>
+<circle cx="264" cy="146" r="4" fill="#092e31"/>
+<path d="M250 112Q226 86 237 67Q255 84 256 106M260 109Q269 81 289 76Q284 100 266 119" fill="none" stroke="url(#gold)" stroke-width="7" stroke-linecap="round"/>
+<!-- chest feathers -->
+<g fill="none" stroke="#0b6662" stroke-width="4" stroke-linecap="round"><path d="M240 208q16 18 32 0M235 229q21 20 42 0M237 251q19 18 38 0M244 273q12 12 24 0"/></g>
+<!-- lotus base -->
+<path d="M256 459Q222 429 224 405Q247 416 256 438Q265 416 288 405Q290 429 256 459Z" fill="url(#gold)" stroke="#fff0b0" stroke-width="3"/>
+<path d="M222 459Q192 438 184 416Q216 421 238 449M290 459Q320 438 328 416Q296 421 274 449" fill="none" stroke="url(#gold)" stroke-width="5"/>
+<g fill="#f3d27a"><circle cx="87" cy="91" r="5"/><circle cx="425" cy="91" r="5"/><path d="m256 20 8 14-8 14-8-14z"/></g>
+</svg>
