@@ -71,3 +71,5 @@ jobs:
           name: Simorgh-Cafe-APK
           path: output/Simorgh-Cafe.apk
           if-no-files-found: error
+
+# Re-run Android build after repairing the checked-in launcher artwork.
