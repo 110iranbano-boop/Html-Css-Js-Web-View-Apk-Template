@@ -12,8 +12,8 @@ BG = (7, 29, 36, 255)
 
 encoded = ASSET.read_text(encoding="ascii").strip()
 foreground_source = Image.open(BytesIO(base64.b64decode(encoded, validate=True))).convert("RGBA")
-if foreground_source.size != (160, 160):
-    raise SystemExit(f"Unexpected source icon size: {foreground_source.size}")
+if foreground_source.width != foreground_source.height or foreground_source.width < 96:
+    raise SystemExit(f"Expected a square source icon of at least 96px, got: {foreground_source.size}")
 
 # Android adaptive icons use a 108dp layer; keep the artwork inside the central safe zone.
 foreground = foreground_source.resize((432, 432), Image.Resampling.LANCZOS)
