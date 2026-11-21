@@ -157,7 +157,7 @@ const $=id=>document.getElementById(id);
 const ic=n=>`<img src="img/icons/${n}.svg" alt="">`;
 let U=null,page='home',cart=[],libTab='sale',cache={},admTab='purchase';
 const apiCache=new Map();
-function clearApiCache(){apiCache.clear()}
+function clearApiCache(){apiCache.clear();delete cache.cafeProducts;delete cache.bookRows;delete cache.artRows;delete cache.eventRows;delete cache.hasMore;delete cache.forumPage}
 const cacheTTL=p=>p==='/notifications'?8000:(p.includes('/my')||p.startsWith('/admin/'))?12000:45000;
 const PAGE_SIZE=24;
 function loadMoreButton(kind){return cache.hasMore?.[kind]?'<button class="btn o" style="margin:12px 0" onclick="loadMoreList(\''+kind+'\')">نمایش موارد بیشتر</button>':''}
@@ -294,8 +294,8 @@ async library(){
   cache.books=cache.bookRows;cache.bookCats=c.ok?c.d:[];const pend=new Set((l.ok?l.d:[]).filter(x=>x.status==='pending').map(x=>x.book_id));
   const T=[['sale','فروش کتاب'],['loan','امانی'],['request','درخواست کتاب']];
   let body='';
-  if(libTab==='sale')body=cache.bookRows.filter(x=>x.type==='sale'&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<div class="row"><h3>${esc(x.title)}</h3><span class="price">${money(x.price)}</span></div><p>${esc(x.author||'')}${x.category?' · '+esc(x.category):''}</p>${x.description?`<p>${esc(x.description)}</p>`:''}<button class="btn s" onclick="addCart('book',${x.id})">افزودن به سبد</button></div>`).join('')||'<div class="empty">کتابی برای فروش ثبت نشده است</div>';
-  if(libTab==='loan')body=cache.bookRows.filter(x=>x.type==='loan'&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<h3>${esc(x.title)}</h3><p>${esc(x.author||'')}</p>${x.description?`<p>${esc(x.description)}</p>`:''}${x.status!=='available'?badge('امانت داده شده','no'):pend.has(x.id)?badge('درخواست شما در حال بررسی است'):`<button class="btn s" onclick="reqLoan(${x.id})">درخواست امانت</button>`}</div>`).join('')||'<div class="empty">کتاب امانی ثبت نشده است</div>';
+  if(libTab==='sale')body=cache.bookRows.filter(x=>x.type==='sale'||x.type==='both'&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<div class="row"><h3>${esc(x.title)}</h3><span class="price">${money(x.price)}</span></div><p>${esc(x.author||'')}${x.category?' · '+esc(x.category):''}</p>${x.description?`<p>${esc(x.description)}</p>`:''}<button class="btn s" onclick="addCart('book',${x.id})">افزودن به سبد</button></div>`).join('')||'<div class="empty">کتابی برای فروش ثبت نشده است</div>';
+  if(libTab==='loan')body=cache.bookRows.filter(x=>x.type==='loan'||x.type==='both'&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<h3>${esc(x.title)}</h3><p>${esc(x.author||'')}</p>${x.description?`<p>${esc(x.description)}</p>`:''}${x.status!=='available'?badge('امانت داده شده','no'):pend.has(x.id)?badge('درخواست شما در حال بررسی است'):`<button class="btn s" onclick="reqLoan(${x.id})">درخواست امانت</button>`}</div>`).join('')||'<div class="empty">کتاب امانی ثبت نشده است</div>';
   if(libTab==='request'){
     const r=await api('/book-requests/my');
     body=`<div class="card"><h3>کتابی می‌خواهید که در سیمرغ نیست؟</h3><label>عنوان کتاب</label><input id="rt"><label>نویسنده یا ناشر (اختیاری)</label><input id="ra"><label>توضیح (اختیاری)</label><textarea id="rd" rows="2"></textarea><button class="btn" onclick="sendBookReq()">ارسال درخواست</button></div>
@@ -382,7 +382,7 @@ async forum(loadMore=false){
   const {data:topics,error}=await sb.from("forum_topics").select("*").eq("status","published").order("created_at",{ascending:false}).range(forumPage*20,forumPage*20+19);
   if(error){$("main").innerHTML='<div class="empty">تالار بارگذاری نشد. اجرای مهاجرت Supabase را بررسی کنید.</div>';return}
   cache.forumPage=forumPage;
-  const oldForumHtml=loadMore?$('main').innerHTML.replace(/<button id="forumMore"[\\s\\S]*?<\\/button>/,''):'';
+  const oldForumHtml=loadMore?$('main').innerHTML.replace(/<button id="forumMore"[^>]*>.*?<\/button>/,''):'';
   const ids=(topics||[]).map(x=>x.user_id);
   const topicIds=(topics||[]).map(x=>x.id);
   const [authors,images,comments]=await Promise.all([
