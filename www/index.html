@@ -250,7 +250,7 @@ function boot(){
 const TITLES={home:'سیمرغ',cafe:'کافه‌کتاب',library:'کتابخانه',events:'رویدادها',forum:'تالار سیمرغ',art:'فروشگاه سیمرغ',cart:'سبد خرید',account:'حساب کاربری',notifs:'اعلان‌ها',mine:'درخواست‌های من',admin:'پنل مدیریت'};
 async function go(p,arg,force=false){
   page=p;document.body.dataset.pg=p;if(p==='library'&&arg)libTab=arg;
-  if(force)clearApiCache();
+  if(force){clearApiCache();cache.hasMore={};delete cache.cafeProducts;delete cache.bookRows;delete cache.artRows;delete cache.eventRows;delete cache.forumPage;}
   $('title').textContent=TITLES[p];$('back').classList.toggle('hidden',p==='home');
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.k===p));
   $('main').innerHTML='<div class="empty">در حال بارگذاری…</div>';scrollTo(0,0);
@@ -382,7 +382,7 @@ async forum(loadMore=false){
   const {data:topics,error}=await sb.from("forum_topics").select("*").eq("status","published").order("created_at",{ascending:false}).range(forumPage*20,forumPage*20+19);
   if(error){$("main").innerHTML='<div class="empty">تالار بارگذاری نشد. اجرای مهاجرت Supabase را بررسی کنید.</div>';return}
   cache.forumPage=forumPage;
-  const oldForumHtml=loadMore?$('main').innerHTML:'';
+  const oldForumHtml=loadMore?$('main').innerHTML.replace(/<button id="forumMore"[\\s\\S]*?<\\/button>/,''):'';
   const ids=(topics||[]).map(x=>x.user_id);
   const topicIds=(topics||[]).map(x=>x.id);
   const [authors,images,comments]=await Promise.all([
