@@ -52,7 +52,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y imagemagick
-          convert www/img/www/img/simorgh-app-icon.png -resize 640x640 -gravity center -background none -extent 1024x1024 /tmp/simorgh-app-icon.png
+          convert www/img/logo-512.png -resize 640x640 -gravity center -background none -extent 1024x1024 /tmp/simorgh-app-icon.png
           RES="android/app/src/main/res"
           for spec in "mdpi 48" "hdpi 72" "xhdpi 96" "xxhdpi 144" "xxxhdpi 192"; do
             set -- $spec
