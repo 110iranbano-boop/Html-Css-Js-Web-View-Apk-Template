@@ -49,8 +49,8 @@
     const {data,error}=await sb.from("profiles").select("*").eq("id",id).single();
     if(error) throw error; return data;
   };
-  const rows = async (table,select="*") => {
-    const {data,error}=await sb.from(table).select(select);
+  const rows = async (table,select="*",offset=0,limit=25) => {
+    const {data,error}=await sb.from(table).select(select).range(offset,offset+limit);
     if(error) throw error; return data||[];
   };
   const single = async (table,payload) => {
@@ -96,7 +96,8 @@
     return {created:true,session_created:!!data.session};
   }
   async function api(path,method="GET",body){
-    const p=path.split("?")[0];
+    const parts=String(path).split("?"),p=parts[0],params=new URLSearchParams(parts[1]||"");
+    const pageOffset=Math.max(0,Number(params.get("offset"))||0),pageLimit=Math.min(100,Math.max(1,Number(params.get("limit"))||25));
     if(p==="/login"&&method==="POST") return ok(await login(body||{}));
     if(p==="/register"&&method==="POST") return ok(await register(body||{}));
     const ctx=await userContext(),uid=ctx.authUser.id;
@@ -105,11 +106,11 @@
     if(p==="/book-categories"&&method==="GET") return ok((await rows("book_categories")).filter(x=>x.is_active).map(x=>({id:x.id,name:x.name,image_url:x.image_path,description:x.description})));
     if(p==="/store-categories"&&method==="GET") return ok((await rows("store_categories")).filter(x=>x.is_active).map(x=>({id:x.id,name:x.name,image_url:x.image_path,description:x.description})));
     if(p==="/menu"&&method==="GET"){
-      const data=await rows("cafe_products","*,category:cafe_categories(name)");
+      const data=await rows("cafe_products","*,category:cafe_categories(name)",pageOffset,pageLimit);
       return ok(data.filter(x=>x.is_available).map(x=>({id:x.id,name:x.name,description:x.description,price:x.price_toman,image_url:x.image_path,category:x.category?.name||"سایر"})));
     }
     if(p==="/books"&&method==="GET"){
-      const data=await rows("books","*,category:book_categories(name)");
+      const data=await rows("books","*,category:book_categories(name)",pageOffset,pageLimit);
       return ok(data.filter(x=>x.is_active).flatMap(x=>{const base={id:x.id,title:x.title,author:x.author,description:x.description,category:x.category?.name||"",status:x.available_copies>0?"available":"loaned",price:x.sale_price_toman,image_url:x.cover_path};return x.book_type==="both"?[{...base,type:"sale"},{...base,type:"loan"}]:[{...base,type:x.book_type}]}));
     }
     if(p==="/loan-requests/my"&&method==="GET"){
@@ -150,7 +151,7 @@
     }
     if(p==="/events"&&method==="GET"){
       const [ev,reg,counts]=await Promise.all([
-        sb.from("events").select("*").eq("status","published").order("starts_at",{ascending:true}),
+        sb.from("events").select("*").eq("status","published").order("starts_at",{ascending:true}).range(pageOffset,pageOffset+pageLimit),
         sb.from("event_registrations").select("event_id,people_count,status").eq("user_id",uid),
         sb.from("event_capacity_counts").select("event_id,registered_people")
       ]);
@@ -169,7 +170,7 @@
       const {data,error}=await sb.rpc("cancel_event_registration",{p_registration_id:reg.id});if(error)throw error;return ok({ok:true});
     }
     if(p==="/art"&&method==="GET"){
-      const data=await rows("store_products","*,category:store_categories(name)");
+      const data=await rows("store_products","*,category:store_categories(name)",pageOffset,pageLimit);
       return ok(data.filter(x=>x.is_available).map(x=>({id:x.id,name:x.name,category:x.category?.name||"سایر",description:x.description,price:x.price_toman,image_url:x.image_path,stock_status:x.stock_status||"in_stock",allow_custom:!!x.allow_custom})));
     }
     if(p==="/purchase-requests/my"&&method==="GET"){
