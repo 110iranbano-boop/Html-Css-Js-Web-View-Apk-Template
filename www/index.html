@@ -399,22 +399,24 @@ async admin(){
   else if(admTab==='extensions'){const{d=[]}=await api('/admin/loan-extensions');body=d.map(x=>'<div class="card"><h3>'+esc(x.book_title)+'</h3><p>'+esc(x.full_name)+' · '+esc(x.phone)+'</p><p>درخواست: '+when(x.requested_at)+'</p>'+badge(x.status==='pending'?'در انتظار بررسی':x.status==='approved'?'تأییدشده':'ردشده')+(x.status==='pending'?'<button class="btn s" onclick="reviewExtension(\''+x.id+'\',true)">تأیید تمدید ۷ روزه</button><button class="btn r s" onclick="reviewExtension(\''+x.id+'\',false)">رد درخواست</button>':"")+'</div>').join('')||'<div class="empty">درخواست تمدیدی وجود ندارد.</div>'}
   else if(admTab==='fines'){const{d=[]}=await api('/admin/fines');const by={};for(const x of d)(by[x.user_id]??=[]).push(x);body=Object.entries(by).map(([uid,items])=>'<div class="card"><h3>'+esc(items[0].full_name)+' · '+esc(items[0].phone)+'</h3>'+items.map(x=>'<p>'+esc(x.book_title)+' · '+esc(x.fine_date)+' · '+fa(x.points_amount)+' امتیاز</p>').join('')+'<button class="btn" onclick="settleFines(\''+uid+'\')">ثبت تسویه جریمه‌ها</button></div>').join('')||'<div class="empty">جریمه بازی ثبت نشده است.</div>'}
   else if(admTab==='loyalty'){
-     const [rules,tiers,rewards,redemptions]=await Promise.all([
+     const [rules,tiers,rewards,redemptions,profiles]=await Promise.all([
        sb.from("point_rules").select("*").order("title"),
        sb.from("membership_levels").select("*").order("min_points"),
        sb.from("rewards").select("*").order("points_cost"),
-       sb.from("reward_redemptions").select("*,reward:rewards(title)").eq("status","pending").order("created_at",{ascending:true})
+       sb.from("reward_redemptions").select("*,reward:rewards(title)").in("status",["pending","approved","ready"]).order("created_at",{ascending:true}),
+       sb.from("profiles").select("id,display_name,phone").order("display_name").limit(500)
      ]);
-     if(rules.error||tiers.error||rewards.error||redemptions.error)body='<div class="empty">دریافت تنظیمات امتیازدهی ناموفق بود. اجرای migration شماره 011 و مجوزهای مدیریتی را بررسی کنید.</div>';
+     if(rules.error||tiers.error||rewards.error||redemptions.error||profiles.error)body='<div class="empty">دریافت تنظیمات امتیازدهی ناموفق بود. اجرای migration شماره 011 و مجوزهای مدیریتی را بررسی کنید.</div>';
      else body='<div class="sec">قوانین کسب امتیاز</div><p class="sub">مقدار امتیاز و فعال یا غیرفعال بودن هر فعالیت را تغییر دهید.</p>'+
        (rules.data||[]).map(x=>'<div class="card"><h3>'+esc(x.title)+'</h3><label>امتیاز</label><input id="rule_points_'+x.id+'" type="number" min="1" value="'+x.points+'"><label><input id="rule_active_'+x.id+'" type="checkbox" '+(x.is_active?'checked':'')+'> فعال</label><label><input id="rule_approval_'+x.id+'" type="checkbox" '+(x.requires_approval?'checked':'')+'> نیازمند تأیید</label><button class="btn s" onclick="savePointRule(\''+x.id+'\')">ذخیره قانون</button></div>').join('')+
+       '<div class="sec">اعطای دستی امتیاز</div><div class="card"><label>انتخاب عضو</label><select id="award_user"><option value="">انتخاب کاربر</option>'+((profiles.data||[]).map(p=>'<option value="'+p.id+'">'+esc(p.display_name||'بدون نام')+' · '+esc(p.phone||'')+'</option>').join(''))+'</select><label>نوع فعالیت</label><select id="award_rule"><option value="">انتخاب قانون</option>'+((rules.data||[]).filter(x=>x.is_active).map(x=>'<option value="'+esc(x.code)+'">'+esc(x.title)+' · '+fa(x.points)+' امتیاز</option>').join(''))+'</select><label>شرح فعالیت / شناسه مرجع</label><input id="award_reference" placeholder="مثلاً نقد کتاب شماره ۱۲"><button class="btn" onclick="awardLoyaltyPoints()">ثبت امتیاز برای عضو</button></div>'+
        '<div class="sec">سطوح عضویت و تخفیف</div><p class="sub">خرج کردن امتیاز، سطح عضویت را کاهش نمی‌دهد.</p>'+
        (tiers.data||[]).map(x=>'<div class="card"><h3>'+esc(x.name)+'</h3><label>حداقل امتیاز پیشرفت</label><input id="tier_points_'+x.id+'" type="number" min="0" value="'+x.min_points+'"><label>درصد تخفیف</label><input id="tier_discount_'+x.id+'" type="number" min="0" max="100" step="0.5" value="'+(x.discount_percent||0)+'"><button class="btn s" onclick="saveMembershipTier(\''+x.id+'\')">ذخیره سطح</button></div>').join('')+
        '<div class="sec">افزودن جایزه یا خدمت</div><div class="card"><label>عنوان جایزه</label><input id="reward_title" placeholder="مثلاً نوشیدنی رایگان"><label>توضیحات</label><textarea id="reward_description" rows="2"></textarea><label>هزینه امتیازی</label><input id="reward_cost" type="number" min="1" value="100"><label>موجودی (خالی = نامحدود)</label><input id="reward_stock" type="number" min="0" placeholder="نامحدود"><label><input id="reward_approval" type="checkbox" checked> نیازمند تأیید مدیر</label><button class="btn" onclick="createLoyaltyReward()">ثبت جایزه</button></div>'+
        '<div class="sec">جوایز ثبت‌شده</div>'+
        (rewards.data||[]).map(x=>'<div class="card"><h3>'+esc(x.title)+'</h3><p>'+fa(x.points_cost)+' امتیاز · '+(x.stock_quantity===null?'نامحدود':'موجودی '+fa(x.stock_quantity))+'</p><label>هزینه امتیازی</label><input id="reward_cost_'+x.id+'" type="number" min="1" value="'+x.points_cost+'"><label><input id="reward_active_'+x.id+'" type="checkbox" '+(x.is_active?'checked':'')+'> فعال</label><button class="btn s" onclick="saveLoyaltyReward(\''+x.id+'\')">ذخیره جایزه</button></div>').join('')+
        '<div class="sec">درخواست‌های در انتظار</div>'+
-       ((redemptions.data||[]).map(x=>'<div class="card"><h3>'+esc(x.reward?.title||'جایزه')+'</h3><p>'+fa(x.points_cost)+' امتیاز · '+when(x.created_at)+'</p><button class="btn s" onclick="reviewLoyaltyReward(\''+x.id+'\',true)">تأیید</button><button class="btn r s" onclick="reviewLoyaltyReward(\''+x.id+'\',false)">رد و بازگشت امتیاز</button></div>').join('')||'<div class="empty">درخواست در انتظار بررسی وجود ندارد.</div>');
+       ((redemptions.data||[]).map(x=>'<div class="card"><h3>'+esc(x.reward?.title||'جایزه')+'</h3><p>'+fa(x.points_cost)+' امتیاز · '+when(x.created_at)+' · '+esc(x.status)+'</p>'+(x.status==='pending'?'<button class="btn s" onclick="reviewLoyaltyReward(\''+x.id+'\',true)">تأیید</button><button class="btn r s" onclick="reviewLoyaltyReward(\''+x.id+'\',false)">رد و بازگشت امتیاز</button>':x.status==='approved'||x.status==='ready'?'<button class="btn s" onclick="deliverLoyaltyReward(\''+x.id+'\')">ثبت تحویل</button>': '')+'</div>').join('')||'<div class="empty">درخواست در انتظار بررسی یا تحویل وجود ندارد.</div>');
    }
    else if(admTab==='access'){
     if(!U.is_super_admin)body='<div class="empty">فقط مدیر ارشد می‌تواند نقش‌ها و مجوزها را تغییر دهد.</div>';
@@ -461,6 +463,17 @@ async function saveLoyaltyReward(id){
  if(!Number.isInteger(points_cost)||points_cost<1)return toast('هزینه امتیازی معتبر نیست');
  const {error}=await sb.from('rewards').update({points_cost,is_active,updated_at:new Date().toISOString()}).eq('id',id);
  if(error)return toast(error.message);toast('جایزه ذخیره شد');go('admin');
+}
+async function awardLoyaltyPoints(){
+ const user_id=$('award_user').value,rule_code=$('award_rule').value,description=$('award_reference').value.trim();
+ if(!user_id||!rule_code||!description)return toast('عضو، نوع فعالیت و شرح یا شناسه فعالیت را وارد کنید');
+ const reference_id='manual-'+Date.now();
+ const {error}=await sb.rpc('award_loyalty_points',{p_user_id:user_id,p_rule_code:rule_code,p_reference_type:'manual',p_reference_id:reference_id,p_description:description});
+ if(error)return toast(error.message);toast('امتیاز با موفقیت ثبت شد');go('admin');
+}
+async function deliverLoyaltyReward(id){
+ const {error}=await sb.rpc('mark_loyalty_reward_delivered',{p_redemption_id:id});
+ if(error)return toast(error.message);toast('تحویل جایزه ثبت شد');go('admin');
 }
 async function reviewLoyaltyReward(id,approve){
  const note=approve?null:(prompt('دلیل رد درخواست (اختیاری)')||null);
