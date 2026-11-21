@@ -140,6 +140,7 @@ button:active{transform:scale(.985)}
     <button class="ib" id="back" onclick="go('home')" aria-label="خانه">→</button>
     <h1 id="title"></h1>
     <button class="user-pill" id="userCard" onclick="go(&quot;account&quot;)" aria-label="پروفایل"></button>
+    <button class="ib" onclick="refreshPage()" aria-label="تازه‌سازی اطلاعات" title="تازه‌سازی">↻</button>
     <button class="ib" onclick="go('notifs')" aria-label="اعلان‌ها"><img class="ic" src="img/icons/bell.svg" alt=""><b id="nb" class="hidden"></b></button>
     <button class="ib" onclick="go('cart')" aria-label="سبد خرید"><img class="ic" src="img/icons/cart.svg" alt=""><b id="cb" class="hidden"></b></button>
   </div>
@@ -156,6 +157,20 @@ const CFG=window.APP_CONFIG||{},API=(String(CFG.API_BASE||'').trim().replace(/\/
 const $=id=>document.getElementById(id);
 const ic=n=>`<img src="img/icons/${n}.svg" alt="">`;
 let U=null,page='home',cart=[],libTab='sale',cache={},admTab='purchase';
+const PAGE_SIZE=20, DATA_CACHE_TTL=60000, dataCache={}, pageState={};
+function clearDataCache(){Object.keys(dataCache).forEach(k=>delete dataCache[k]);}
+async function loadMore(kind){
+  if(pageState[kind+'_loading'])return;
+  pageState[kind+'_loading']=true;pageState[kind]=(pageState[kind]||0)+1;
+  try{await go(kind==='books'?'library':kind==='menu'?'cafe':kind==='products'?'art':kind==='forum'?'forum':'events');}
+  finally{pageState[kind+'_loading']=false;}
+}
+function refreshPage(){
+  clearDataCache();
+  ['books','menu','products','events','forum'].forEach(k=>pageState[k]=0);
+  ['books','menu','art','events','forumTopics'].forEach(k=>delete cache[k]);
+  go(page);
+}
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fa=n=>Number(n).toLocaleString('fa-IR');
 const money=n=>n==null||n===''?'قیمت: پس از استعلام':fa(Math.round(n))+' تومان';
@@ -170,7 +185,17 @@ function openM(h){$('mbox').innerHTML=h;$('modal').classList.remove('hidden')}
 function closeM(){$('modal').classList.add('hidden')}
 async function api(p,o={}){
   if(!window.SimorghDB?.ready){toast('اتصال Supabase آماده نیست');return{ok:false,d:{error:'تنظیمات Supabase را بررسی کنید'}}}
-  return window.SimorghDB.api(p,o);
+  const method=(o.method||'GET').toUpperCase();
+  if(method==='GET'){
+    const hit=dataCache[p];
+    if(hit&&Date.now()-hit.time<DATA_CACHE_TTL)return hit.value;
+    const value=await window.SimorghDB.api(p,o);
+    if(value?.ok)dataCache[p]={time:Date.now(),value};
+    return value;
+  }
+  const value=await window.SimorghDB.api(p,o);
+  if(value?.ok)clearDataCache();
+  return value;
 }
 const send=(p,m,b)=>api(p,{method:m,body:b?JSON.stringify(b):undefined});
 
@@ -220,6 +245,8 @@ async function doSignup(){
 }
 /* ---------- راه‌اندازی و ناوبری ---------- */
 function boot(){
+  clearDataCache();
+  ['books','menu','products','events'].forEach(k=>pageState[k]=0);
   try{U=JSON.parse(localStorage.getItem('user')||'null')}catch{U=null}
   if(!U||!localStorage.getItem('token'))return showAuth(false);
   try{cart=JSON.parse(localStorage.getItem('cart_'+U.id)||'[]')}catch{cart=[]}
@@ -256,47 +283,54 @@ home(){
   <div class="wheel"><div class="core"><img src="img/logo-512.png" alt=""></div>${seg}</div><div class="tag">جایی برای رویاها، کتاب‌ها و هنر…</div>`;
 },
 async cafe(){
-  const [m,c]=await Promise.all([api('/menu'),api('/cafe-categories')]);
+  const offset=(pageState.menu||0)*PAGE_SIZE;
+  const [m,c]=await Promise.all([api('/menu?offset='+offset+'&limit='+PAGE_SIZE),api('/cafe-categories')]);
   if(!m.ok||!c.ok)return $('main').innerHTML='<div class="empty">منو بارگذاری نشد</div>';
+  cache.menu=offset?[...(cache.menu||[]),...m.d]:m.d;
+  const menu=cache.menu;
   const cats=c.d||[],selected=cats.find(x=>x.id===cache.cafeCat)?.name||'همه';
   const tabs='<div class="tabs"><button class="'+(selected==='همه'?'on':'')+'" onclick="cache.cafeCat=0;go(&quot;cafe&quot;)">همه</button>'+cats.map(x=>'<button class="'+(selected===x.name?'on':'')+'" onclick="cache.cafeCat='+x.id+';go(&quot;cafe&quot;)">'+esc(x.name)+'</button>').join('')+'</div>';
   const categoryCards=selected==='همه'?'<div class="grid">'+cats.map(x=>'<button class="card" onclick="cache.cafeCat='+x.id+';go(&quot;cafe&quot;)">'+(x.image_url?img(x.image_url,'☕'):'<div class="ph">☕</div>')+'<h3>'+esc(x.name)+'</h3><p>'+esc(x.description||'')+'</p></button>').join('')+'</div>':'';
-  const products=m.d.filter(x=>selected==='همه'||x.category===selected);
+  const products=menu.filter(x=>selected==='همه'||x.category===selected);
   const items=products.map(i=>'<div class="card">'+(i.image_url?img(i.image_url,'☕'):'')+'<div class="row"><h3>'+esc(i.name)+'</h3><span class="price">'+money(i.price)+'</span></div>'+(i.description?'<p>'+esc(i.description)+'</p>':'')+'</div>').join('')||'<div class="empty">محصولی در این دسته ثبت نشده است</div>';
-  $('main').innerHTML=tabs+categoryCards+items;
+  $('main').innerHTML=tabs+categoryCards+items+(m.d.length===PAGE_SIZE?'<button class="btn o" onclick="loadMore(\'menu\')">نمایش موارد بیشتر</button>':'');
   /* کافه فقط نمایش منو است؛ سفارش‌گیری تعریف نشده است */
 },
 async library(){
-  const[b,l,c]=await Promise.all([api('/books'),api('/loan-requests/my'),api('/book-categories')]);
+  const offset=(pageState.books||0)*PAGE_SIZE;
+  const[b,l,c]=await Promise.all([api('/books?offset='+offset+'&limit='+PAGE_SIZE),api('/loan-requests/my'),api('/book-categories')]);
   if(!b.ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
-  cache.books=b.d;cache.bookCats=c.ok?c.d:[];const pend=new Set((l.ok?l.d:[]).filter(x=>x.status==='pending').map(x=>x.book_id));
+  cache.books=offset?[...(cache.books||[]),...b.d]:b.d;const books=cache.books;cache.bookCats=c.ok?c.d:[];const pend=new Set((l.ok?l.d:[]).filter(x=>x.status==='pending').map(x=>x.book_id));
   const T=[['sale','فروش کتاب'],['loan','امانی'],['request','درخواست کتاب']];
   let body='';
-  if(libTab==='sale')body=b.d.filter(x=>x.type==='sale'&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<div class="row"><h3>${esc(x.title)}</h3><span class="price">${money(x.price)}</span></div><p>${esc(x.author||'')}${x.category?' · '+esc(x.category):''}</p>${x.description?`<p>${esc(x.description)}</p>`:''}<button class="btn s" onclick="addCart('book',${x.id})">افزودن به سبد</button></div>`).join('')||'<div class="empty">کتابی برای فروش ثبت نشده است</div>';
-  if(libTab==='loan')body=b.d.filter(x=>x.type==='loan'&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<h3>${esc(x.title)}</h3><p>${esc(x.author||'')}</p>${x.description?`<p>${esc(x.description)}</p>`:''}${x.status!=='available'?badge('امانت داده شده','no'):pend.has(x.id)?badge('درخواست شما در حال بررسی است'):`<button class="btn s" onclick="reqLoan(${x.id})">درخواست امانت</button>`}</div>`).join('')||'<div class="empty">کتاب امانی ثبت نشده است</div>';
+  if(libTab==='sale')body=books.filter(x=>x.type==='sale'&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<div class="row"><h3>${esc(x.title)}</h3><span class="price">${money(x.price)}</span></div><p>${esc(x.author||'')}${x.category?' · '+esc(x.category):''}</p>${x.description?`<p>${esc(x.description)}</p>`:''}<button class="btn s" onclick="addCart('book',${x.id})">افزودن به سبد</button></div>`).join('')||'<div class="empty">کتابی برای فروش ثبت نشده است</div>';
+  if(libTab==='loan')body=books.filter(x=>x.type==='loan'&&(!cache.bookCat||x.category===cache.bookCat)).map(x=>`<div class="card">${x.image_url?img(x.image_url,'📚'):''}<h3>${esc(x.title)}</h3><p>${esc(x.author||'')}</p>${x.description?`<p>${esc(x.description)}</p>`:''}${x.status!=='available'?badge('امانت داده شده','no'):pend.has(x.id)?badge('درخواست شما در حال بررسی است'):`<button class="btn s" onclick="reqLoan(${x.id})">درخواست امانت</button>`}</div>`).join('')||'<div class="empty">کتاب امانی ثبت نشده است</div>';
   if(libTab==='request'){
     const r=await api('/book-requests/my');
     body=`<div class="card"><h3>کتابی می‌خواهید که در سیمرغ نیست؟</h3><label>عنوان کتاب</label><input id="rt"><label>نویسنده یا ناشر (اختیاری)</label><input id="ra"><label>توضیح (اختیاری)</label><textarea id="rd" rows="2"></textarea><button class="btn" onclick="sendBookReq()">ارسال درخواست</button></div>
     <div class="sec">درخواست‌های کتاب من</div>`+((r.ok?r.d:[]).map(x=>`<div class="card"><h3>${esc(x.book_title)}</h3><p>${esc(x.author||'')}</p>${gb(x.status)}${x.admin_note?`<p>پاسخ مدیریت: ${esc(x.admin_note)}</p>`:''}</div>`).join('')||'<div class="empty">هنوز درخواستی ثبت نکرده‌اید</div>');
   }
-  $('main').innerHTML=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===libTab?'on':''}" onclick="cache.bookCat='';go('library','${k}')">${t}</button>`).join('')}</div>`+(libTab!=='request'?`<div class="tabs"><button class="${!cache.bookCat?'on':''}" onclick="cache.bookCat='';go('library')">همه موضوعات</button>${cache.bookCats.map(c=>`<button class="${cache.bookCat===c.name?'on':''}" onclick="cache.bookCat='${esc(c.name).replace(/'/g,'')}';go('library')">${esc(c.name)}</button>`).join('')}</div>`:'')+body;
+  $('main').innerHTML=`<div class="tabs">${T.map(([k,t])=>`<button class="${k===libTab?'on':''}" onclick="cache.bookCat='';go('library','${k}')">${t}</button>`).join('')}</div>`+(libTab!=='request'?`<div class="tabs"><button class="${!cache.bookCat?'on':''}" onclick="cache.bookCat='';go('library')">همه موضوعات</button>${cache.bookCats.map(c=>`<button class="${cache.bookCat===c.name?'on':''}" onclick="cache.bookCat='${esc(c.name).replace(/'/g,'')}';go('library')">${esc(c.name)}</button>`).join('')}</div>`:'')+body+(libTab!=='request'&&b.d.length>=PAGE_SIZE?'<button class="btn o" onclick="loadMore(\'books\')">نمایش کتاب‌های بیشتر</button>':'');
 },
 async events(){
-  const{ok,d}=await api('/events');if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';cache.events=d;
-  $('main').innerHTML=d.map(e=>{const full=e.capacity&&e.registered>=e.capacity;
+  const offset=(pageState.events||0)*PAGE_SIZE;
+  const{ok,d}=await api('/events?offset='+offset+'&limit='+PAGE_SIZE);if(!ok)return $('main').innerHTML='<div class="empty">بارگذاری نشد</div>';
+  cache.events=offset?[...(cache.events||[]),...d]:d;
+  $('main').innerHTML=(cache.events.map(e=>{const full=e.capacity&&e.registered>=e.capacity;
     return `<div class="card">${e.image_url?img(e.image_url,'📅'):''}<h3>${esc(e.title)}</h3><p>📅 ${when(e.event_date)}${e.location?' · 📍 '+esc(e.location):''}</p>${e.description?`<p>${esc(e.description)}</p>`:''}${e.rules_text?`<p>قوانین: ${esc(e.rules_text)}</p>`:''}${e.points?`<p>امتیاز ثبت‌نام: ${fa(e.points)}</p>`:''}${e.capacity?`<p>ظرفیت: ${fa(e.registered)} از ${fa(e.capacity)}</p>`:''}
-    ${e.mine?`${badge('ثبت‌نام شده‌اید','ok')}<button class="btn r s" style="margin-inline-start:8px" onclick="unreg(${e.id})">لغو ثبت‌نام</button>`:!e.registration_open?badge('ثبت‌نام بسته است','no'):full?badge('ظرفیت تکمیل است','no'):`<button class="btn" onclick="reg(${e.id})">ثبت‌نام در رویداد</button>`}</div>`}).join('')||'<div class="empty">رویداد فعالی نیست</div>';
+    ${e.mine?`${badge('ثبت‌نام شده‌اید','ok')}<button class="btn r s" style="margin-inline-start:8px" onclick="unreg(${e.id})">لغو ثبت‌نام</button>`:!e.registration_open?badge('ثبت‌نام بسته است','no'):full?badge('ظرفیت تکمیل است','no'):`<button class="btn" onclick="reg(${e.id})">ثبت‌نام در رویداد</button>`}</div>`}).join('')||'<div class="empty">رویداد فعالی نیست</div>')+(d.length===PAGE_SIZE?'<button class="btn o" onclick="loadMore(\'events\')">نمایش رویدادهای بیشتر</button>':'');
 },
 async art(){
-  const [a,c]=await Promise.all([api('/art'),api('/store-categories')]);
+  const offset=(pageState.products||0)*PAGE_SIZE;
+  const [a,c]=await Promise.all([api('/art?offset='+offset+'&limit='+PAGE_SIZE),api('/store-categories')]);
   if(!a.ok||!c.ok)return $('main').innerHTML='<div class="empty">فروشگاه بارگذاری نشد</div>';
-  cache.art=a.d;const cats=c.d||[],selected=cats.find(x=>x.id===cache.artCat)?.name||'همه';
+  cache.art=offset?[...(cache.art||[]),...a.d]:a.d;const productsAll=cache.art;const cats=c.d||[],selected=cats.find(x=>x.id===cache.artCat)?.name||'همه';
   const tabs='<div class="tabs"><button class="'+(selected==='همه'?'on':'')+'" onclick="cache.artCat=0;go(&quot;art&quot;)">همه</button>'+cats.map(x=>'<button class="'+(selected===x.name?'on':'')+'" onclick="cache.artCat='+x.id+';go(&quot;art&quot;)">'+esc(x.name)+'</button>').join('')+'</div>';
   const categoryCards=selected==='همه'?'<div class="grid">'+cats.map(x=>'<button class="card" onclick="cache.artCat='+x.id+';go(&quot;art&quot;)">'+(x.image_url?img(x.image_url,'🎨'):'<div class="ph">🎨</div>')+'<h3>'+esc(x.name)+'</h3><p>'+esc(x.description||'')+'</p></button>').join('')+'</div>':'';
   const SL={in_stock:'موجود',made_to_order:'ساخت بر اساس سفارش',out:'ناموجود'};
-  const products=a.d.filter(i=>selected==='همه'||i.category===selected);
+  const products=productsAll.filter(i=>selected==='همه'||i.category===selected);
   const cards=products.map(i=>'<div class="card">'+img(i.image_url,'🎨')+'<h3>'+esc(i.name)+'</h3><div class="price">'+money(i.price)+'</div><p>'+SL[i.stock_status]+(i.allow_custom?' · سفارشی‌سازی':'')+'</p><button class="btn s" '+(i.stock_status==='out'?'disabled':'')+' onclick="addCart(\'art\','+i.id+')">افزودن به سبد</button></div>').join('')||'<div class="empty">محصولی در این موضوع ثبت نشده است</div>';
-  $('main').innerHTML=tabs+categoryCards+'<div class="grid">'+cards+'</div>';
+  $('main').innerHTML=tabs+categoryCards+'<div class="grid">'+cards+'</div>'+(a.d.length===PAGE_SIZE?'<button class="btn o" onclick="loadMore(\'products\')">نمایش محصولات بیشتر</button>':'');
 },
 cart(){
   if(!cart.length)return $('main').innerHTML='<div class="empty">سبد خرید خالی است.<br>کتاب فروشی یا محصول گالری را به سبد اضافه کنید.</div>';
@@ -351,10 +385,13 @@ async notifs(){
 },
 
 async forum(){
-  const {data:topics,error}=await sb.from("forum_topics").select("*").eq("status","published").order("created_at",{ascending:false});
+  const offset=(pageState.forum||0)*PAGE_SIZE;
+  const {data:pageTopics,error}=await sb.from("forum_topics").select("*").eq("status","published").order("created_at",{ascending:false}).range(offset,offset+PAGE_SIZE-1);
   if(error){$("main").innerHTML='<div class="empty">تالار بارگذاری نشد. اجرای مهاجرت Supabase را بررسی کنید.</div>';return}
-  const ids=(topics||[]).map(x=>x.user_id);
-  const topicIds=(topics||[]).map(x=>x.id);
+  const topics=offset?[...(cache.forumTopics||[]),...(pageTopics||[])]:pageTopics||[];
+  cache.forumTopics=topics;
+  const ids=topics.map(x=>x.user_id);
+  const topicIds=topics.map(x=>x.id);
   const [authors,images,comments]=await Promise.all([
     ids.length?sb.from("forum_public_profiles").select("*").in("id",ids):Promise.resolve({data:[]}),
     topicIds.length?sb.from("forum_topic_images").select("*").in("topic_id",topicIds).order("sort_order"):Promise.resolve({data:[]}),
@@ -377,7 +414,7 @@ async forum(){
     const pics=(images.data||[]).filter(i=>i.topic_id===t.id).map(i=>'<img src="'+esc(sb.storage.from("forum-images").getPublicUrl(i.storage_path).data.publicUrl)+'" alt="" loading="lazy">').join("");
     return '<article class="card"><div class="row">'+(a.avatar_url?'<img src="'+esc(a.avatar_url)+'" style="width:34px;height:34px;border-radius:50%">':'<span>👤</span>')+'<b>'+esc(a.display_name||"عضو سیمرغ")+'</b>'+(a.is_suspended?'<i class="suspension-dot"></i>':'')+'<small>'+when(t.created_at)+'</small></div><h3 style="margin-top:8px">'+esc(t.title)+'</h3><p>'+esc(t.body)+'</p>'+pics+'<div class="sec">گفت‌وگو</div>'+draw(t.id,null,0)+'<button class="btn o" onclick="replyForum(&quot;'+t.id+'&quot;,null)">ثبت نظر</button>'+((U.is_super_admin||(U.permissions||[]).includes("forum.moderate"))?'<button class="btn r s" onclick="hideForumTopic(&quot;'+t.id+'&quot;)">پنهان‌کردن تاپیک</button>':"")+'</article>';
   }).join("")||'<div class="empty">هنوز تاپیکی ثبت نشده است.</div>';
-  $("main").innerHTML=html;
+  $("main").innerHTML=html+(pageTopics.length===PAGE_SIZE?'<button class="btn o" onclick="loadMore(\\'forum\\')">نمایش تاپیک‌های بیشتر</button>':'');
 },
 async admin(){
   const P=U.permissions||[],can=k=>U.is_super_admin||P.includes(k);const T=[['purchase','خرید',can('store.manage')||can('library.manage')],['loan','درخواست امانت',can('library.manage')],['activeLoans','امانت‌های فعال',can('library.manage')],['extensions','تمدید امانت',can('library.manage')],['fines','جریمه‌ها',can('library.manage')],['breq','درخواست کتاب',can('library.manage')],['cafeCats','دسته‌های کافه',can('cafe.manage')],['menu','منوی کافه',can('cafe.manage')],['bookCats','موضوعات کتاب',can('library.manage')],['books','کتاب‌ها',can('library.manage')],['storeCats','موضوعات فروشگاه',can('store.manage')],['art','فروشگاه',can('store.manage')],['events','رویدادها',can('events.manage')],['loyalty','امتیاز و جوایز',can('users.manage')&&can('store.manage')]].filter(x=>x[2]).map(x=>x.slice(0,2));if(U.is_super_admin)T.push(['access','دسترسی‌ها']);
@@ -527,11 +564,11 @@ async function submitForumTopic(){
     const up=await sb.storage.from("forum-images").upload(path,file,{upsert:false});
     if(!up.error){const ins=await sb.from("forum_topic_images").insert({topic_id:topic.id,storage_path:path,alt_text:file.name});if(ins.error)console.error(ins.error)}
   }
-  closeM();toast("تاپیک منتشر شد");go("forum");
+  closeM();toast("تاپیک منتشر شد");pageState.forum=0;delete cache.forumTopics;go("forum");
 }
 function replyForum(topicId,parentId){openM('<h3 style="color:var(--gold2)">ثبت نظر</h3><textarea id="forumComment" rows="4" placeholder="متن دیدگاه"></textarea><button class="btn" onclick="submitForumComment(\''+topicId+'\', '+(parentId?"\'"+parentId+"\'":"null")+')">ارسال</button><button class="btn o" onclick="closeM()">انصراف</button>')}
-async function submitForumComment(topicId,parentId){const body=$("forumComment").value.trim();if(!body)return toast("متن دیدگاه را وارد کنید");const {error}=await sb.from("forum_comments").insert({topic_id:topicId,user_id:U.id,parent_id:parentId,body});if(error)return toast(error.message);closeM();toast("دیدگاه ثبت شد");go("forum")}
-async function hideForumTopic(id){if(!confirm("این تاپیک پنهان شود؟"))return;const {error}=await sb.from("forum_topics").update({status:"hidden"}).eq("id",id);if(error)return toast(error.message);go("forum")}
+async function submitForumComment(topicId,parentId){const body=$("forumComment").value.trim();if(!body)return toast("متن دیدگاه را وارد کنید");const {error}=await sb.from("forum_comments").insert({topic_id:topicId,user_id:U.id,parent_id:parentId,body});if(error)return toast(error.message);closeM();toast("دیدگاه ثبت شد");pageState.forum=0;delete cache.forumTopics;go("forum")}
+async function hideForumTopic(id){if(!confirm("این تاپیک پنهان شود؟"))return;const {error}=await sb.from("forum_topics").update({status:"hidden"}).eq("id",id);if(error)return toast(error.message);pageState.forum=0;delete cache.forumTopics;go("forum")}
 async function logout(){try{await sb.auth.signOut()}catch(e){console.warn(e)}localStorage.removeItem("token");localStorage.removeItem("user");U=null;cart=[];showAuth(false)}
 
 function addCart(type,id){
